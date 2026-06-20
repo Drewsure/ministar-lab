@@ -20,8 +20,6 @@ export default class MemoryMatchScene extends Phaser.Scene {
 
   create() {
     const theme = this.registry.get('theme') || { bg: '#1e1b4b', card: '#6366f1', accent: '#ffffff' };
-    
-    // Fetch AI-generated data from registry, fallback to default
     const gameData = this.registry.get('gameData') || [
       { id: 1, emoji: '🍎', color: 0xef4444 },
       { id: 2, emoji: '🍌', color: 0xeab308 },
@@ -36,7 +34,7 @@ export default class MemoryMatchScene extends Phaser.Scene {
     this.flippedCards = [];
     this.matches = 0;
     this.streak = 0;
-    this.startTime = Date.now(); // Start telemetry timer
+    this.startTime = Date.now(); // Telemetry timer
 
     this.mascot = this.add.text(750, 80, '🐶', { fontSize: '40px' }).setOrigin(0.5);
     this.telemetryText = this.add.text(20, 580, 'xAPI Telemetry: Tracking...', { fill: '#888', fontSize: '14px', fontFamily: 'monospace' });
@@ -101,4 +99,74 @@ export default class MemoryMatchScene extends Phaser.Scene {
       AudioManager.play(523.25, 'sine', 0.2); AudioManager.play(659.25, 'sine', 0.3);
       this.burstParticles(card1.x, card1.y, data1.color);
       this.burstParticles(card2.x, card2.y, data1.color);
-      this.cameras.main.shake(200, 0.
+      this.cameras.main.shake(200, 0.005);
+      this.updateMascot();
+
+      this.tweens.add({
+        targets: [card1, card2], scale: 1.2, duration: 200, yoyo: true,
+        onComplete: () => { card1.destroy(); card2.destroy(); this.resetTurn(); }
+      });
+
+      if (this.matches === this.cardData.length) this.time.delayedCall(500, this.showWinScreen, [], this);
+    } else {
+      this.streak = 0;
+      AudioManager.play(150, 'sawtooth', 0.2);
+      this.updateMascot();
+
+      this.tweens.add({
+        targets: [card1, card2], x: '+=10', duration: 50, yoyo: true, repeat: 3,
+        onComplete: () => {
+          card1.list[0].setVisible(true); card1.list[1].setVisible(false); card1.setData('isFlipped', false);
+          card2.list[0].setVisible(true); card2.list[1].setVisible(false); card2.setData('isFlipped', false);
+          this.resetTurn();
+        }
+      });
+    }
+  }
+
+  burstParticles(x, y, color) {
+    const emitter = this.add.particles(x, y, 'particle', {
+      speed: { min: 100, max: 300 }, angle: { min: 0, max: 360 },
+      scale: { start: 1, end: 0 }, blendMode: 'ADD', lifespan: 800,
+      tint: color, quantity: 20, emitting: false
+    });
+    emitter.explode(20);
+  }
+
+  updateMascot() {
+    if (this.streak >= 2) {
+      this.mascot.setText('⭐');
+      this.tweens.add({ targets: this.mascot, y: 60, duration: 200, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    } else {
+      this.mascot.setText('🐶');
+      this.tweens.killTweensOf(this.mascot);
+      this.mascot.setY(80);
+    }
+  }
+
+  resetTurn() { this.flippedCards = []; this.canInteract = true; }
+
+  showWinScreen() {
+    const elapsed = (Date.now() - this.startTime) / 1000;
+    const wpm = (this.cardData.length / elapsed) * 60; 
+    
+    let statusText = `Time: ${elapsed.toFixed(2)}s | WPM: ${wpm.toFixed(2)}`;
+    let statusColor = '#10b981';
+    let isQuarantined = false;
+
+    if (wpm > 200) {
+      statusText = `ANOMALY DETECTED: ${wpm.toFixed(2)} WPM (Impossible)`;
+      statusColor = '#ef4444';
+      isQuarantined = true;
+      this.cameras.main.shake(500, 0.02);
+    }
+
+    this.telemetryText.setText(`xAPI Dispatch: ${statusText}`);
+    this.telemetryText.setColor(statusColor);
+
+    this.add.text(400, 300, isQuarantined ? 'SCORE QUARANTINED' : 'PERFECT SCORE!', { fill: statusColor, fontSize: '64px', fontFamily: 'sans-serif' }).setOrigin(0.5);
+    this.add.text(400, 350, 'Click to play again', { fill: '#fff', fontSize: '24px', fontFamily: 'sans-serif' }).setOrigin(0.5);
+    
+    this.input.on('pointerdown', () => this.scene.restart());
+  }
+}
