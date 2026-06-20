@@ -1,5 +1,26 @@
 import Phaser from 'phaser';
 
+// Zero-Latency Audio Manager (Web Audio API)
+const AudioManager = {
+  ctx: null,
+  init() {
+    if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+  },
+  play(freq, type = 'sine', duration = 0.2) {
+    this.init();
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start();
+    osc.stop(this.ctx.currentTime + duration);
+  }
+};
+
 export default class MemoryMatchScene extends Phaser.Scene {
   constructor() {
     super('MemoryMatchScene');
@@ -13,16 +34,25 @@ export default class MemoryMatchScene extends Phaser.Scene {
     this.canInteract = true;
     this.flippedCards = [];
     this.matches = 0;
+    this.streak = 0;
 
-    // Dataset (Simulating JSON from Neon DB)
+    // Adaptive Mascot
+    this.mascot = this.add.text(750, 80, '🐶', { fontSize: '40px' }).setOrigin(0.5);
+
+    // Particle Texture (Generated dynamically)
+    const g = this.make.graphics();
+    g.fillStyle(0xffffff, 1);
+    g.fillRect(0, 0, 4, 4);
+    g.generateTexture('particle', 4, 4);
+
+    // Dataset
     this.cardData = [
-      { id: 1, emoji: '🍎' },
-      { id: 2, emoji: '🍌' },
-      { id: 3, emoji: '🍒' },
-      { id: 4, emoji: '🍇' }
+      { id: 1, emoji: '🍎', color: 0xef4444 },
+      { id: 2, emoji: '🍌', color: 0xeab308 },
+      { id: 3, emoji: '🍒', color: 0xdc2626 },
+      { id: 4, emoji: '🍇', color: 0x7c3aed }
     ];
 
-    // Shuffle and duplicate pairs
     this.cards = Phaser.Utils.Array.Shuffle([...this.cardData, ...this.cardData]);
     this.buildGrid();
   }
@@ -37,7 +67,6 @@ export default class MemoryMatchScene extends Phaser.Scene {
       const x = offsetX + (i % cols) * cellSize;
       const y = offsetY + Math.floor(i / cols) * cellSize;
 
-      // Card Container (Back + Front)
       const cardBack = this.add.rectangle(0, 0, 80, 80, 0x6366f1).setStrokeStyle(2, 0xffffff, 0.3);
       const cardFront = this.add.text(0, 0, card.emoji, { fontSize: '40px' }).setOrigin(0.5).setVisible(false);
 
@@ -52,7 +81,8 @@ export default class MemoryMatchScene extends Phaser.Scene {
   handleCardClick(container, cardBack, cardFront) {
     if (!this.canInteract || container.getData('isFlipped') || this.flippedCards.length >= 2) return;
 
-    // Flip Animation
+    AudioManager.play(400, 'square', 0.1); // Flip sound
+
     this.tweens.add({
       targets: container,
       scaleX: 0,
@@ -81,6 +111,17 @@ export default class MemoryMatchScene extends Phaser.Scene {
     if (data1.id === data2.id) {
       // MATCH
       this.matches++;
+      this.streak++;
+      AudioManager.play(523.25, 'sine', 0.2); // Correct chime
+      AudioManager.play(659.25, 'sine', 0.3);
+
+      // AAA Juice: Particles & Screen Shake
+      this.burstParticles(card1.x, card1.y, data1.color);
+      this.burstParticles(card2.x, card2.y, data1.color);
+      this.cameras.main.shake(200, 0.005);
+
+      this.updateMascot();
+
       this.tweens.add({
         targets: [card1, card2],
         scale: 1.2,
@@ -97,7 +138,11 @@ export default class MemoryMatchScene extends Phaser.Scene {
         this.time.delayedCall(500, this.showWinScreen, [], this);
       }
     } else {
-      // NO MATCH - Flip back
+      // NO MATCH
+      this.streak = 0;
+      AudioManager.play(150, 'sawtooth', 0.2); // Incorrect buzz
+      this.updateMascot();
+
       this.tweens.add({
         targets: [card1, card2],
         x: '+=10',
@@ -105,8 +150,8 @@ export default class MemoryMatchScene extends Phaser.Scene {
         yoyo: true,
         repeat: 3,
         onComplete: () => {
-          card1.list[0].setVisible(true); // cardBack
-          card1.list[1].setVisible(false); // cardFront
+          card1.list[0].setVisible(true);
+          card1.list[1].setVisible(false);
           card1.setData('isFlipped', false);
           
           card2.list[0].setVisible(true);
@@ -118,13 +163,46 @@ export default class MemoryMatchScene extends Phaser.Scene {
     }
   }
 
+  burstParticles(x, y, color) {
+    const emitter = this.add.particles(x, y, 'particle', {
+      speed: { min: 100, max: 300 },
+      angle: { min: 0, max: 360 },
+      scale: { start: 1, end: 0 },
+      blendMode: 'ADD',
+      lifespan: 800,
+      tint: color,
+      quantity: 20,
+      emitting: false
+    });
+    emitter.explode(20);
+  }
+
+  updateMascot() {
+    if (this.streak >= 2) {
+      this.mascot.setText('⭐');
+      // Hype animation loop
+      this.tweens.add({
+        targets: this.mascot,
+        y: 60,
+        duration: 200,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.inOut'
+      });
+    } else {
+      this.mascot.setText('🐶');
+      this.tweens.killTweensOf(this.mascot);
+      this.mascot.setY(80);
+    }
+  }
+
   resetTurn() {
     this.flippedCards = [];
     this.canInteract = true;
   }
 
   showWinScreen() {
-    this.add.text(400, 300, 'PERECT SCORE!', { fill: '#10b981', fontSize: '64px', fontFamily: 'sans-serif' }).setOrigin(0.5);
+    this.add.text(400, 300, 'PERFECT SCORE!', { fill: '#10b981', fontSize: '64px', fontFamily: 'sans-serif' }).setOrigin(0.5);
     this.add.text(400, 350, 'Click to play again', { fill: '#fff', fontSize: '24px', fontFamily: 'sans-serif' }).setOrigin(0.5);
     
     this.input.on('pointerdown', () => this.scene.restart());
