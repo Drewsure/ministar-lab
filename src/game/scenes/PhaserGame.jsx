@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import Phaser from 'phaser';
-import MemoryMatchScene from './scenes/MemoryMatchScene';
+import MemoryMatchScene from './MemoryMatchScene';
 
 export default function PhaserGame() {
   const gameRef = useRef(null);
