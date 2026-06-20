@@ -16,10 +16,9 @@ export default function PhaserGame({ gameData, theme, gameMode }) {
         height: 600,
         scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
         physics: { default: 'arcade', arcade: { debug: false } },
-        scene: [MemoryMatchScene, MazeChaseScene] // Load both engines
+        scene: [MemoryMatchScene, MazeChaseScene]
       };
       gameInstance.current = new Phaser.Game(config);
-      // Start the default scene
       gameInstance.current.scene.start('MemoryMatchScene');
     }
     return () => {
@@ -35,10 +34,18 @@ export default function PhaserGame({ gameData, theme, gameMode }) {
       if (theme) gameInstance.current.registry.set('theme', theme);
       if (gameData) gameInstance.current.registry.set('gameData', gameData);
       
-      // Stop all active scenes, then start the requested one
-      gameInstance.current.scene.stop('MemoryMatchScene');
-      gameInstance.current.scene.stop('MazeChaseScene');
-      gameInstance.current.scene.start(gameMode === 'MazeChase' ? 'MazeChaseScene' : 'MemoryMatchScene');
+      const targetScene = gameMode === 'MazeChase' ? 'MazeChaseScene' : 'MemoryMatchScene';
+      const activeScene = gameInstance.current.scene.getAt(0); // Get currently active scene
+      
+      if (activeScene && activeScene.sys.settings.key !== targetScene) {
+        // Use switch to properly sleep the old scene and wake the new one
+        gameInstance.current.scene.switch(activeScene.sys.settings.key, targetScene);
+      } else if (activeScene) {
+        // If it's the same scene, just restart it to apply new data
+        activeScene.scene.restart();
+      } else {
+        gameInstance.current.scene.start(targetScene);
+      }
     }
   }, [gameData, theme, gameMode]);
 
