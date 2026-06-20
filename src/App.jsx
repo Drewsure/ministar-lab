@@ -1,5 +1,5 @@
 import React from 'react';
-import PhaserGame from './game/PhaserGame';
+import PhaserGame from './game/scenes/PhaserGame';
 
 function App() {
   return (
