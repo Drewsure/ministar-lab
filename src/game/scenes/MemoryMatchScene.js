@@ -21,12 +21,9 @@ export default class MemoryMatchScene extends Phaser.Scene {
   create() {
     // 1. Fetch the active theme from the Phaser Registry
     const theme = this.registry.get('theme') || { bg: '#1e1b4b', card: '#6366f1', accent: '#ffffff' };
-    
-    // Convert Hex strings to Phaser color values
-    const bgColor = Phaser.Display.Color.HexToColor(theme.bg.replace('#', '0x')).color;
-    const cardColor = Phaser.Display.Color.HexToColor(theme.card.replace('#', '0x')).color;
 
-    this.cameras.main.setBackgroundColor(bgColor);
+    // Phaser 3.60+ accepts CSS hex strings directly! No conversion needed.
+    this.cameras.main.setBackgroundColor(theme.bg);
     this.add.text(400, 50, 'MiniStar Memory Match', { fill: theme.accent, fontSize: '32px', fontFamily: 'sans-serif' }).setOrigin(0.5);
 
     this.canInteract = true;
@@ -47,7 +44,7 @@ export default class MemoryMatchScene extends Phaser.Scene {
     ];
 
     this.cards = Phaser.Utils.Array.Shuffle([...this.cardData, ...this.cardData]);
-    this.buildGrid(cardColor, theme.accent);
+    this.buildGrid(theme.card, theme.accent);
   }
 
   buildGrid(cardColor, accentColor) {
@@ -60,8 +57,8 @@ export default class MemoryMatchScene extends Phaser.Scene {
       const x = offsetX + (i % cols) * cellSize;
       const y = offsetY + Math.floor(i / cols) * cellSize;
 
-      // Apply theme colors to the card back
-      const cardBack = this.add.rectangle(0, 0, 80, 80, cardColor).setStrokeStyle(2, Phaser.Display.Color.HexToColor(accentColor.replace('#', '0x')).color, 0.3);
+      // Apply theme colors directly
+      const cardBack = this.add.rectangle(0, 0, 80, 80, cardColor).setStrokeStyle(2, accentColor, 0.3);
       const cardFront = this.add.text(0, 0, card.emoji, { fontSize: '40px' }).setOrigin(0.5).setVisible(false);
 
       const container = this.add.container(x, y, [cardBack, cardFront]).setSize(80, 80).setInteractive();
