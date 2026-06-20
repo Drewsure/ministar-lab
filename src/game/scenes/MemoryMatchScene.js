@@ -139,7 +139,7 @@ export default class MemoryMatchScene extends Phaser.Scene {
 
   updateMascot() {
     if (this.streak >= 2) {
-      this.mascot.setText('⭁E);
+      this.mascot.setText('⭐');
       this.tweens.add({ targets: this.mascot, y: 60, duration: 200, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     } else {
       this.mascot.setText('🐶');
