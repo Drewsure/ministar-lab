@@ -61,7 +61,7 @@ export default class MemoryMatchScene extends Phaser.Scene {
       const y = offsetY + Math.floor(i / cols) * cellSize;
 
       // Apply theme colors to the card back
-      const cardBack = this.add.rectangle(0, 0, 80, 80, cardColor).setStrokeStyle(2, Phaser.Display.Color.HexToColor(accentColor.replace('#', '0x')).color, 0.3));
+      const cardBack = this.add.rectangle(0, 0, 80, 80, cardColor).setStrokeStyle(2, Phaser.Display.Color.HexToColor(accentColor.replace('#', '0x')).color, 0.3);
       const cardFront = this.add.text(0, 0, card.emoji, { fontSize: '40px' }).setOrigin(0.5).setVisible(false);
 
       const container = this.add.container(x, y, [cardBack, cardFront]).setSize(80, 80).setInteractive();
@@ -139,7 +139,7 @@ export default class MemoryMatchScene extends Phaser.Scene {
 
   updateMascot() {
     if (this.streak >= 2) {
-      this.mascot.setText('⭐');
+      this.mascot.setText('⭁E);
       this.tweens.add({ targets: this.mascot, y: 60, duration: 200, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     } else {
       this.mascot.setText('🐶');
