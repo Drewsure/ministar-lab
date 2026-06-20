@@ -4,27 +4,14 @@ import TeacherDashboard from './TeacherDashboard';
 
 function App() {
   const [theme, setTheme] = useState({ name: 'Default School', bg: '#1e1b4b', card: '#6366f1', accent: '#ffffff' });
-  const [view, setView] = useState('teacher'); // 'teacher' or 'student'
+  const [view, setView] = useState('teacher');
   const [gameData, setGameData] = useState(null);
 
-  const switchTheme = (newTheme) => {
-    setTheme(newTheme);
-    const game = window.phaserGame;
-    if (game) {
-      game.registry.set('theme', newTheme);
-      game.scene.scenes[0].scene.restart();
-    }
-  };
+  const switchTheme = (newTheme) => setTheme(newTheme);
 
   const handleCommit = (terms) => {
     setGameData(terms);
     setView('student');
-    // Pass data to Phaser registry
-    const game = window.phaserGame;
-    if (game) {
-      game.registry.set('gameData', terms);
-      game.scene.scenes[0].scene.restart();
-    }
   };
 
   const btnStyle = { padding: '10px 20px', background: 'transparent', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', margin: '0 5px' };
@@ -41,13 +28,13 @@ function App() {
         </div>
       </header>
 
-      {view === 'teacher' ? (
+      <div style={{ width: '100%', maxWidth: '800px', aspectRatio: '4/3', border: `2px solid ${theme.card}`, borderRadius: '16px', overflow: 'hidden', marginTop: '20px', display: view === 'student' ? 'block' : 'none' }}>
+        <PhaserGame gameData={gameData} theme={theme} />
+      </div>
+
+      {view === 'teacher' && (
         <div style={{ marginTop: '40px' }}>
           <TeacherDashboard onCommit={handleCommit} />
-        </div>
-      ) : (
-        <div style={{ width: '100%', maxWidth: '800px', aspectRatio: '4/3', border: `2px solid ${theme.card}`, borderRadius: '16px', overflow: 'hidden', marginTop: '20px' }}>
-          <PhaserGame />
         </div>
       )}
     </div>
