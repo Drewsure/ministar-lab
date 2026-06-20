@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import Phaser from 'phaser';
-import MemoryMatchScene from './MemoryMatchScene';
+import MazeChaseScene from './MazeChaseScene';
 
 export default function PhaserGame() {
   const gameRef = useRef(null);
@@ -12,20 +12,14 @@ export default function PhaserGame() {
         parent: gameRef.current,
         width: 800,
         height: 600,
-        scale: {
-          mode: Phaser.Scale.FIT,
-          autoCenter: Phaser.Scale.CENTER_BOTH
-        },
-        scene: [MemoryMatchScene]
+        scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+        physics: { default: 'arcade', arcade: { debug: false } },
+        scene: [MazeChaseScene] // Using the new Maze Chase Engine!
       };
       const game = new Phaser.Game(config);
-      // Expose the game instance globally so React can talk to it
       window.phaserGame = game; 
       
-      return () => {
-        game.destroy(true);
-        window.phaserGame = null;
-      };
+      return () => { game.destroy(true); window.phaserGame = null; };
     }
   }, []);
 
