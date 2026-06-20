@@ -19,8 +19,12 @@ export default function PhaserGame() {
         scene: [MemoryMatchScene]
       };
       const game = new Phaser.Game(config);
+      // Expose the game instance globally so React can talk to it
+      window.phaserGame = game; 
+      
       return () => {
         game.destroy(true);
+        window.phaserGame = null;
       };
     }
   }, []);
