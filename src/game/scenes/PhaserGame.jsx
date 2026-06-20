@@ -1,8 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import Phaser from 'phaser';
 import MemoryMatchScene from './MemoryMatchScene';
+import MazeChaseScene from './MazeChaseScene';
 
-export default function PhaserGame({ gameData, theme }) {
+export default function PhaserGame({ gameData, theme, gameMode }) {
   const gameRef = useRef(null);
   const gameInstance = useRef(null);
 
@@ -15,9 +16,11 @@ export default function PhaserGame({ gameData, theme }) {
         height: 600,
         scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
         physics: { default: 'arcade', arcade: { debug: false } },
-        scene: [MemoryMatchScene]
+        scene: [MemoryMatchScene, MazeChaseScene] // Load both engines
       };
       gameInstance.current = new Phaser.Game(config);
+      // Start the default scene
+      gameInstance.current.scene.start('MemoryMatchScene');
     }
     return () => {
       if (gameInstance.current) {
@@ -32,11 +35,12 @@ export default function PhaserGame({ gameData, theme }) {
       if (theme) gameInstance.current.registry.set('theme', theme);
       if (gameData) gameInstance.current.registry.set('gameData', gameData);
       
-      if (gameInstance.current.scene.scenes[0]) {
-        gameInstance.current.scene.scenes[0].scene.restart();
-      }
+      // Stop all active scenes, then start the requested one
+      gameInstance.current.scene.stop('MemoryMatchScene');
+      gameInstance.current.scene.stop('MazeChaseScene');
+      gameInstance.current.scene.start(gameMode === 'MazeChase' ? 'MazeChaseScene' : 'MemoryMatchScene');
     }
-  }, [gameData, theme]);
+  }, [gameData, theme, gameMode]);
 
   return <div ref={gameRef} style={{ width: '100%', height: '100%' }} />;
 }

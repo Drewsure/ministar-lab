@@ -4,8 +4,8 @@ export default function TeacherDashboard({ onCommit }) {
   const [rawText, setRawText] = useState("Apple, Banana, Cherry, Grape");
   const [terms, setTerms] = useState([]);
   const [verifiedCount, setVerifiedCount] = useState(0);
+  const [gameMode, setGameMode] = useState('MemoryMatch'); // New state for game mode
 
-  // Simulates LLM extracting JSON from raw text
   const extractWithLLM = () => {
     const words = rawText.split(',').map(w => w.trim()).filter(w => w.length > 0);
     const extracted = words.map((word, i) => ({
@@ -23,7 +23,6 @@ export default function TeacherDashboard({ onCommit }) {
     return map[word] || '❓';
   };
 
-  // Forces the teacher to verify spelling/audio before unlocking commit
   const verifyTerm = (id) => {
     const updated = terms.map(t => t.id === id ? { ...t, verified: !t.verified } : t);
     setTerms(updated);
@@ -63,10 +62,23 @@ export default function TeacherDashboard({ onCommit }) {
             ))}
           </div>
           
+          {/* GAME MODE SELECTOR */}
+          <div style={{ marginTop: '20px' }}>
+            <h3>Select Game Engine</h3>
+            <select 
+              value={gameMode} 
+              onChange={(e) => setGameMode(e.target.value)}
+              style={{ width: '100%', padding: '10px', background: '#111', color: '#fff', border: '1px solid #333', borderRadius: '8px' }}
+            >
+              <option value="MemoryMatch">Memory Match (Pairing Engine)</option>
+              <option value="MazeChase">Maze Chase (Physics Selection Engine)</option>
+            </select>
+          </div>
+
           <button 
             style={{ ...btnStyle, width: '100%', background: verifiedCount === terms.length ? '#10b981' : '#333', cursor: verifiedCount === terms.length ? 'pointer' : 'not-allowed' }}
             disabled={verifiedCount !== terms.length}
-            onClick={() => onCommit(terms)}
+            onClick={() => onCommit({ terms, gameMode })}
           >
             {verifiedCount === terms.length ? 'Commit to Game Engine' : `Verify All Terms (${verifiedCount}/${terms.length})`}
           </button>

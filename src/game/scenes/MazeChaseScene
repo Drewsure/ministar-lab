@@ -6,30 +6,38 @@ export default class MazeChaseScene extends Phaser.Scene {
   create() {
     const theme = this.registry.get('theme') || { bg: '#1e1b4b', card: '#6366f1', accent: '#ffffff' };
     const gameData = this.registry.get('gameData') || [
-      { id: 1, term: 'Apple', isCorrect: true },
-      { id: 2, term: 'Banana', isCorrect: false },
-      { id: 3, term: 'Cherry', isCorrect: false }
+      { id: 1, term: 'Apple', emoji: '🍎' },
+      { id: 2, term: 'Banana', emoji: '🍌' },
+      { id: 3, term: 'Cherry', emoji: '🍒' }
     ];
 
     this.cameras.main.setBackgroundColor(theme.bg);
     this.add.text(400, 50, 'Maze Chase: Collect the correct answer!', { fill: theme.accent, fontSize: '24px', fontFamily: 'sans-serif' }).setOrigin(0.5);
 
+    // Generate particle texture
+    const g = this.make.graphics();
+    g.fillStyle(0xffffff, 1); g.fillRect(0, 0, 4, 4); g.generateTexture('particle', 4, 4);
+
     // Physics Setup
-    this.player = this.physics.add.sprite(100, 300, 'player').setCircle(20).setCollideWorldBounds(true);
+    this.player = this.physics.add.sprite(100, 300, 'particle').setCircle(20).setCollideWorldBounds(true);
     this.player.setTint(Phaser.Display.Color.HexToColor(theme.card.replace('#', '0x')).color);
 
     this.cursors = this.input.keyboard.createCursorKeys();
     this.input.on('pointerdown', (p) => this.physics.moveTo(this.player, p.x, p.y, 400));
     this.input.on('pointerup', () => this.player.setVelocity(0, 0));
 
-    // Targets & Enemies
     this.targets = this.physics.add.group();
     
+    // Randomly pick one as correct, rest are enemies
+    const shuffledData = Phaser.Utils.Array.Shuffle([...gameData]);
+    const correctAnswer = shuffledData[0];
+    const enemies = shuffledData.slice(1);
+
     // Spawn Correct Target
-    this.spawnEntity(600, 150, gameData[0].term, 0x10b981, true);
+    this.spawnEntity(600, 150, correctAnswer.term, 0x10b981, true);
     
     // Spawn Incorrect Targets (Enemies)
-    gameData.slice(1).forEach((data, i) => {
+    enemies.forEach((data, i) => {
       this.spawnEntity(650, 350 + (i * 50), data.term, 0xef4444, false);
     });
 
@@ -63,7 +71,7 @@ export default class MazeChaseScene extends Phaser.Scene {
 
   handleCollision(player, target) {
     if (target.getData('hit')) return;
-    target.getData('hit', true);
+    target.setData('hit', true);
 
     const isCorrect = target.getData('isCorrect');
     const color = isCorrect ? 0x10b981 : 0xef4444;

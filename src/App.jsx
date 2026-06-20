@@ -6,11 +6,13 @@ function App() {
   const [theme, setTheme] = useState({ name: 'Default School', bg: '#1e1b4b', card: '#6366f1', accent: '#ffffff' });
   const [view, setView] = useState('teacher');
   const [gameData, setGameData] = useState(null);
+  const [gameMode, setGameMode] = useState('MemoryMatch');
 
   const switchTheme = (newTheme) => setTheme(newTheme);
 
-  const handleCommit = (terms) => {
+  const handleCommit = ({ terms, mode }) => {
     setGameData(terms);
+    setGameMode(mode);
     setView('student');
   };
 
@@ -29,7 +31,7 @@ function App() {
       </header>
 
       <div style={{ width: '100%', maxWidth: '800px', aspectRatio: '4/3', border: `2px solid ${theme.card}`, borderRadius: '16px', overflow: 'hidden', marginTop: '20px', display: view === 'student' ? 'block' : 'none' }}>
-        <PhaserGame gameData={gameData} theme={theme} />
+        <PhaserGame gameData={gameData} theme={theme} gameMode={gameMode} />
       </div>
 
       {view === 'teacher' && (
