@@ -19,10 +19,16 @@ export default class MemoryMatchScene extends Phaser.Scene {
   constructor() { super('MemoryMatchScene'); }
 
   create() {
-    // 1. Fetch the active theme from the Phaser Registry
     const theme = this.registry.get('theme') || { bg: '#1e1b4b', card: '#6366f1', accent: '#ffffff' };
+    
+    // Fetch AI-generated data from registry, fallback to default
+    const gameData = this.registry.get('gameData') || [
+      { id: 1, emoji: '🍎', color: 0xef4444 },
+      { id: 2, emoji: '🍌', color: 0xeab308 },
+      { id: 3, emoji: '🍒', color: 0xdc2626 },
+      { id: 4, emoji: '🍇', color: 0x7c3aed }
+    ];
 
-    // Phaser 3.60+ accepts CSS hex strings directly! No conversion needed.
     this.cameras.main.setBackgroundColor(theme.bg);
     this.add.text(400, 50, 'MiniStar Memory Match', { fill: theme.accent, fontSize: '32px', fontFamily: 'sans-serif' }).setOrigin(0.5);
 
@@ -30,19 +36,15 @@ export default class MemoryMatchScene extends Phaser.Scene {
     this.flippedCards = [];
     this.matches = 0;
     this.streak = 0;
+    this.startTime = Date.now(); // Start telemetry timer
 
     this.mascot = this.add.text(750, 80, '🐶', { fontSize: '40px' }).setOrigin(0.5);
+    this.telemetryText = this.add.text(20, 580, 'xAPI Telemetry: Tracking...', { fill: '#888', fontSize: '14px', fontFamily: 'monospace' });
 
     const g = this.make.graphics();
     g.fillStyle(0xffffff, 1); g.fillRect(0, 0, 4, 4); g.generateTexture('particle', 4, 4);
 
-    this.cardData = [
-      { id: 1, emoji: '🍎', color: 0xef4444 },
-      { id: 2, emoji: '🍌', color: 0xeab308 },
-      { id: 3, emoji: '🍒', color: 0xdc2626 },
-      { id: 4, emoji: '🍇', color: 0x7c3aed }
-    ];
-
+    this.cardData = gameData.map(d => ({ id: d.id, emoji: d.emoji, color: d.color || 0xffffff }));
     this.cards = Phaser.Utils.Array.Shuffle([...this.cardData, ...this.cardData]);
     this.buildGrid(theme.card, theme.accent);
   }
@@ -57,7 +59,6 @@ export default class MemoryMatchScene extends Phaser.Scene {
       const x = offsetX + (i % cols) * cellSize;
       const y = offsetY + Math.floor(i / cols) * cellSize;
 
-      // Apply theme colors directly
       const cardBack = this.add.rectangle(0, 0, 80, 80, cardColor).setStrokeStyle(2, accentColor, 0.3);
       const cardFront = this.add.text(0, 0, card.emoji, { fontSize: '40px' }).setOrigin(0.5).setVisible(false);
 
@@ -100,56 +101,4 @@ export default class MemoryMatchScene extends Phaser.Scene {
       AudioManager.play(523.25, 'sine', 0.2); AudioManager.play(659.25, 'sine', 0.3);
       this.burstParticles(card1.x, card1.y, data1.color);
       this.burstParticles(card2.x, card2.y, data1.color);
-      this.cameras.main.shake(200, 0.005);
-      this.updateMascot();
-
-      this.tweens.add({
-        targets: [card1, card2], scale: 1.2, duration: 200, yoyo: true,
-        onComplete: () => { card1.destroy(); card2.destroy(); this.resetTurn(); }
-      });
-
-      if (this.matches === this.cardData.length) this.time.delayedCall(500, this.showWinScreen, [], this);
-    } else {
-      this.streak = 0;
-      AudioManager.play(150, 'sawtooth', 0.2);
-      this.updateMascot();
-
-      this.tweens.add({
-        targets: [card1, card2], x: '+=10', duration: 50, yoyo: true, repeat: 3,
-        onComplete: () => {
-          card1.list[0].setVisible(true); card1.list[1].setVisible(false); card1.setData('isFlipped', false);
-          card2.list[0].setVisible(true); card2.list[1].setVisible(false); card2.setData('isFlipped', false);
-          this.resetTurn();
-        }
-      });
-    }
-  }
-
-  burstParticles(x, y, color) {
-    const emitter = this.add.particles(x, y, 'particle', {
-      speed: { min: 100, max: 300 }, angle: { min: 0, max: 360 },
-      scale: { start: 1, end: 0 }, blendMode: 'ADD', lifespan: 800,
-      tint: color, quantity: 20, emitting: false
-    });
-    emitter.explode(20);
-  }
-
-  updateMascot() {
-    if (this.streak >= 2) {
-      this.mascot.setText('⭐');
-      this.tweens.add({ targets: this.mascot, y: 60, duration: 200, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-    } else {
-      this.mascot.setText('🐶');
-      this.tweens.killTweensOf(this.mascot);
-      this.mascot.setY(80);
-    }
-  }
-
-  resetTurn() { this.flippedCards = []; this.canInteract = true; }
-
-  showWinScreen() {
-    this.add.text(400, 300, 'PERFECT SCORE!', { fill: '#10b981', fontSize: '64px', fontFamily: 'sans-serif' }).setOrigin(0.5);
-    this.add.text(400, 350, 'Click to play again', { fill: '#fff', fontSize: '24px', fontFamily: 'sans-serif' }).setOrigin(0.5);
-    this.input.on('pointerdown', () => this.scene.restart());
-  }
-}
+      this.cameras.main.shake(200, 0.
