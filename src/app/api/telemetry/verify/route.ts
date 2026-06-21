@@ -42,32 +42,34 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Persist
+  // Persist (skip silently if no DB is configured — e.g. on Vercel without DATABASE_URL)
   try {
-    // Ensure tenant row exists (foreign key constraint)
-    await db.tenant.upsert({
-      where: { id: tenantId },
-      create: {
-        id: tenantId,
-        subdomain: tenantId,
-        displayName: tenantId,
-      },
-      update: {},
-    });
-    await db.telemetryEvent.create({
-      data: {
-        tenantId,
-        gameMode,
-        unit: event.object.id.includes('/units/')
-          ? event.object.id.split('/units/')[1].split('/')[0]
-          : 'unit-1',
-        payload: JSON.stringify(event),
-        score: correct,
-        durationMs,
-        status: verify.status,
-        anomalyReason: verify.anomalyReason ?? null,
-      },
-    });
+    if (db) {
+      // Ensure tenant row exists (foreign key constraint)
+      await db.tenant.upsert({
+        where: { id: tenantId },
+        create: {
+          id: tenantId,
+          subdomain: tenantId,
+          displayName: tenantId,
+        },
+        update: {},
+      });
+      await db.telemetryEvent.create({
+        data: {
+          tenantId,
+          gameMode,
+          unit: event.object.id.includes('/units/')
+            ? event.object.id.split('/units/')[1].split('/')[0]
+            : 'unit-1',
+          payload: JSON.stringify(event),
+          score: correct,
+          durationMs,
+          status: verify.status,
+          anomalyReason: verify.anomalyReason ?? null,
+        },
+      });
+    }
   } catch (e) {
     console.error('[telemetry] DB write failed:', e);
     // DB write must never block the game
@@ -80,6 +82,9 @@ export async function POST(req: NextRequest) {
 // Returns recent telemetry events for the dashboard.
 export async function GET(req: NextRequest) {
   const tenantId = req.nextUrl.searchParams.get('tenantId') || 'demo-tenant';
+  if (!db) {
+    return NextResponse.json({ events: [], note: 'No database configured on this deployment.' });
+  }
   const events = await db.telemetryEvent.findMany({
     where: { tenantId },
     orderBy: { createdAt: 'desc' },

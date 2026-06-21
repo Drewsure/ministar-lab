@@ -21,6 +21,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'slug required' }, { status: 400 });
   }
 
+  // No database configured (e.g. Vercel without DATABASE_URL) — return a stub
+  if (!db) {
+    return NextResponse.json({
+      route: { slug: body.slug, ...body, active: true, id: 'stub' },
+      note: 'No database configured — returning in-memory stub.',
+    });
+  }
+
   // If route exists and is bakeIn-locked, refuse updates
   const existing = await db.qrRoute.findUnique({ where: { slug: body.slug } });
   if (existing?.bakeIn) {
@@ -52,6 +60,9 @@ export async function POST(req: NextRequest) {
 // GET /api/qr-route?slug=unit-3
 // Used by the QR scanner app to resolve a printed QR code → game session.
 export async function GET(req: NextRequest) {
+  if (!db) {
+    return NextResponse.json({ routes: [], note: 'No database configured on this deployment.' });
+  }
   const slug = req.nextUrl.searchParams.get('slug');
   if (!slug) {
     const all = await db.qrRoute.findMany({ take: 50 });
