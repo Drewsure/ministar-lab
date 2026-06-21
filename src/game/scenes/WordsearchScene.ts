@@ -254,6 +254,8 @@ export default class WordsearchScene extends BaseEngine {
     return cells;
   }
 
+  private selectionLine?: Phaser.GameObjects.Graphics;
+
   private highlightSelection() {
     this.clearHighlight();
     if (!this.selStart || !this.selEnd) return;
@@ -262,9 +264,25 @@ export default class WordsearchScene extends BaseEngine {
     cells.forEach(c => {
       this.cellRects[c.r][c.c].setFillStyle(this.theme.accent2, 0.4);
     });
+    // Draw a line through the selection
+    if (this.selectionLine) this.selectionLine.destroy();
+    this.selectionLine = this.add.graphics().setDepth(30);
+    this.selectionLine.lineStyle(6, this.theme.accent2, 0.5);
+    this.selectionLine.beginPath();
+    const startX = (this.scale.width - this.gridCols * this.cellSize) / 2 + this.selStart.c * this.cellSize + this.cellSize / 2;
+    const startY = 100 + this.selStart.r * this.cellSize + this.cellSize / 2;
+    const endX = (this.scale.width - this.gridCols * this.cellSize) / 2 + this.selEnd.c * this.cellSize + this.cellSize / 2;
+    const endY = 100 + this.selEnd.r * this.cellSize + this.cellSize / 2;
+    this.selectionLine.moveTo(startX, startY);
+    this.selectionLine.lineTo(endX, endY);
+    this.selectionLine.strokePath();
   }
 
   private clearHighlight() {
+    if (this.selectionLine) {
+      this.selectionLine.destroy();
+      this.selectionLine = undefined;
+    }
     for (let r = 0; r < this.gridRows; r++) {
       for (let c = 0; c < this.gridCols; c++) {
         // Don't un-tint found words

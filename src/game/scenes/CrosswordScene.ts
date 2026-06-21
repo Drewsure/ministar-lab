@@ -491,16 +491,25 @@ export default class CrosswordScene extends BaseEngine {
           t: this.time.now,
         },
       });
-      // Highlight solved cells
-      entry.cells.forEach(c => {
+      // Highlight solved cells with glow
+      entry.cells.forEach((c, i) => {
         this.grid[c.r][c.c].rect?.setFillStyle(this.theme.success, 0.5);
+        // Pulse each cell
+        this.tweens.add({
+          targets: this.grid[c.r][c.c].rect,
+          scale: { from: 1, to: 1.15 },
+          duration: 200, delay: i * 50, yoyo: true, ease: 'Quad.out',
+        });
       });
-      this.juice.burst(
-        this.gridOffsetX + entry.cells[Math.floor(entry.cells.length / 2)].c * this.cellSize + this.cellSize / 2,
-        this.gridOffsetY + entry.cells[Math.floor(entry.cells.length / 2)].r * this.cellSize + this.cellSize / 2,
-        'correct'
-      );
+      // Big burst at center of word
+      const centerX = this.gridOffsetX + entry.cells[Math.floor(entry.cells.length / 2)].c * this.cellSize + this.cellSize / 2;
+      const centerY = this.gridOffsetY + entry.cells[Math.floor(entry.cells.length / 2)].r * this.cellSize + this.cellSize / 2;
+      this.juice.burst(centerX, centerY, 'correct');
+      this.juice.glowRing(centerX, centerY, this.theme.success, 80);
+      this.juice.scorePopup(centerX, centerY - 20, entry.word, this.theme.success);
       audioBus.play('correct');
+      // ESL: speak the completed word
+      this.speakPrompt(entry.word);
       this.checkWin();
     }
   }

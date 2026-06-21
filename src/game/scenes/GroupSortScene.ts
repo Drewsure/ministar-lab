@@ -124,16 +124,24 @@ export default class GroupSortScene extends BaseEngine {
       const x = termsStartX + col * (termW + colGap);
       const y = this.unsortedY + row * (termH + rowGap);
 
+      // Glow (visible when dragged)
+      const glow = this.add.circle(0, 0, termW * 0.6, this.theme.accent, 0).setDepth(39);
+      // Shadow
+      const shadow = this.add.rectangle(3, 3, termW, termH, 0x000000, 0.3).setDepth(40);
+      // Background
       const bg = this.add.rectangle(0, 0, termW, termH, this.theme.cardAlt, 0.95)
-        .setStrokeStyle(2, this.theme.accent, 0.6);
+        .setStrokeStyle(2, this.theme.accent, 0.6).setDepth(41);
+      // Shine
+      const shine = this.add.rectangle(-termW / 4, -termH / 4, termW / 2, termH / 3, 0xffffff, 0.1).setDepth(42);
+      // Text
       const txt = this.add.text(0, 0, `${term.emoji ?? ''} ${term.term}`, {
         fontFamily: 'Inter, sans-serif',
         fontSize: '16px',
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
-      }).setOrigin(0.5);
+      }).setOrigin(0.5).setDepth(43);
 
-      const container = this.add.container(x, y, [bg, txt])
+      const container = this.add.container(x, y, [glow, shadow, bg, shine, txt])
         .setSize(termW, termH).setInteractive({ useHandCursor: true, draggable: true }).setDepth(40);
 
       const sortTerm: SortTerm = { term, container, placed: false };
@@ -146,6 +154,8 @@ export default class GroupSortScene extends BaseEngine {
         audioBus.play('tap');
         container.setScale(1.1);
         container.setDepth(100);
+        // Show glow
+        this.tweens.add({ targets: glow, alpha: 0.3, duration: 200 });
         // ESL: speak the term when picked up
         this.speakPrompt(term.term);
       });
@@ -155,6 +165,7 @@ export default class GroupSortScene extends BaseEngine {
       });
       container.on('dragend', () => {
         container.setScale(1);
+        this.tweens.add({ targets: glow, alpha: 0, duration: 200 });
         this.handleDrop(sortTerm);
       });
 

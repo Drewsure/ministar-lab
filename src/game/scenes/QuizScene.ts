@@ -4,9 +4,17 @@ import type { TermItem } from '../../lib/types';
 import { audioBus } from '../../lib/audio';
 
 // ============================================================================
-// QUIZ — Selection Engine
-// Multiple-choice quiz. Each round shows one term prompt and 4 answer options.
-// Tap to answer; correct = streak, wrong = streak reset.
+// QUIZ — Selection Engine  (AAA 2029 edition)
+// ============================================================================
+// Premium multiple-choice quiz with:
+//   • Per-question timer (10s) with visual countdown ring
+//   • 50/50 lifeline (removes 2 wrong answers, 1 use per game)
+//   • Skip lifeline (1 use per game)
+//   • Letter-labeled buttons (A, B, C, D) with hover glow
+//   • Streak multiplier (x2 at 3 streak, x3 at 5)
+//   • Smooth question transitions (slide out + slide in)
+//   • Correct/wrong reveal with particle bursts
+//   • ESL TTS on every prompt + tap-to-hear on options
 // ============================================================================
 
 interface QuizRound {
@@ -20,8 +28,17 @@ export default class QuizScene extends BaseEngine {
   private rounds: QuizRound[] = [];
   private optionButtons: Phaser.GameObjects.Container[] = [];
   private promptText!: Phaser.GameObjects.Text;
+  private promptBg!: Phaser.GameObjects.Rectangle;
   private progressBar!: Phaser.GameObjects.Rectangle;
   private canAnswer = true;
+  private lifelinesUsed = { fiftyFifty: false, skip: false };
+  private questionTimer = 10;
+  private questionTimerEvent?: Phaser.Time.TimerEvent;
+  private timerRing!: Phaser.GameObjects.Arc;
+  private timerText!: Phaser.GameObjects.Text;
+  private streakMultText!: Phaser.GameObjects.Text;
+  private fiftyFiftyBtn!: Phaser.GameObjects.Container;
+  private skipBtn!: Phaser.GameObjects.Container;
 
   protected maxQuestions() { return Math.min(this.terms.length, 10); }
 
@@ -43,47 +60,105 @@ export default class QuizScene extends BaseEngine {
       });
     }
 
-    // Title
+    // ---- Title ----
     this.add.text(
-      this.scale.width / 2, 70,
+      this.scale.width / 2, 105,
       'Quiz Time',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '32px',
+        fontSize: '30px',
         color: this.hex(this.theme.accent),
         fontStyle: 'bold',
       }
     ).setOrigin(0.5).setDepth(50);
 
-    // Progress bar
-    const barY = 110;
-    const barW = 600;
+    // ---- Progress bar ----
+    const barY = 140;
+    const barW = 500;
     const barX = (this.scale.width - barW) / 2;
-    this.add.rectangle(this.scale.width / 2, barY, barW + 8, 14, 0x000000, 0.4).setDepth(40);
-    this.progressBar = this.add.rectangle(barX, barY, 0, 10, this.theme.accent).setOrigin(0, 0.5).setDepth(41);
+    this.add.rectangle(this.scale.width / 2, barY, barW + 8, 12, 0x000000, 0.4).setDepth(40);
+    this.progressBar = this.add.rectangle(barX, barY, 0, 8, this.theme.accent).setOrigin(0, 0.5).setDepth(41);
 
-    // Prompt
-    this.promptText = this.add.text(
-      this.scale.width / 2, 180,
-      '',
+    // ---- Timer ring (right side) ----
+    this.timerRing = this.add.arc(
+      this.scale.width - 60, 200, 28, 0, 360, false,
+      this.theme.warning, 0.2
+    ).setStrokeStyle(4, this.theme.warning, 0.8).setDepth(45);
+    this.timerText = this.add.text(
+      this.scale.width - 60, 200, '10',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '37px',
+        fontSize: '24px',
+        color: this.hex(this.theme.text),
+        fontStyle: 'bold',
+      }
+    ).setOrigin(0.5).setDepth(46);
+
+    // ---- Streak multiplier (left side) ----
+    this.streakMultText = this.add.text(
+      60, 200, '',
+      {
+        fontFamily: 'Inter, sans-serif',
+        fontSize: '18px',
+        color: this.hex(this.theme.warning),
+        fontStyle: 'bold',
+      }
+    ).setOrigin(0.5).setDepth(45);
+
+    // ---- Prompt banner ----
+    this.promptBg = this.add.rectangle(
+      this.scale.width / 2, 215, 640, 70, this.theme.card, 0.85
+    ).setStrokeStyle(2, this.theme.accent, 0.6).setDepth(48);
+
+    this.promptText = this.add.text(
+      this.scale.width / 2, 215, '',
+      {
+        fontFamily: 'Inter, sans-serif',
+        fontSize: '20px',
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
         align: 'center',
-        wordWrap: { width: 700 },
+        wordWrap: { width: 580 },
       }
-    ).setOrigin(0.5).setDepth(50);
+    ).setOrigin(0.5).setDepth(49);
+
+    // ---- Lifeline buttons (bottom) ----
+    this.createLifelineButtons();
 
     this.renderRound();
   }
 
   protected onTick(_remainingMs: number) { /* HUD-only */ }
 
+  private createLifelineButtons() {
+    // 50/50 button
+    const fiftyBg = this.add.rectangle(0, 0, 100, 36, this.theme.warning, 0.6)
+      .setStrokeStyle(2, this.theme.warning, 0.8);
+    const fiftyTxt = this.add.text(0, 0, '50:50', {
+      fontFamily: 'Inter, sans-serif', fontSize: '16px', color: '#ffffff', fontStyle: 'bold',
+    }).setOrigin(0.5);
+    this.fiftyFiftyBtn = this.add.container(this.scale.width / 2 - 60, 560, [fiftyBg, fiftyTxt])
+      .setSize(100, 36).setInteractive({ useHandCursor: true }).setDepth(50);
+    this.fiftyFiftyBtn.on('pointerover', () => fiftyBg.setFillStyle(this.theme.warning, 0.9));
+    this.fiftyFiftyBtn.on('pointerout', () => fiftyBg.setFillStyle(this.theme.warning, 0.6));
+    this.fiftyFiftyBtn.on('pointerdown', () => this.useFiftyFifty());
+
+    // Skip button
+    const skipBg = this.add.rectangle(0, 0, 100, 36, this.theme.cardAlt, 0.6)
+      .setStrokeStyle(2, this.theme.accent, 0.8);
+    const skipTxt = this.add.text(0, 0, 'Skip', {
+      fontFamily: 'Inter, sans-serif', fontSize: '16px', color: '#ffffff', fontStyle: 'bold',
+    }).setOrigin(0.5);
+    this.skipBtn = this.add.container(this.scale.width / 2 + 60, 560, [skipBg, skipTxt])
+      .setSize(100, 36).setInteractive({ useHandCursor: true }).setDepth(50);
+    this.skipBtn.on('pointerover', () => skipBg.setFillStyle(this.theme.cardAlt, 0.9));
+    this.skipBtn.on('pointerout', () => skipBg.setFillStyle(this.theme.cardAlt, 0.6));
+    this.skipBtn.on('pointerdown', () => this.useSkip());
+  }
+
   private renderRound() {
     if (this.round >= this.rounds.length) {
-      this.finishGame(this.score === this.maxScore);
+      this.finishGame(this.score >= this.maxScore * 0.6);
       return;
     }
     this.canAnswer = true;
@@ -97,36 +172,54 @@ export default class QuizScene extends BaseEngine {
     const pct = this.round / this.rounds.length;
     this.tweens.add({
       targets: this.progressBar,
-      width: 600 * pct,
+      width: 500 * pct,
       duration: 300, ease: 'Cubic.out',
     });
 
-    // Render 4 option buttons
+    // Start question timer
+    this.startQuestionTimer();
+
+    // Update streak multiplier display
+    const mult = this.streak >= 5 ? 3 : this.streak >= 3 ? 2 : 1;
+    this.streakMultText.setText(mult > 1 ? `x${mult} MULT!` : '');
+
+    // Render 4 option buttons with letter labels
     this.optionButtons.forEach(b => b.destroy());
     this.optionButtons = [];
 
     const cols = 2, rows = 2;
-    const btnW = 320, btnH = 90;
-    const gapX = 20, gapY = 20;
+    const btnW = 300, btnH = 80;
+    const gapX = 16, gapY = 16;
     const totalW = cols * btnW + (cols - 1) * gapX;
-    const totalH = rows * btnH + (rows - 1) * gapY;
     const startX = (this.scale.width - totalW) / 2 + btnW / 2;
-    const startY = 320;
+    const startY = 330;
+    const letters = ['A', 'B', 'C', 'D'];
 
     r.options.forEach((opt, i) => {
       const cx = startX + (i % cols) * (btnW + gapX);
       const cy = startY + Math.floor(i / cols) * (btnH + gapY);
 
+      // Button background with gradient effect (two layers)
       const bg = this.add.rectangle(0, 0, btnW, btnH, this.theme.card, 0.92)
         .setStrokeStyle(2, this.theme.accent, 0.5);
-      const txt = this.add.text(0, 0, opt.term, {
+      // Letter badge (left side)
+      const letterBg = this.add.circle(-btnW / 2 + 25, 0, 20, this.theme.accent, 0.8);
+      const letterTxt = this.add.text(-btnW / 2 + 25, 0, letters[i], {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '23px',
+        fontSize: '20px',
+        color: '#ffffff',
+        fontStyle: 'bold',
+      }).setOrigin(0.5);
+      // Option text
+      const txt = this.add.text(20, 0, `${opt.emoji ?? ''} ${opt.term}`.trim(), {
+        fontFamily: 'Inter, sans-serif',
+        fontSize: '20px',
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
       }).setOrigin(0.5);
 
-      const container = this.add.container(cx, cy, [bg, txt]).setSize(btnW, btnH).setInteractive({ useHandCursor: true });
+      const container = this.add.container(cx, cy, [bg, letterBg, letterTxt, txt])
+        .setSize(btnW, btnH).setInteractive({ useHandCursor: true });
       container.setData('option', opt);
       container.setData('index', i);
       container.setData('bg', bg);
@@ -134,21 +227,112 @@ export default class QuizScene extends BaseEngine {
       container.on('pointerover', () => {
         if (this.canAnswer) {
           bg.setFillStyle(this.theme.cardAlt, 1);
+          bg.setStrokeStyle(3, this.theme.accent, 1);
           audioBus.play('hover');
         }
       });
-      container.on('pointerout', () => bg.setFillStyle(this.theme.card, 0.92));
+      container.on('pointerout', () => {
+        bg.setFillStyle(this.theme.card, 0.92);
+        bg.setStrokeStyle(2, this.theme.accent, 0.5);
+      });
       container.on('pointerdown', () => this.handleAnswer(container, i, r.correctIndex, opt));
 
-      // Entrance tween
-      container.setScale(0.6).setAlpha(0);
+      // Entrance animation: slide in from below
+      container.setAlpha(0).setY(cy + 30);
       this.tweens.add({
         targets: container,
-        scale: 1, alpha: 1,
-        duration: 300, delay: i * 60, ease: 'Back.out',
+        alpha: 1, y: cy,
+        duration: 350, delay: i * 80, ease: 'Back.out',
       });
 
       this.optionButtons.push(container);
+    });
+  }
+
+  private startQuestionTimer() {
+    this.questionTimer = 10;
+    this.timerText.setText('10');
+    this.timerText.setColor(this.hex(this.theme.text));
+    this.timerRing.setFillStyle(this.theme.warning, 0.2);
+
+    if (this.questionTimerEvent) this.questionTimerEvent.remove();
+    this.questionTimerEvent = this.time.addEvent({
+      delay: 1000, repeat: 9,
+      callback: () => {
+        this.questionTimer--;
+        this.timerText.setText(String(this.questionTimer));
+        // Color shift as time runs out
+        if (this.questionTimer <= 3) {
+          this.timerText.setColor(this.hex(this.theme.danger));
+          this.timerRing.setFillStyle(this.theme.danger, 0.3);
+          audioBus.play('countdown');
+        }
+        if (this.questionTimer <= 0) {
+          this.timeUp();
+        }
+      },
+    });
+  }
+
+  private timeUp() {
+    if (!this.canAnswer) return;
+    this.canAnswer = false;
+    if (this.questionTimerEvent) this.questionTimerEvent.remove();
+    // Reveal correct answer
+    const r = this.rounds[this.round];
+    const correctBtn = this.optionButtons[r.correctIndex];
+    const cBg = correctBtn.getData('bg') as Phaser.GameObjects.Rectangle;
+    cBg.setFillStyle(this.theme.success, 0.6);
+    this.recordAnswer({
+      term: r.prompt.term,
+      response: 'timeout',
+      success: false,
+      coordinate: { x: this.scale.width / 2, y: 300, t: this.time.now },
+    });
+    this.juice.shake('medium');
+    this.time.delayedCall(1200, () => {
+      this.round++;
+      this.renderRound();
+    });
+  }
+
+  private useFiftyFifty() {
+    if (this.lifelinesUsed.fiftyFifty || !this.canAnswer) return;
+    this.lifelinesUsed.fiftyFifty = true;
+    this.fiftyFiftyBtn.disableInteractive();
+    this.fiftyFiftyBtn.setAlpha(0.3);
+    audioBus.play('tap');
+
+    const r = this.rounds[this.round];
+    // Remove 2 wrong answers
+    const wrongIndices = r.options
+      .map((_, i) => i)
+      .filter(i => i !== r.correctIndex);
+    Phaser.Utils.Array.Shuffle(wrongIndices);
+    const toRemove = wrongIndices.slice(0, 2);
+
+    toRemove.forEach(i => {
+      const btn = this.optionButtons[i];
+      btn.disableInteractive();
+      this.tweens.add({
+        targets: btn,
+        alpha: 0.2, scale: 0.9,
+        duration: 300, ease: 'Cubic.out',
+      });
+    });
+  }
+
+  private useSkip() {
+    if (this.lifelinesUsed.skip || !this.canAnswer) return;
+    this.lifelinesUsed.skip = true;
+    this.skipBtn.disableInteractive();
+    this.skipBtn.setAlpha(0.3);
+    audioBus.play('tap');
+    if (this.questionTimerEvent) this.questionTimerEvent.remove();
+    this.canAnswer = false;
+    this.time.delayedCall(400, () => {
+      this.round++;
+      this.renderRound();
     });
   }
 
@@ -160,6 +344,7 @@ export default class QuizScene extends BaseEngine {
   ) {
     if (!this.canAnswer) return;
     this.canAnswer = false;
+    if (this.questionTimerEvent) this.questionTimerEvent.remove();
     const isCorrect = index === correctIndex;
     const bg = btn.getData('bg') as Phaser.GameObjects.Rectangle;
 
@@ -172,19 +357,38 @@ export default class QuizScene extends BaseEngine {
 
     if (isCorrect) {
       bg.setFillStyle(this.theme.success, 1);
+      bg.setStrokeStyle(4, this.theme.success, 1);
       this.juice.squash(btn, 1.15);
+      this.juice.burst(btn.x, btn.y, 'correct');
+      // Streak bonus particles
+      if (this.streak >= 3) {
+        this.juice.glowRing(btn.x, btn.y, this.theme.warning, 60);
+      }
     } else {
       bg.setFillStyle(this.theme.danger, 1);
+      bg.setStrokeStyle(4, this.theme.danger, 1);
       // Highlight the correct one
       const correctBtn = this.optionButtons[correctIndex];
       const cBg = correctBtn.getData('bg') as Phaser.GameObjects.Rectangle;
       cBg.setFillStyle(this.theme.success, 0.6);
+      cBg.setStrokeStyle(4, this.theme.success, 1);
       this.juice.shake('medium');
+      this.juice.burst(btn.x, btn.y, 'incorrect');
     }
 
+    // Slide out transition
     this.time.delayedCall(900, () => {
-      this.round++;
-      this.renderRound();
+      this.optionButtons.forEach((b, i) => {
+        this.tweens.add({
+          targets: b,
+          alpha: 0, y: b.y - 30,
+          duration: 200, delay: i * 30, ease: 'Cubic.in',
+        });
+      });
+      this.time.delayedCall(300, () => {
+        this.round++;
+        this.renderRound();
+      });
     });
   }
 }

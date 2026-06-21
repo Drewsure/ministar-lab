@@ -4,42 +4,80 @@ import type { TermItem } from '../../lib/types';
 import { audioBus } from '../../lib/audio';
 
 // ============================================================================
-// MATCH UP — Pairing Engine
-// Drag left-column terms to right-column definitions.
+// MATCH UP — Pairing Engine  (AAA 2029 edition)
+// ============================================================================
+// Premium drag-to-match with:
+//   • Drag glow trail following the card
+//   • Connection line drawn between matched pairs
+//   • Snap animation with elastic bounce
+//   • Wrong drop: red flash + card shakes + returns to origin
+//   • Correct drop: green glow + particle burst + TTS
+//   • Hover lift effect on draggable cards
+//   • Progress indicator (X/Y matched)
+//   • Smooth entrance animation
 // ============================================================================
 
 interface MatchRow {
   term: TermItem;
   definition: TermItem;
-  // left card = term, right card = definition (shuffled separately)
+}
+
+interface CardInfo {
+  term: TermItem;
+  container: Phaser.GameObjects.Container;
+  bg: Phaser.GameObjects.Rectangle;
+  glow: Phaser.GameObjects.Arc;
+  placed: boolean;
+  homeX: number;
+  homeY: number;
+}
+
+interface SlotInfo {
+  definition: TermItem;
+  container: Phaser.GameObjects.Container;
+  bg: Phaser.GameObjects.Rectangle;
+  occupied: boolean;
+  x: number;
+  y: number;
 }
 
 export default class MatchUpScene extends BaseEngine {
   private rows: MatchRow[] = [];
-  private dragging?: { card: Phaser.GameObjects.Container; offsetX: number; offsetY: number };
-  private slots: { definition: TermItem; container: Phaser.GameObjects.Container; occupied: boolean }[] = [];
-  private cards: { term: TermItem; container: Phaser.GameObjects.Container; placed: boolean }[] = [];
+  private slots: SlotInfo[] = [];
+  private cards: CardInfo[] = [];
   private promptText!: Phaser.GameObjects.Text;
-  private draggingStartX = 0;
-  private draggingStartY = 0;
+  private progressText!: Phaser.GameObjects.Text;
+  private dragLine?: Phaser.GameObjects.Graphics;
 
   protected maxQuestions() { return Math.min(this.terms.length, 6); }
 
   protected buildWorld() {
+    // ---- Title ----
     this.promptText = this.add.text(
-      this.scale.width / 2, 60,
-      'Drag terms → definitions',
+      this.scale.width / 2, 80,
+      'Drag terms to definitions',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '28px',
+        fontSize: '24px',
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
+      }
+    ).setOrigin(0.5).setDepth(50);
+
+    // ---- Progress ----
+    this.progressText = this.add.text(
+      this.scale.width / 2, 115, 'Matched: 0 / 0',
+      {
+        fontFamily: 'Inter, sans-serif',
+        fontSize: '16px',
+        color: this.hex(this.theme.textMuted),
       }
     ).setOrigin(0.5).setDepth(50);
 
     // Build pairs
     const pool = this.pickTerms(this.maxScore);
     this.rows = pool.map(t => ({ term: t, definition: { ...t, term: t.definition ?? t.emoji ?? '★' } }));
+    this.progressText.setText(`Matched: 0 / ${this.rows.length}`);
 
     this.buildColumns();
   }
@@ -51,118 +89,214 @@ export default class MatchUpScene extends BaseEngine {
     const defCol = [...this.rows].map(r => r.definition);
     Phaser.Utils.Array.Shuffle(defCol);
 
-    const cardW = 280, cardH = 70;
-    const gap = 16;
-    const startY = 130;
+    const cardW = 260, cardH = 64;
+    const gap = 14;
+    const startY = 170;
 
-    // Left column (terms)
+    // Left column (terms — draggable)
     termCol.forEach((term, i) => {
       const y = startY + i * (cardH + gap);
+      const x = 160;
+
+      // Glow ring (visible when dragged)
+      const glow = this.add.circle(0, 0, cardW * 0.6, this.theme.accent, 0).setDepth(14);
+
+      // Card shadow
+      const shadow = this.add.rectangle(3, 3, cardW, cardH, 0x000000, 0.3).setDepth(15);
+      // Card background
       const bg = this.add.rectangle(0, 0, cardW, cardH, this.theme.card, 0.95)
-        .setStrokeStyle(2, this.theme.accent, 0.7);
-      const txt = this.add.text(0, 0, term.term, {
+        .setStrokeStyle(2, this.theme.accent, 0.7).setDepth(16);
+      // Shine
+      const shine = this.add.rectangle(-cardW / 4, -cardH / 4, cardW / 2, cardH / 3, 0xffffff, 0.1).setDepth(17);
+      // Term text with emoji
+      const txt = this.add.text(0, 0, `${term.emoji ?? ''} ${term.term}`.trim(), {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '23px',
+        fontSize: '20px',
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
-      }).setOrigin(0.5);
+      }).setOrigin(0.5).setDepth(18);
 
-      const container = this.add.container(180, y, [bg, txt]).setSize(cardW, cardH).setInteractive({ useHandCursor: true });
+      const container = this.add.container(x, y, [glow, shadow, bg, shine, txt])
+        .setSize(cardW, cardH).setInteractive({ useHandCursor: true, draggable: true }).setDepth(20);
       container.setData('term', term);
-      this.cards.push({ term, container, placed: false });
 
-      this.input.setDraggable(container);
+      const cardInfo: CardInfo = {
+        term, container, bg, glow,
+        placed: false, homeX: x, homeY: y,
+      };
+      this.cards.push(cardInfo);
+
+      // Hover effect
+      container.on('pointerover', () => {
+        if (!cardInfo.placed) {
+          this.tweens.add({ targets: container, y: y - 6, scale: 1.03, duration: 120, ease: 'Quad.out' });
+          audioBus.play('hover');
+        }
+      });
+      container.on('pointerout', () => {
+        if (!cardInfo.placed) {
+          this.tweens.add({ targets: container, y: y, scale: 1, duration: 120, ease: 'Quad.out' });
+        }
+      });
+
+      // Drag events
       container.on('dragstart', () => {
         audioBus.play('flip');
-        this.draggingStartX = container.x;
-        this.draggingStartY = container.y;
         container.setDepth(100);
-        this.tweens.add({ targets: container, scale: 1.05, duration: 150 });
+        this.tweens.add({ targets: container, scale: 1.1, duration: 150, ease: 'Back.out' });
+        // Show glow
+        this.tweens.add({ targets: glow, alpha: 0.3, duration: 200 });
+        // ESL: speak the term
+        this.speakPrompt(term.term);
       });
       container.on('drag', (_p: Phaser.Input.Pointer, dx: number, dy: number) => {
         container.x = dx;
         container.y = dy;
+        // Draw drag line from home to current position
+        this.updateDragLine(x, y, dx, dy);
       });
       container.on('dragend', () => {
         this.tweens.add({ targets: container, scale: 1, duration: 150 });
-        this.handleDrop(container);
+        this.tweens.add({ targets: glow, alpha: 0, duration: 200 });
+        this.clearDragLine();
+        this.handleDrop(container, cardInfo);
+      });
+
+      // Tap to hear
+      container.on('pointerdown', () => {
+        this.speakPrompt(term.term);
+      });
+
+      // Entrance animation
+      container.setAlpha(0).setX(x - 100);
+      this.tweens.add({
+        targets: container, alpha: 1, x: x,
+        duration: 400, delay: i * 80, ease: 'Back.out',
       });
     });
 
-    // Right column (definitions = targets)
+    // Right column (definitions — drop targets)
     defCol.forEach((def, i) => {
       const y = startY + i * (cardH + gap);
-      const bg = this.add.rectangle(0, 0, cardW, cardH, this.theme.cardAlt, 0.6)
-        .setStrokeStyle(2, this.theme.accent2, 0.5);
-      const txt = this.add.text(0, 0, def.term, {
+      const x = this.scale.width - 160;
+
+      // Slot background (dashed border look)
+      const bg = this.add.rectangle(0, 0, cardW, cardH, this.theme.cardAlt, 0.4)
+        .setStrokeStyle(2, this.theme.accent2, 0.5).setDepth(10);
+      // Drop zone indicator
+      const indicator = this.add.text(0, 0, def.term, {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '21px',
-        color: this.hex(this.theme.text),
+        fontSize: '18px',
+        color: this.hex(this.theme.textMuted),
         align: 'center',
         wordWrap: { width: cardW - 20 },
-      }).setOrigin(0.5);
+      }).setOrigin(0.5).setDepth(11);
 
-      const container = this.add.container(this.scale.width - 180, y, [bg, txt]).setSize(cardW, cardH);
-      container.setData('definition', def);
-      container.setData('bg', bg);
-      this.slots.push({ definition: def, container, occupied: false });
+      const container = this.add.container(x, y, [bg, indicator]).setSize(cardW, cardH).setDepth(10);
+      this.slots.push({
+        definition: def, container, bg,
+        occupied: false, x, y,
+      });
+
+      // Entrance animation
+      container.setAlpha(0).setX(x + 100);
+      this.tweens.add({
+        targets: container, alpha: 1, x: x,
+        duration: 400, delay: i * 80, ease: 'Back.out',
+      });
     });
   }
 
-  private handleDrop(dragged: Phaser.GameObjects.Container) {
+  private updateDragLine(fromX: number, fromY: number, toX: number, toY: number) {
+    this.clearDragLine();
+    this.dragLine = this.add.graphics().setDepth(50);
+    this.dragLine.lineStyle(3, this.theme.accent, 0.5);
+    this.dragLine.beginPath();
+    this.dragLine.moveTo(fromX, fromY);
+    this.dragLine.lineTo(toX, toY);
+    this.dragLine.strokePath();
+  }
+
+  private clearDragLine() {
+    if (this.dragLine) {
+      this.dragLine.destroy();
+      this.dragLine = undefined;
+    }
+  }
+
+  private handleDrop(dragged: Phaser.GameObjects.Container, cardInfo: CardInfo) {
     const term = dragged.getData('term') as TermItem;
     let snapped = false;
+
     for (const slot of this.slots) {
       if (slot.occupied) continue;
-      const dist = Phaser.Math.Distance.Between(dragged.x, dragged.y, slot.container.x, slot.container.y);
+      const dist = Phaser.Math.Distance.Between(dragged.x, dragged.y, slot.x, slot.y);
       if (dist < 80) {
-        // Snap into slot
         const isCorrect = slot.definition.id === term.id;
         slot.occupied = true;
+
         this.recordAnswer({
           term: term.term,
           response: slot.definition.term,
           success: isCorrect,
-          coordinate: { x: slot.container.x, y: slot.container.y, t: this.time.now },
+          coordinate: { x: slot.x, y: slot.y, t: this.time.now },
         });
 
         if (isCorrect) {
           audioBus.play('correct');
-          this.juice.burst(slot.container.x, slot.container.y, 'correct');
+          this.speakPrompt(term.term, term.definition);
+          this.juice.burst(slot.x, slot.y, 'correct');
+          this.juice.glowRing(slot.x, slot.y, this.theme.success, 60);
+
+          // Draw permanent connection line
+          const line = this.add.graphics().setDepth(5);
+          line.lineStyle(4, this.theme.success, 0.6);
+          line.beginPath();
+          line.moveTo(cardInfo.homeX, cardInfo.homeY);
+          line.lineTo(slot.x, slot.y);
+          line.strokePath();
+
           // Animate merge
           this.tweens.add({
             targets: dragged,
-            x: slot.container.x, y: slot.container.y,
-            duration: 200, ease: 'Back.out',
+            x: slot.x, y: slot.y,
+            duration: 250, ease: 'Back.out',
             onComplete: () => {
-              // Tint the slot green
-              (slot.container.getData('bg') as Phaser.GameObjects.Rectangle).setFillStyle(this.theme.success, 0.7);
+              slot.bg.setFillStyle(this.theme.success, 0.7);
+              slot.bg.setStrokeStyle(3, this.theme.success, 1);
               dragged.setVisible(false);
             },
           });
-          const card = this.cards.find(c => c.term.id === term.id);
-          if (card) card.placed = true;
+          cardInfo.placed = true;
+          this.progressText.setText(`Matched: ${this.score + 1} / ${this.rows.length}`);
           snapped = true;
           this.checkWin();
         } else {
           audioBus.play('incorrect');
           this.juice.shake('medium');
-          // Snap back
+          this.juice.flash(this.theme.danger, 0.15, 100);
+          slot.occupied = false;
+          // Shake + return
           this.tweens.add({
             targets: dragged,
-            x: this.draggingStartX, y: this.draggingStartY,
-            duration: 250, ease: 'Back.out',
+            x: '+=10', duration: 50, yoyo: true, repeat: 3,
+            onComplete: () => {
+              this.tweens.add({
+                targets: dragged,
+                x: cardInfo.homeX, y: cardInfo.homeY,
+                duration: 300, ease: 'Back.out',
+              });
+            },
           });
-          slot.occupied = false;
         }
         break;
       }
     }
-    if (!snapped) {
+    if (!snapped && !cardInfo.placed) {
       this.tweens.add({
         targets: dragged,
-        x: this.draggingStartX, y: this.draggingStartY,
-        duration: 250, ease: 'Back.out',
+        x: cardInfo.homeX, y: cardInfo.homeY,
+        duration: 300, ease: 'Back.out',
       });
     }
   }

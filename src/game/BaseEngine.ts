@@ -279,7 +279,7 @@ export abstract class BaseEngine extends Phaser.Scene {
       : isReview
       ? '⎯ FLAGGED FOR REVIEW'
       : won
-      ? '🎉 PERFECT SCORE!'
+      ? this.score === this.maxScore ? 'PERFECT! 3 STARS!' : this.score >= this.maxScore * 0.7 ? 'GREAT JOB! 2 STARS!' : 'GOOD! 1 STAR!'
       : '⏱ TIME UP';
 
     const subtitle = isQuarantined
@@ -289,18 +289,48 @@ export abstract class BaseEngine extends Phaser.Scene {
       : `Score ${this.score} / ${this.maxScore} · ${(durationMs / 1000).toFixed(1)}s`;
 
     const titleText = this.add.text(
-      this.scale.width / 2, this.scale.height / 2 - 50,
+      this.scale.width / 2, this.scale.height / 2 - 80,
       title,
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '40px',
+        fontSize: '36px',
         color: '#' + statusColor.toString(16).padStart(6, '0'),
         fontStyle: 'bold',
       }
     ).setOrigin(0.5).setDepth(501);
 
+    // AAA 2029 — Star rating display
+    if (won) {
+      const stars = this.score === this.maxScore ? 3 : this.score >= this.maxScore * 0.7 ? 2 : 1;
+      const starSpacing = 50;
+      const starY = this.scale.height / 2 - 30;
+      for (let i = 0; i < 3; i++) {
+        const filled = i < stars;
+        const star = this.add.text(
+          this.scale.width / 2 + (i - 1) * starSpacing, starY,
+          filled ? '⭐' : '☆',
+          {
+            fontFamily: 'Inter, sans-serif',
+            fontSize: '36px',
+          }
+        ).setOrigin(0.5).setDepth(501).setScale(0);
+        // Animate stars appearing one by one
+        this.tweens.add({
+          targets: star,
+          scale: 1,
+          duration: 300, delay: 200 + i * 200, ease: 'Back.out',
+        });
+        if (filled) {
+          this.time.delayedCall(200 + i * 200, () => {
+            this.juice.burst(star.x, star.y, 'correct');
+            audioBus.play('correct');
+          });
+        }
+      }
+    }
+
     const subText = this.add.text(
-      this.scale.width / 2, this.scale.height / 2 + 10,
+      this.scale.width / 2, this.scale.height / 2 + 20,
       subtitle,
       {
         fontFamily: 'Inter, sans-serif',
