@@ -84,6 +84,26 @@ export default class AnagramScene extends BaseEngine {
 
     this.rounds = this.pickTerms(this.maxScore);
     this.renderRound();
+
+    // Global pointer handler for reliable tile clicks
+    this.setupGlobalPointer((x, y) => {
+      if (!this.canInteract) return;
+      // Hit-test hint button
+      if (this.hintBtn && !this.hintUsed) {
+        if (Math.abs(x - this.hintBtn.x) < 50 && Math.abs(y - this.hintBtn.y) < 18) {
+          this.useHint();
+          return;
+        }
+      }
+      // Hit-test pool tiles
+      for (const tile of this.pool) {
+        if (this.answer.includes(tile)) continue;
+        if (Math.abs(x - tile.sprite.x) < 27 && Math.abs(y - tile.sprite.y) < 27) {
+          this.tapTile(tile.letter, tile.originalIndex);
+          break;
+        }
+      }
+    });
   }
 
   protected onTick(_remainingMs: number) { /* HUD */ }

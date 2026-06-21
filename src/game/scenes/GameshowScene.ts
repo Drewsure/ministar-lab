@@ -116,6 +116,20 @@ export default class GameshowScene extends BaseEngine {
     ).setOrigin(0.5).setDepth(49);
 
     this.renderRound();
+
+    // Global pointer handler for reliable button clicks
+    this.setupGlobalPointer((x, y) => {
+      if (!this.canAnswer) return;
+      const r = this.rounds[this.round];
+      if (!r) return;
+      // Hit-test each option button
+      this.optionButtons.forEach((btn, i) => {
+        const btnW = 300, btnH = 85;
+        if (Math.abs(x - btn.x) < btnW / 2 && Math.abs(y - btn.y) < btnH / 2) {
+          this.handleAnswer(btn, i, r.correctIndex, r.options[i]);
+        }
+      });
+    });
   }
 
   protected onTick(_remainingMs: number) { /* HUD-only */ }
@@ -307,43 +321,42 @@ export default class GameshowScene extends BaseEngine {
     });
 
     if (isCorrect) {
-      bg.setFillStyle(this.theme.success, 1);
-      bg.setStrokeStyle(5, this.theme.success, 1);
-      this.juice.squash(btn, 1.2);
-      this.juice.burst(btn.x, btn.y, 'correct');
-      this.juice.burst(btn.x, btn.y, 'streak');
-      audioBus.play('correct');
-      // Spotlight flash on correct answer
-      const flash = this.add.circle(btn.x, btn.y, 100, this.theme.success, 0.3).setDepth(45);
-      this.tweens.add({
-        targets: flash,
-        scale: 3, alpha: 0,
-        duration: 500, ease: 'Cubic.out',
-        onComplete: () => flash.destroy(),
-      });
-    } else {
-      bg.setFillStyle(this.theme.danger, 1);
-      bg.setStrokeStyle(5, this.theme.danger, 1);
-      this.lifelines--;
-      // Animate heart breaking
-      const heart = this.lifelineHearts[this.lifelines];
-      if (heart) {
+      try {
+        bg.setFillStyle(this.theme.success, 1);
+        bg.setStrokeStyle(5, this.theme.success, 1);
+        this.juice.squash(btn, 1.2);
+        this.juice.burst(btn.x, btn.y, 'correct');
+        audioBus.play('correct');
+        // Spotlight flash on correct answer
+        const flash = this.add.circle(btn.x, btn.y, 100, this.theme.success, 0.3).setDepth(45);
         this.tweens.add({
-          targets: heart,
-          scale: 2, angle: 45, alpha: 0,
-          duration: 400, ease: 'Cubic.in',
-          onComplete: () => heart.setText('💔').setAlpha(1).setScale(1).setAngle(0),
+          targets: flash,
+          scale: 3, alpha: 0,
+          duration: 500, ease: 'Cubic.out',
+          onComplete: () => { try { flash.destroy(); } catch {} },
         });
-      }
-      const correctBtn = this.optionButtons[correctIndex];
-      const cBg = correctBtn.getData('bg') as Phaser.GameObjects.Rectangle;
-      cBg.setFillStyle(this.theme.success, 0.6);
-      cBg.setStrokeStyle(5, this.theme.success, 1);
-      this.juice.shake('heavy');
-      this.juice.burst(btn.x, btn.y, 'incorrect');
-      audioBus.play('incorrect');
+      } catch (e) { /* ignore animation errors */ }
+    } else {
+      try {
+        bg.setFillStyle(this.theme.danger, 1);
+        bg.setStrokeStyle(5, this.theme.danger, 1);
+        this.lifelines--;
+        // Update heart display safely
+        const heart = this.lifelineHearts[this.lifelines];
+        if (heart) {
+          heart.setText('💔');
+        }
+        const correctBtn = this.optionButtons[correctIndex];
+        const cBg = correctBtn.getData('bg') as Phaser.GameObjects.Rectangle;
+        cBg.setFillStyle(this.theme.success, 0.6);
+        cBg.setStrokeStyle(5, this.theme.success, 1);
+        this.juice.shake('heavy');
+        this.juice.burst(btn.x, btn.y, 'incorrect');
+        audioBus.play('incorrect');
+      } catch (e) { /* ignore animation errors */ }
     }
 
+    // Always advance to next round after delay (prevents freezing)
     this.time.delayedCall(1200, () => {
       this.round++;
       this.renderRound();

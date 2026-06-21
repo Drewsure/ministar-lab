@@ -698,15 +698,17 @@ export default class MazeChaseScene extends BaseEngine {
   }
 
   // ===========================================================================
-  // PER-FRAME UPDATE
+  // PER-FRAME UPDATE — uses direct position movement (more reliable than physics velocity)
   // ===========================================================================
-  update() {
+  update(_time: number, delta: number) {
     if (this.isFinished || !this.player) return;
 
-    const now = this.time.now;
+    const now = Date.now();
     const boosted = now < this.speedBoostUntil;
     const baseSpeed = this.lod.isMobile ? 220 : 280;
     const speed = boosted ? baseSpeed * 1.55 : baseSpeed;
+    // Pixels per frame (assuming ~60fps, delta ~16.67ms)
+    const moveAmount = speed * (delta / 1000);
 
     // ---- Keyboard input (objects already created in create()) ----
     let vx = 0, vy = 0;
@@ -720,10 +722,12 @@ export default class MazeChaseScene extends BaseEngine {
       this.path = [];
       this.pathIdx = 0;
       const mag = Math.hypot(vx, vy);
-      this.player.setVelocity((vx / mag) * speed, (vy / mag) * speed);
+      // Direct position update (bypass physics velocity which is unreliable in Phaser 4)
+      this.player.x += (vx / mag) * moveAmount;
+      this.player.y += (vy / mag) * moveAmount;
       this.playerDir = vy < 0 ? 'up' : vy > 0 ? 'down' : vx < 0 ? 'left' : 'right';
     } else if (this.path.length > 0 && this.pathIdx < this.path.length) {
-      // Follow A* path
+      // Follow A* path — direct position movement
       const target = this.path[this.pathIdx];
       const dx = target.x - this.player.x;
       const dy = target.y - this.player.y;
@@ -731,17 +735,23 @@ export default class MazeChaseScene extends BaseEngine {
       if (dist < 6) {
         this.pathIdx++;
         if (this.pathIdx >= this.path.length) {
-          this.player.setVelocity(0, 0);
+          // Reached destination
         }
       } else {
-        this.player.setVelocity((dx / dist) * speed, (dy / dist) * speed);
+        // Move directly toward target
+        const moveX = (dx / dist) * Math.min(moveAmount, dist);
+        const moveY = (dy / dist) * Math.min(moveAmount, dist);
+        this.player.x += moveX;
+        this.player.y += moveY;
         this.playerDir = Math.abs(dx) > Math.abs(dy)
           ? (dx < 0 ? 'left' : 'right')
           : (dy < 0 ? 'up' : 'down');
       }
-    } else {
-      this.player.setVelocity(0, 0);
     }
+
+    // Keep player in bounds
+    this.player.x = Phaser.Math.Clamp(this.player.x, this.mazeOffsetX + 20, this.mazeOffsetX + COLS * CELL - 20);
+    this.player.y = Phaser.Math.Clamp(this.player.y, this.mazeOffsetY + 20, this.mazeOffsetY + ROWS * CELL - 20);
 
     // Update directional indicator
     const rotMap: Record<Dir, number> = {

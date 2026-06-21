@@ -74,6 +74,19 @@ export default class MemoryMatchScene extends BaseEngine {
     ).setOrigin(0.5).setDepth(50);
 
     this.buildGrid();
+
+    // Global pointer handler for reliable card clicks
+    this.setupGlobalPointer((x, y) => {
+      if (!this.canInteract) return;
+      for (const card of this.cards) {
+        if (card.isFlipped || card.isMatched) continue;
+        const cardW = 100, cardH = 120;
+        if (Math.abs(x - card.container.x) < cardW / 2 && Math.abs(y - card.container.y) < cardH / 2) {
+          this.flipCard(card);
+          break;
+        }
+      }
+    });
   }
 
   protected onTick(_remainingMs: number) { /* HUD */ }

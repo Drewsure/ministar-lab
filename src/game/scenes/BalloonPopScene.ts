@@ -77,6 +77,17 @@ export default class BalloonPopScene extends BaseEngine {
       callback: this.updateCarrier,
       callbackScope: this,
     });
+
+    // Global pointer handler for reliable balloon pops
+    this.setupGlobalPointer((x, y) => {
+      for (const b of this.balloons) {
+        if (b.hit) continue;
+        if (Math.abs(x - b.container.x) < 35 && Math.abs(y - b.container.y) < 40) {
+          this.popBalloon(b);
+          break;
+        }
+      }
+    });
   }
 
   protected onTick(_remainingMs: number) {

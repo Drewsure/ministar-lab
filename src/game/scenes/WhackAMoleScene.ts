@@ -107,6 +107,14 @@ export default class WhackAMoleScene extends BaseEngine {
     });
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
       this.swingHammer();
+      // Hit-test moles
+      for (const hole of this.holes) {
+        if (!hole.mole || !hole.mole.active) continue;
+        if (Math.abs(p.x - hole.mole.container.x) < 35 && Math.abs(p.y - hole.mole.container.y) < 35) {
+          this.whack(hole, hole.mole);
+          break;
+        }
+      }
     });
   }
 

@@ -159,6 +159,38 @@ export default class FlashCardsScene extends BaseEngine {
 
     void shadow;
     this.showCard();
+
+    // Global pointer handler for reliable card interactions
+    this.setupGlobalPointer((x, y) => {
+      // Hit-test card (flip)
+      const cardX = this.scale.width / 2;
+      const cardY = this.scale.height / 2;
+      if (Math.abs(x - cardX) < 180 && Math.abs(y - cardY) < 120) {
+        this.flipCard();
+        return;
+      }
+      // Hit-test prev arrow
+      if (Math.abs(x - (cardX - 230)) < 25 && Math.abs(y - cardY) < 25) {
+        this.prevCard();
+        return;
+      }
+      // Hit-test next arrow
+      if (Math.abs(x - (cardX + 230)) < 25 && Math.abs(y - cardY) < 25) {
+        this.nextCard();
+        return;
+      }
+      // Hit-test "I Know This" button
+      const btnY = cardY + 120 + 70;
+      if (Math.abs(x - (cardX - 90)) < 70 && Math.abs(y - btnY) < 22) {
+        this.markKnown(true);
+        return;
+      }
+      // Hit-test "Review" button
+      if (Math.abs(x - (cardX + 90)) < 70 && Math.abs(y - btnY) < 22) {
+        this.markKnown(false);
+        return;
+      }
+    });
   }
 
   protected onTick(_remainingMs: number) { /* HUD */ }

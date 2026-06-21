@@ -82,7 +82,7 @@ export default class AirplaneScene extends BaseEngine {
     this.plane = this.physics.add.sprite(this.scale.width / 2, this.scale.height - 80, planeKey);
     this.plane.setCollideWorldBounds(true).setDepth(30);
     this.plane.setScale(1.4);
-    this.plane.setRotation(Math.PI / 2); // point upward
+    this.plane.setRotation(0); // Rocket faces UP (default sprite orientation)
     this.plane.setCircle(16, 0, 0);
 
     // ---- Exhaust particle trail ----
@@ -345,8 +345,8 @@ export default class AirplaneScene extends BaseEngine {
 
     // Tilt the plane based on velocity (visual feedback)
     const vel = this.plane.body?.velocity.x ?? 0;
-    const tilt = Phaser.Math.Clamp(vel / 250, -0.5, 0.5);
-    this.plane.setRotation(Math.PI / 2 + tilt);
+    const tilt = Phaser.Math.Clamp(vel / 400, -0.3, 0.3);
+    this.plane.setRotation(tilt); // Rocket stays mostly upright, slight tilt when moving
 
     // Update glow + exhaust position
     this.planeGlow.setPosition(this.plane.x, this.plane.y);

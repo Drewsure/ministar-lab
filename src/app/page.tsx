@@ -223,6 +223,23 @@ export default function Home() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
+                    // Restart the game by toggling launch
+                    const cfg = launch;
+                    setLaunch(null);
+                    setTimeout(() => setLaunch(cfg), 100);
+                  }}
+                  className="rounded-xl px-3 py-2 text-xs font-semibold"
+                  style={{
+                    background: 'color-mix(in oklab, var(--brand-accent) 25%, transparent)',
+                    color: 'var(--brand-text)',
+                    border: '1px solid color-mix(in oklab, var(--brand-accent) 50%, transparent)',
+                  }}
+                  title="Start a fresh game"
+                >
+                  🔄 New Game
+                </button>
+                <button
+                  onClick={() => {
                     const enabled = !audioBus.isTTSEnabled();
                     audioBus.setTTSEnabled(enabled);
                     if (enabled) audioBus.speak('Audio enabled');
@@ -254,8 +271,8 @@ export default function Home() {
             <div
               className="mx-auto rounded-3xl overflow-hidden shadow-2xl"
               style={{
-                aspectRatio: '4 / 3',
                 maxWidth: '900px',
+                maxHeight: '70vh',
                 border: `1px solid color-mix(in oklab, var(--brand-accent) 30%, transparent)`,
                 boxShadow: `0 30px 80px -20px ${brand.primaryColor}80`,
               }}

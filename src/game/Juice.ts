@@ -1208,12 +1208,12 @@ export class Hud {
     // Mascot in bottom-right corner
     this.mascot = new MascotController(scene, theme, scene.scale.width - 60, scene.scale.height - 60);
 
-    this.startTime = scene.time.now;
+    this.startTime = Date.now(); // Use real time, not Phaser game time
     void hudBg; void scoreBg; void timerBg;
   }
 
   tick(score: number, streak: number, maxScore: number) {
-    const elapsed = this.scene.time.now - this.startTime;
+    const elapsed = Date.now() - this.startTime;
     const remainingMs = Math.max(0, this.initialTimeMs - elapsed);
     const sec = Math.floor(remainingMs / 1000);
     const mm = Math.floor(sec / 60);

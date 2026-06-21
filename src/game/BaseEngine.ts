@@ -103,7 +103,7 @@ export abstract class BaseEngine extends Phaser.Scene {
     // Juice + HUD
     this.juice = new Juice(this, this.theme);
     this.hud = new Hud(this, this.theme, (state) => this.onHudUpdate(state));
-    this.startTime = this.time.now;
+    this.startTime = Date.now(); // Use real time, not Phaser game time (which accumulates)
 
     // AAA 2029 — Level badge (top-center, prominent like Wordwall)
     this.levelBg = this.add.rectangle(
@@ -162,7 +162,7 @@ export abstract class BaseEngine extends Phaser.Scene {
       success: opts.success,
       score: this.score,
       maxScore: this.maxScore,
-      durationMs: this.time.now - this.startTime,
+      durationMs: Date.now() - this.startTime,
       coordinate: opts.coordinate,
       streak: this.streak,
       tenantId: this.tenantId,
@@ -221,7 +221,7 @@ export abstract class BaseEngine extends Phaser.Scene {
     if (this.isFinished) return;
     this.isFinished = true;
 
-    const durationMs = this.time.now - this.startTime;
+    const durationMs = Date.now() - this.startTime;
     const actor = getActor();
     const completed = makeCompletedEvent({
       actor,
@@ -340,11 +340,11 @@ export abstract class BaseEngine extends Phaser.Scene {
     ).setOrigin(0.5).setDepth(501);
 
     const btnBg = this.add.rectangle(
-      this.scale.width / 2, this.scale.height / 2 + 80,
-      200, 50, statusColor, 0.9
+      this.scale.width / 2 - 110, this.scale.height / 2 + 80,
+      180, 48, statusColor, 0.9
     ).setDepth(501);
     const btn = this.add.text(
-      this.scale.width / 2, this.scale.height / 2 + 80,
+      this.scale.width / 2 - 110, this.scale.height / 2 + 80,
       'Play Again',
       {
         fontFamily: 'Inter, sans-serif',
@@ -361,14 +361,40 @@ export abstract class BaseEngine extends Phaser.Scene {
       this.scene.restart({ config: this.registry.get('launchConfig') });
     });
 
+    // "New Game" button — goes back to library (triggers onExit)
+    const btnBg2 = this.add.rectangle(
+      this.scale.width / 2 + 110, this.scale.height / 2 + 80,
+      180, 48, this.theme.card, 0.9
+    ).setStrokeStyle(2, this.theme.accent, 0.8).setDepth(501);
+    const btn2 = this.add.text(
+      this.scale.width / 2 + 110, this.scale.height / 2 + 80,
+      'New Game',
+      {
+        fontFamily: 'Inter, sans-serif',
+        fontSize: '18px',
+        color: '#ffffff',
+        fontStyle: 'bold',
+      }
+    ).setOrigin(0.5).setDepth(502).setInteractive({ useHandCursor: true });
+
+    btn2.on('pointerover', () => btn2.setScale(1.05));
+    btn2.on('pointerout', () => btn2.setScale(1));
+    btn2.on('pointerdown', () => {
+      audioBus.play('tap');
+      // Destroy the game — the React layer will show the library
+      this.game.destroy(true);
+    });
+
     // Animate overlay in
     overlay.setAlpha(0);
     titleText.setAlpha(0);
     subText.setAlpha(0);
     btnBg.setAlpha(0);
     btn.setAlpha(0);
+    btnBg2.setAlpha(0);
+    btn2.setAlpha(0);
     this.tweens.add({
-      targets: [overlay, titleText, subText, btnBg, btn],
+      targets: [overlay, titleText, subText, btnBg, btn, btnBg2, btn2],
       alpha: 1, duration: 400, ease: 'Cubic.out',
     });
   }
@@ -389,6 +415,33 @@ export abstract class BaseEngine extends Phaser.Scene {
 
   protected hex(c: number): string {
     return '#' + c.toString(16).padStart(6, '0');
+  }
+
+  // ===========================================================================
+  // HIT TEST UTILITY — for global pointerdown handlers
+  // Returns true if (px, py) is within the bounds of a game object
+  // ===========================================================================
+  protected hitTest(obj: Phaser.GameObjects.Container | Phaser.GameObjects.Text | Phaser.GameObjects.Rectangle, px: number, py: number): boolean {
+    const x = obj.x;
+    const y = obj.y;
+    let w = 100, h = 50;
+    if ('width' in obj && obj.width) w = obj.width as number;
+    if ('height' in obj && obj.height) h = obj.height as number;
+    if ('size' in obj && typeof obj.size === 'function') {
+      // Container — use default size
+      w = 100; h = 50;
+    }
+    return px >= x - w / 2 && px <= x + w / 2 && py >= y - h / 2 && py <= y + h / 2;
+  }
+
+  // ===========================================================================
+  // GLOBAL POINTER HANDLER — sets up a reliable pointerdown listener
+  // that works even when Phaser's per-object input fails
+  // ===========================================================================
+  protected setupGlobalPointer(handler: (x: number, y: number) => void) {
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      handler(p.x, p.y);
+    });
   }
 
   // ===========================================================================

@@ -126,6 +126,32 @@ export default class QuizScene extends BaseEngine {
     this.createLifelineButtons();
 
     this.renderRound();
+
+    // Global pointer handler for reliable button clicks
+    this.setupGlobalPointer((x, y) => {
+      if (!this.canAnswer) return;
+      const r = this.rounds[this.round];
+      if (!r) return;
+      // Hit-test option buttons
+      this.optionButtons.forEach((btn, i) => {
+        const btnW = 300, btnH = 80;
+        if (Math.abs(x - btn.x) < btnW / 2 && Math.abs(y - btn.y) < btnH / 2) {
+          this.handleAnswer(btn, i, r.correctIndex, r.options[i]);
+        }
+      });
+      // Hit-test 50/50 button
+      if (this.fiftyFiftyBtn && !this.lifelinesUsed.fiftyFifty) {
+        if (Math.abs(x - this.fiftyFiftyBtn.x) < 50 && Math.abs(y - this.fiftyFiftyBtn.y) < 18) {
+          this.useFiftyFifty();
+        }
+      }
+      // Hit-test Skip button
+      if (this.skipBtn && !this.lifelinesUsed.skip) {
+        if (Math.abs(x - this.skipBtn.x) < 50 && Math.abs(y - this.skipBtn.y) < 18) {
+          this.useSkip();
+        }
+      }
+    });
   }
 
   protected onTick(_remainingMs: number) { /* HUD-only */ }

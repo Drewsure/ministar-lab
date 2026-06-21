@@ -118,6 +118,42 @@ export default class TypeAnswerScene extends BaseEngine {
     // ---- Start first round ----
     this.rounds = this.pickTerms(this.maxScore);
     this.showRound();
+
+    // Global pointer handler for reliable keyboard clicks
+    this.setupGlobalPointer((x, y) => {
+      if (!this.canSubmit) return;
+      // Hit-test letter keys
+      for (const key of this.keyboardKeys) {
+        if (Math.abs(x - key.x) < 18 && Math.abs(y - key.y) < 18) {
+          const txt = key.getAt(1) as Phaser.GameObjects.Text;
+          if (txt) this.typeLetter(txt.text);
+          return;
+        }
+      }
+      // Hit-test submit button
+      const submitX = this.scale.width / 2 - 140;
+      const btnY = 410 + 3 * 40 + 10;
+      if (Math.abs(x - submitX) < 60 && Math.abs(y - btnY) < 18) {
+        this.submit();
+        return;
+      }
+      // Hit-test backspace button
+      const backX = this.scale.width / 2 + 140;
+      if (Math.abs(x - backX) < 60 && Math.abs(y - btnY) < 18) {
+        this.deleteLetter();
+        return;
+      }
+      // Hit-test hint button
+      if (Math.abs(x - (this.scale.width / 2 - 100)) < 80 && Math.abs(y - 340) < 20) {
+        this.useHint();
+        return;
+      }
+      // Hit-test skip button
+      if (Math.abs(x - (this.scale.width / 2 + 100)) < 80 && Math.abs(y - 340) < 20) {
+        this.skip();
+        return;
+      }
+    });
   }
 
   protected onTick(_remainingMs: number) { /* HUD */ }

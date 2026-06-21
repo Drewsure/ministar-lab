@@ -95,6 +95,36 @@ export default class CrosswordScene extends BaseEngine {
     if (this.input.keyboard) {
       this.input.keyboard.on('keydown', (e: KeyboardEvent) => this.handleKey(e));
     }
+
+    // Global pointer handler for reliable cell + keyboard clicks
+    this.setupGlobalPointer((x, y) => {
+      // Hit-test grid cells
+      for (let r = 0; r < this.gridRows; r++) {
+        for (let c = 0; c < this.gridCols; c++) {
+          const cell = this.grid[r][c];
+          if (cell.letter === '' || !cell.rect) continue;
+          const cellX = this.gridOffsetX + c * this.cellSize + this.cellSize / 2;
+          const cellY = this.gridOffsetY + r * this.cellSize + this.cellSize / 2;
+          if (Math.abs(x - cellX) < this.cellSize / 2 && Math.abs(y - cellY) < this.cellSize / 2) {
+            this.selectCell(r, c);
+            return;
+          }
+        }
+      }
+      // Hit-test keyboard buttons
+      for (const key of this.keyboardKeys) {
+        if (Math.abs(x - key.x) < 15 && Math.abs(y - key.y) < 15) {
+          const bg = key.getAt(0) as Phaser.GameObjects.Rectangle;
+          const txt = key.getAt(1) as Phaser.GameObjects.Text;
+          if (txt && txt.text === '⌫ DEL') {
+            this.deleteLetter();
+          } else if (txt) {
+            this.typeLetter(txt.text);
+          }
+          return;
+        }
+      }
+    });
   }
 
   protected onTick(_remainingMs: number) { /* HUD */ }

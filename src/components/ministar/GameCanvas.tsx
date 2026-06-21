@@ -101,8 +101,29 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
         },
         input: {
           activePointers: 3,
+          keyboard: true,  // Explicitly enable keyboard
+          touch: true,     // Explicitly enable touch
+          mouse: true,     // Explicitly enable mouse
         },
       };
+
+      // Make canvas focusable for keyboard input + ensure it receives pointer events
+      setTimeout(() => {
+        const canvas = container.querySelector('canvas');
+        if (canvas) {
+          canvas.setAttribute('tabindex', '0');
+          canvas.style.outline = 'none';
+          canvas.style.touchAction = 'none';
+          canvas.style.pointerEvents = 'auto';
+          // Constrain canvas to fit viewport — critical for mobile and desktop
+          canvas.style.maxWidth = '100%';
+          canvas.style.maxHeight = '70vh';
+          canvas.style.width = 'auto';
+          canvas.style.height = 'auto';
+          canvas.style.display = 'block';
+          canvas.style.margin = '0 auto';
+        }
+      }, 200);
 
       let game: Phaser.Game;
       try {
@@ -140,8 +161,12 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
   }, [config?.mode, config?.theme, config?.terms.length, config?.unit, config?.qrSlug]);
 
   return (
-    <div className="relative w-full h-full">
-      <div ref={containerRef} className="w-full h-full" />
+    <div className="relative w-full h-full" style={{ touchAction: 'none' }}>
+      <div
+        ref={containerRef}
+        className="w-full h-full"
+        style={{ touchAction: 'none', pointerEvents: 'auto' }}
+      />
       {/* Exit button removed — the parent page provides a clear "← Back to Library" button.
           Having two exit buttons was confusing users. */}
     </div>

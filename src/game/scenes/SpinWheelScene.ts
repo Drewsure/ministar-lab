@@ -24,6 +24,8 @@ export default class SpinWheelScene extends BaseEngine {
   private pointer!: Phaser.GameObjects.Text;
   private promptText!: Phaser.GameObjects.Text;
   private spinBtn!: Phaser.GameObjects.Container;
+  private spinBtnX = 0;
+  private spinBtnY = 0;
   private answerButtons: Phaser.GameObjects.Container[] = [];
   private isSpinning = false;
   private landedTerm?: TermItem;
@@ -115,10 +117,25 @@ export default class SpinWheelScene extends BaseEngine {
       fontStyle: 'bold',
     }).setOrigin(0.5);
     this.spinBtn = this.add.container(wheelX, btnY, [spinBtnBg, spinBtnTxt])
-      .setSize(180, 50).setInteractive({ useHandCursor: true }).setDepth(40);
-    this.spinBtn.on('pointerover', () => spinBtnBg.setScale(1.05));
-    this.spinBtn.on('pointerout', () => spinBtnBg.setScale(1));
-    this.spinBtn.on('pointerdown', () => this.spin());
+      .setSize(180, 50).setDepth(40);
+
+    // Use global pointerdown for reliability (Phaser 4 per-object input can be unreliable)
+    this.spinBtnX = wheelX;
+    this.spinBtnY = btnY;
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      // Check if SPIN button was clicked
+      if (!this.isSpinning && Math.abs(p.x - this.spinBtnX) < 90 && Math.abs(p.y - this.spinBtnY) < 25) {
+        this.spin();
+      }
+      // Check if any answer button was clicked (they're in optionsContainer at y=530)
+      this.answerButtons.forEach((btn) => {
+        const opt = btn.getData('opt') as { isCorrect: boolean; term: TermItem };
+        const btnWorldY = 530 + (btn.getData('y') as number);
+        if (opt && Math.abs(p.x - 400) < 160 && Math.abs(p.y - btnWorldY) < 25) {
+          this.selectOption(opt.isCorrect, opt.term, btn);
+        }
+      });
+    });
 
     // ---- Options container (for definition selection after spin) ----
     this.optionsContainer = this.add.container(wheelX, 530).setDepth(40);
@@ -219,10 +236,9 @@ export default class SpinWheelScene extends BaseEngine {
       }).setOrigin(0.5);
 
       const container = this.add.container(0, y, [bg, txt])
-        .setSize(btnW, btnH).setInteractive({ useHandCursor: true });
-      container.on('pointerover', () => bg.setFillStyle(this.theme.cardAlt, 1));
-      container.on('pointerout', () => bg.setFillStyle(this.theme.card, 0.9));
-      container.on('pointerdown', () => this.selectOption(opt.isCorrect, opt.term, container));
+        .setSize(btnW, btnH).setDepth(40);
+      container.setData('opt', opt);
+      container.setData('y', y);
 
       this.answerButtons.push(container);
       this.optionsContainer.add(container);
