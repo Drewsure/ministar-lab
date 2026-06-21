@@ -49,7 +49,7 @@ export default class QuizScene extends BaseEngine {
       'Quiz Time',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '28px',
+        fontSize: '42px',
         color: this.hex(this.theme.accent),
         fontStyle: 'bold',
       }
@@ -68,7 +68,7 @@ export default class QuizScene extends BaseEngine {
       '',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '32px',
+        fontSize: '48px',
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
         align: 'center',
@@ -89,6 +89,9 @@ export default class QuizScene extends BaseEngine {
     this.canAnswer = true;
     const r = this.rounds[this.round];
     this.promptText.setText(`Which word matches: "${r.prompt.definition ?? r.prompt.emoji ?? r.prompt.term}"?`);
+    // ESL: speak the prompt aloud
+    this.speakPrompt(r.prompt.term, r.prompt.definition);
+    this.makeSpeakable(this.promptText, `${r.prompt.term}. ${r.prompt.definition ?? ''}`);
 
     // Update progress bar
     const pct = this.round / this.rounds.length;
@@ -118,7 +121,7 @@ export default class QuizScene extends BaseEngine {
         .setStrokeStyle(2, this.theme.accent, 0.5);
       const txt = this.add.text(0, 0, opt.term, {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '20px',
+        fontSize: '30px',
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
       }).setOrigin(0.5);

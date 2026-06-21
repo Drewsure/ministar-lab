@@ -90,7 +90,7 @@ export default class MazeChaseScene extends BaseEngine {
       'Collect the correct answer!',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '22px',
+        fontSize: '33px',
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
       }
@@ -101,7 +101,7 @@ export default class MazeChaseScene extends BaseEngine {
       '↑',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '24px',
+        fontSize: '36px',
         color: this.hex(this.theme.success),
         fontStyle: 'bold',
       }
@@ -147,6 +147,8 @@ export default class MazeChaseScene extends BaseEngine {
     if (this.isFinished) return;
     if (this.activeTerm) {
       this.promptText.setText(`Find: ${this.activeTerm.term}`);
+    this.speakPrompt(this.activeTerm.term, this.activeTerm.definition);
+    this.makeSpeakable(this.promptText, this.activeTerm.term);
       // Update compass to point toward active target
       this.updateCompass();
     }
@@ -295,7 +297,7 @@ export default class MazeChaseScene extends BaseEngine {
     // Directional indicator (a small arrow that rotates)
     this.playerDirIndicator = this.add.text(startX, startY, '▶', {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '16px',
+      fontSize: '24px',
       color: '#ffffff',
       fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(21);
@@ -319,6 +321,8 @@ export default class MazeChaseScene extends BaseEngine {
     // First term is the active correct answer; others are decoys
     this.activeTerm = roundTerms[0];
     this.promptText.setText(`Find: ${this.activeTerm.term}`);
+    this.speakPrompt(this.activeTerm.term, this.activeTerm.definition);
+    this.makeSpeakable(this.promptText, this.activeTerm.term);
 
     // Available cells (exclude player start at 0,0)
     const interiorCells: { x: number; y: number }[] = [];
@@ -381,7 +385,7 @@ export default class MazeChaseScene extends BaseEngine {
 
     const label = this.add.text(px, py, term.emoji ?? term.term.slice(0, 3), {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '14px',
+      fontSize: '21px',
       color: '#ffffff',
       fontStyle: 'bold',
       wordWrap: { width: 56 },
@@ -599,6 +603,8 @@ export default class MazeChaseScene extends BaseEngine {
     }
     this.activeTerm = Phaser.Utils.Array.GetRandom(remaining);
     this.promptText.setText(`Find: ${this.activeTerm.term}`);
+    this.speakPrompt(this.activeTerm.term, this.activeTerm.definition);
+    this.makeSpeakable(this.promptText, this.activeTerm.term);
   }
 
   // ===========================================================================

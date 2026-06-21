@@ -138,17 +138,35 @@ export default function Home() {
                   {GAME_MODE_MAP[launch.mode].emoji} {GAME_MODE_MAP[launch.mode].name}
                 </div>
               </div>
-              <button
-                onClick={exitGame}
-                className="rounded-xl px-4 py-2 text-sm font-semibold"
-                style={{
-                  background: 'color-mix(in oklab, var(--brand-accent) 20%, transparent)',
-                  color: 'var(--brand-text)',
-                  border: '1px solid color-mix(in oklab, var(--brand-accent) 40%, transparent)',
-                }}
-              >
-                ← Back to Library
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const enabled = !audioBus.isTTSEnabled();
+                    audioBus.setTTSEnabled(enabled);
+                    if (enabled) audioBus.speak('Audio enabled');
+                  }}
+                  className="rounded-xl px-3 py-2 text-xs font-semibold"
+                  style={{
+                    background: 'color-mix(in oklab, var(--brand-accent) 18%, transparent)',
+                    color: 'var(--brand-text)',
+                    border: '1px solid color-mix(in oklab, var(--brand-accent) 40%, transparent)',
+                  }}
+                  title="Toggle text-to-speech for ESL learners"
+                >
+                  🔊 Audio
+                </button>
+                <button
+                  onClick={exitGame}
+                  className="rounded-xl px-4 py-2 text-sm font-semibold"
+                  style={{
+                    background: 'color-mix(in oklab, var(--brand-accent) 20%, transparent)',
+                    color: 'var(--brand-text)',
+                    border: '1px solid color-mix(in oklab, var(--brand-accent) 40%, transparent)',
+                  }}
+                >
+                  ← Back to Library
+                </button>
+              </div>
             </div>
 
             <div

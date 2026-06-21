@@ -61,7 +61,7 @@ export default class CrosswordScene extends BaseEngine {
       '🔤 Crossword',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '26px',
+        fontSize: '39px',
         color: this.hex(this.theme.accent),
         fontStyle: 'bold',
       }
@@ -72,7 +72,7 @@ export default class CrosswordScene extends BaseEngine {
       'Tap a cell to start',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '14px',
+        fontSize: '21px',
         color: this.hex(this.theme.textMuted),
         align: 'center',
         wordWrap: { width: 700 },
@@ -282,7 +282,7 @@ export default class CrosswordScene extends BaseEngine {
 
         const text = this.add.text(x, y, '', {
           fontFamily: 'Inter, sans-serif',
-          fontSize: '20px',
+          fontSize: '30px',
           color: this.hex(this.theme.text),
           fontStyle: 'bold',
         }).setOrigin(0.5).setDepth(11);
@@ -294,7 +294,7 @@ export default class CrosswordScene extends BaseEngine {
         if (owner && owner.cells[0].r === r && owner.cells[0].c === c) {
           this.add.text(x - this.cellSize / 2 + 3, y - this.cellSize / 2 + 2, String(owner.number), {
             fontFamily: 'Inter, sans-serif',
-            fontSize: '9px',
+            fontSize: '14px',
             color: this.hex(this.theme.textMuted),
           }).setOrigin(0, 0).setDepth(12);
         }
@@ -324,7 +324,7 @@ export default class CrosswordScene extends BaseEngine {
           .setStrokeStyle(1, this.theme.accent, 0.5);
         const txt = this.add.text(0, 0, letter, {
           fontFamily: 'Inter, sans-serif',
-          fontSize: '14px',
+          fontSize: '21px',
           color: this.hex(this.theme.text),
           fontStyle: 'bold',
         }).setOrigin(0.5);
@@ -343,7 +343,7 @@ export default class CrosswordScene extends BaseEngine {
     const bsBg = this.add.rectangle(0, 0, 80, btnSize, this.theme.danger, 0.7)
       .setStrokeStyle(1, this.theme.danger);
     const bsTxt = this.add.text(0, 0, '⌫ DEL', {
-      fontFamily: 'Inter, sans-serif', fontSize: '12px', color: '#ffffff', fontStyle: 'bold',
+      fontFamily: 'Inter, sans-serif', fontSize: '18px', color: '#ffffff', fontStyle: 'bold',
     }).setOrigin(0.5);
     const bsBtn = this.add.container(this.scale.width / 2 - 50, kbY2, [bsBg, bsTxt])
       .setSize(80, btnSize).setInteractive({ useHandCursor: true });
@@ -416,6 +416,9 @@ export default class CrosswordScene extends BaseEngine {
     }
     const dirLabel = this.activeEntry.dir === 'across' ? 'Across' : 'Down';
     this.clueText.setText(`${this.activeEntry.number} ${dirLabel}: ${this.activeEntry.clue}`);
+    // ESL: speak the clue aloud
+    this.speakPrompt(this.activeEntry.word, this.activeEntry.clue);
+    this.makeSpeakable(this.clueText, `${this.activeEntry.clue}. The answer is ${this.activeEntry.word}`);
   }
 
   private handleKey(e: KeyboardEvent) {

@@ -29,7 +29,7 @@ export default class BalloonPopScene extends BaseEngine {
       'Pop the balloon!',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '28px',
+        fontSize: '42px',
         color: this.hex(this.theme.accent),
         fontStyle: 'bold',
       }
@@ -48,6 +48,9 @@ export default class BalloonPopScene extends BaseEngine {
   protected onTick(_remainingMs: number) {
     if (this.isFinished || !this.activePrompt) return;
     this.promptText.setText(`Pop: "${this.activePrompt.term}"`);
+    // ESL: speak the prompt aloud
+    this.speakPrompt(this.activePrompt.term, this.activePrompt.definition);
+    this.makeSpeakable(this.promptText, this.activePrompt.term);
   }
 
   private spawnBalloon() {
@@ -66,7 +69,7 @@ export default class BalloonPopScene extends BaseEngine {
 
     const txt = this.add.text(0, 10, term.emoji ?? term.term.slice(0, 6), {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '16px',
+      fontSize: '24px',
       color: '#ffffff',
       fontStyle: 'bold',
     }).setOrigin(0.5);

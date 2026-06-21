@@ -68,15 +68,26 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
       // Load the scene module (only the active one — keeps bundle light)
       const SceneClass = (await sceneLoader()).default;
 
+      // Responsive sizing — detect container dimensions for mobile landscape support
+      const container = containerRef.current!;
+      const containerWidth = container.clientWidth || 800;
+      const containerHeight = container.clientHeight || 600;
+
+      // Use a 4:3 game canvas that scales to fit any screen (including mobile landscape)
+      const gameWidth = 800;
+      const gameHeight = 600;
+
       const sceneConfig: Phaser.Types.Core.GameConfig = {
         type: Phaser.AUTO,
-        parent: containerRef.current!,
-        width: 800,
-        height: 600,
+        parent: container,
+        width: gameWidth,
+        height: gameHeight,
         backgroundColor: '#' + theme.bg.toString(16).padStart(6, '0'),
         scale: {
-          mode: Phaser.Scale.FIT,
+          mode: Phaser.Scale.RESIZE, // RESIZE adapts to any orientation/size
           autoCenter: Phaser.Scale.CENTER_BOTH,
+          width: gameWidth,
+          height: gameHeight,
         },
         physics: {
           default: 'arcade',
@@ -89,11 +100,14 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
         render: {
           antialias: true,
           powerPreference: 'high-performance',
+          roundPixels: true,
         },
         input: {
           activePointers: 3,
         },
       };
+
+      void containerWidth; void containerHeight;
 
       const game = new Phaser.Game(sceneConfig);
       gameRef.current = game;

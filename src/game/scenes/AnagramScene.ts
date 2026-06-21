@@ -35,7 +35,7 @@ export default class AnagramScene extends BaseEngine {
       'Unscramble the word',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '26px',
+        fontSize: '39px',
         color: this.hex(this.theme.accent),
         fontStyle: 'bold',
       }
@@ -44,11 +44,11 @@ export default class AnagramScene extends BaseEngine {
     this.rounds = this.pickTerms(this.maxScore);
 
     this.poolText = this.add.text(20, 540, '', {
-      fontFamily: 'Inter, sans-serif', fontSize: '14px', color: this.hex(this.theme.textMuted),
+      fontFamily: 'Inter, sans-serif', fontSize: '21px', color: this.hex(this.theme.textMuted),
     }).setDepth(50);
 
     this.answerText = this.add.text(20, 565, '', {
-      fontFamily: 'Inter, sans-serif', fontSize: '14px', color: this.hex(this.theme.textMuted),
+      fontFamily: 'Inter, sans-serif', fontSize: '21px', color: this.hex(this.theme.textMuted),
     }).setDepth(50);
 
     this.renderRound();
@@ -114,7 +114,7 @@ export default class AnagramScene extends BaseEngine {
       .setStrokeStyle(2, this.theme.accent, 0.7);
     const txt = this.add.text(0, 0, letter, {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '28px',
+      fontSize: '42px',
       color: this.hex(this.theme.text),
       fontStyle: 'bold',
     }).setOrigin(0.5);
@@ -188,6 +188,8 @@ export default class AnagramScene extends BaseEngine {
 
     if (isCorrect) {
       this.solvedRounds++;
+      // ESL: speak the correctly-spelled word
+      this.speakPrompt(this.rounds[this.round].term, this.rounds[this.round].definition);
       // Celebrate tiles
       this.answer.forEach((t, i) => {
         this.tweens.add({

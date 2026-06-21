@@ -29,7 +29,7 @@ export default class WhackAMoleScene extends BaseEngine {
       'Whack the correct mole!',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '26px',
+        fontSize: '39px',
         color: this.hex(this.theme.accent),
         fontStyle: 'bold',
       }
@@ -69,6 +69,9 @@ export default class WhackAMoleScene extends BaseEngine {
   protected onTick(_remainingMs: number) {
     if (this.isFinished || !this.activePrompt) return;
     this.promptText.setText(`Whack: "${this.activePrompt.term}"`);
+    // ESL: speak the prompt aloud
+    this.speakPrompt(this.activePrompt.term, this.activePrompt.definition);
+    this.makeSpeakable(this.promptText, this.activePrompt.term);
   }
 
   private spawnMole() {
@@ -88,7 +91,7 @@ export default class WhackAMoleScene extends BaseEngine {
     const moleImg = this.add.image(0, 0, 'mole-' + this.theme.id).setDisplaySize(60, 60);
     const txt = this.add.text(0, -45, term.emoji ?? term.term.slice(0, 5), {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '16px',
+      fontSize: '24px',
       color: '#ffffff',
       fontStyle: 'bold',
       backgroundColor: '#' + this.theme.card.toString(16).padStart(6, '0'),

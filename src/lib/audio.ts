@@ -123,6 +123,79 @@ class AudioBus {
       setTimeout(() => this.play('tap', { freq, duration: 0.08 }), i * 70);
     });
   }
+
+  // ===========================================================================
+  // AAA 2029 — TEXT-TO-SPEECH (Web Speech API)
+  // VITAL for ESL: every term, prompt, and answer must be spoken aloud.
+  // Uses the browser's built-in speechSynthesis — no audio files needed.
+  // ===========================================================================
+  private ttsEnabled = true;
+  private ttsVoice: SpeechSynthesisVoice | null = null;
+  private ttsVoiceReady = false;
+
+  /** Initialize TTS voice (prefers en-US female voice for clarity) */
+  initTTS() {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    if (this.ttsVoiceReady) return;
+    const pickVoice = () => {
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length === 0) return;
+      // Prefer en-US female voices (clearer for ESL learners)
+      this.ttsVoice =
+        voices.find(v => v.lang === 'en-US' && /female|samantha|victoria|karen|moira/i.test(v.name)) ??
+        voices.find(v => v.lang === 'en-US') ??
+        voices.find(v => v.lang.startsWith('en')) ??
+        voices[0];
+      this.ttsVoiceReady = true;
+    };
+    pickVoice();
+    // Voices load asynchronously in some browsers
+    window.speechSynthesis.onvoiceschanged = pickVoice;
+  }
+
+  /** Speak any text aloud. Cancels any in-progress speech. */
+  speak(text: string, opts: { rate?: number; pitch?: number; volume?: number } = {}) {
+    if (!this.ttsEnabled || this.muted) return;
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    this.initTTS();
+    try {
+      window.speechSynthesis.cancel(); // cancel any pending speech
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = 'en-US';
+      utter.rate = opts.rate ?? 0.9; // slightly slower for ESL learners
+      utter.pitch = opts.pitch ?? 1.0;
+      utter.volume = opts.volume ?? 1.0;
+      if (this.ttsVoice) utter.voice = this.ttsVoice;
+      window.speechSynthesis.speak(utter);
+    } catch {
+      // TTS not available — fail silently
+    }
+  }
+
+  /** Speak a term + its definition (used when a term card is shown) */
+  speakTerm(term: string, definition?: string) {
+    if (definition) {
+      this.speak(`${term}. ${definition}`);
+    } else {
+      this.speak(term);
+    }
+  }
+
+  /** Stop any in-progress speech */
+  stopSpeaking() {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+  }
+
+  setTTSEnabled(enabled: boolean) {
+    this.ttsEnabled = enabled;
+    if (!enabled) this.stopSpeaking();
+  }
+
+  isTTSEnabled() {
+    return this.ttsEnabled;
+  }
 }
 
 export const audioBus = new AudioBus();

@@ -32,7 +32,7 @@ export default class MemoryMatchScene extends BaseEngine {
       'Memory Match',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '28px',
+        fontSize: '42px',
         color: this.hex(this.theme.accent),
         fontStyle: 'bold',
       }
@@ -69,7 +69,7 @@ export default class MemoryMatchScene extends BaseEngine {
       const front = this.add.image(0, 0, 'card-front-' + this.theme.id).setDisplaySize(cardW, cardH).setVisible(false);
       const label = this.add.text(0, 0, c.text, {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '18px',
+        fontSize: '27px',
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
         align: 'center',
@@ -127,6 +127,8 @@ export default class MemoryMatchScene extends BaseEngine {
     if (a.pairId === b.pairId) {
       // Match
       audioBus.play('correct');
+      // ESL: speak the matched term
+      this.speakPrompt(a.text);
       this.juice.burst(a.container.x, a.container.y, 'correct');
       this.juice.burst(b.container.x, b.container.y, 'correct');
       this.recordAnswer({

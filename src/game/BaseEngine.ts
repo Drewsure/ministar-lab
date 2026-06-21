@@ -159,7 +159,7 @@ export abstract class BaseEngine extends Phaser.Scene {
       this.juice.scorePopup(
         opts.coordinate?.x ?? this.scale.width / 2,
         opts.coordinate?.y ?? this.scale.height / 2,
-        this.streak >= 3 ? `🔥 STREAK x${this.streak}!` : '+1',
+        this.streak >= 3 ? `STREAK x${this.streak}!` : '+1',
         this.streak >= 3 ? this.theme.warning : this.theme.success
       );
       if (this.streak === 3 || this.streak === 5 || this.streak === 7) {
@@ -171,6 +171,8 @@ export abstract class BaseEngine extends Phaser.Scene {
         );
         this.juice.zoomPunch(1.04, 250);
       }
+      // ESL: speak the correct term aloud when answered correctly
+      audioBus.speak(opts.term);
       audioBus.play('correct');
     } else {
       this.streak = 0;
@@ -181,7 +183,7 @@ export abstract class BaseEngine extends Phaser.Scene {
       this.juice.scorePopup(
         opts.coordinate?.x ?? this.scale.width / 2,
         opts.coordinate?.y ?? this.scale.height / 2,
-        '✗',
+        'X',
         this.theme.danger
       );
       audioBus.play('incorrect');
@@ -334,5 +336,30 @@ export abstract class BaseEngine extends Phaser.Scene {
 
   protected hex(c: number): string {
     return '#' + c.toString(16).padStart(6, '0');
+  }
+
+  // ===========================================================================
+  // ESL TEXT-TO-SPEECH HELPERS
+  // ===========================================================================
+
+  /** Speak the active prompt term aloud (called when a new prompt is shown) */
+  protected speakPrompt(term: string, definition?: string) {
+    audioBus.speakTerm(term, definition);
+  }
+
+  /** Make a text object speak its content when tapped (ESL tap-to-hear) */
+  protected makeSpeakable(text: Phaser.GameObjects.Text, speechText?: string) {
+    text.setInteractive({ useHandCursor: true });
+    text.on('pointerdown', () => {
+      audioBus.speak(speechText ?? text.text);
+      audioBus.play('tap');
+      // Visual feedback: pulse
+      this.tweens.add({
+        targets: text,
+        scale: { from: 1.1, to: 1 },
+        duration: 200,
+        ease: 'Quad.out',
+      });
+    });
   }
 }
