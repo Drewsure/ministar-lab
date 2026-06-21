@@ -195,6 +195,8 @@ export class ThemeAtlas {
       case 'candy':       this.drawCandyScene(g, W, H); break;
       case 'haunted':     this.drawHauntedScene(g, W, H); break;
       case 'sports':      this.drawSportsScene(g, W, H); break;
+      case 'christmas':   this.drawChristmasScene(g, W, H); break;
+      case 'easter':      this.drawEasterScene(g, W, H); break;
     }
 
     // 3. Vignette (darker corners for cinematic feel)
@@ -615,16 +617,12 @@ export class ThemeAtlas {
 
     // Field lines
     g.lineStyle(3, 0xf0fdf4, 0.7);
-    // Outer boundary
     g.strokeRect(20, H - 180, W - 40, 160);
-    // Center line
     g.beginPath();
     g.moveTo(W / 2, H - 180);
     g.lineTo(W / 2, H - 20);
     g.strokePath();
-    // Center circle
     g.strokeCircle(W / 2, H - 100, 50);
-    // Goal boxes
     g.strokeRect(20, H - 140, 80, 80);
     g.strokeRect(W - 100, H - 140, 80, 80);
 
@@ -640,11 +638,10 @@ export class ThemeAtlas {
       g.fillCircle(x, y, 2);
     }
 
-    // Floodlights (top corners)
+    // Floodlights
     g.fillStyle(0xfef3c7, 0.9);
     g.fillCircle(80, 40, 12);
     g.fillCircle(W - 80, 40, 12);
-    // Light cones
     g.fillStyle(0xfef3c7, 0.08);
     g.beginPath();
     g.moveTo(80, 40); g.lineTo(0, H - 200); g.lineTo(200, H - 200); g.closePath();
@@ -659,6 +656,147 @@ export class ThemeAtlas {
     g.fillStyle(0xfbbf24, 0.9);
     g.fillRect(W / 2 - 80, 20, 160, 2);
     g.fillRect(W / 2 - 80, 48, 160, 2);
+  }
+
+  // ---- CHRISTMAS: snowy night, tree, presents, snowflakes ----
+  private static drawChristmasScene(g: Phaser.GameObjects.Graphics, W: number, H: number) {
+    // Snow on ground
+    g.fillStyle(0xffffff, 0.8);
+    g.fillRect(0, H - 60, W, 60);
+    // Snow mounds
+    for (let i = 0; i < 6; i++) {
+      g.fillEllipse(i * 150 + 50, H - 50, 120, 30);
+    }
+
+    // Snowflakes (falling)
+    for (let i = 0; i < 40; i++) {
+      const x = Math.random() * W;
+      const y = Math.random() * H;
+      g.fillStyle(0xffffff, Math.random() * 0.7 + 0.3);
+      g.fillCircle(x, y, Math.random() * 2 + 1);
+    }
+
+    // Christmas tree (center)
+    const treeX = W / 2;
+    const treeY = H - 80;
+    // Tree layers (triangles)
+    g.fillStyle(0x166534, 1);
+    g.fillTriangle(treeX - 50, treeY - 40, treeX + 50, treeY - 40, treeX, treeY - 100);
+    g.fillTriangle(treeX - 60, treeY - 80, treeX + 60, treeY - 80, treeX, treeY - 140);
+    g.fillTriangle(treeX - 70, treeY - 120, treeX + 70, treeY - 120, treeX, treeY - 180);
+    // Trunk
+    g.fillStyle(0x92400e, 1);
+    g.fillRect(treeX - 10, treeY - 40, 20, 40);
+    // Star on top
+    g.fillStyle(0xfde047, 1);
+    g.fillCircle(treeX, treeY - 180, 10);
+    // Ornaments
+    const ornamentColors = [0xdc2626, 0xfbbf24, 0x3b82f6, 0xffffff];
+    for (let i = 0; i < 12; i++) {
+      g.fillStyle(ornamentColors[i % 4], 1);
+      g.fillCircle(treeX + (Math.random() - 0.5) * 120, treeY - 60 - Math.random() * 120, 4);
+    }
+
+    // Presents under tree
+    g.fillStyle(0xdc2626, 0.9);
+    g.fillRect(treeX - 80, treeY - 25, 30, 25);
+    g.fillStyle(0x22c55e, 0.9);
+    g.fillRect(treeX + 50, treeY - 30, 35, 30);
+    g.fillStyle(0x3b82f6, 0.9);
+    g.fillRect(treeX - 40, treeY - 20, 25, 20);
+    // Ribbons
+    g.fillStyle(0xfbbf24, 1);
+    g.fillRect(treeX - 80, treeY - 15, 30, 3);
+    g.fillRect(treeX + 50, treeY - 20, 35, 3);
+
+    // String lights across top
+    g.lineStyle(1, 0xfbbf24, 0.5);
+    g.beginPath();
+    g.moveTo(0, 60);
+    for (let x = 0; x <= W; x += 30) {
+      g.lineTo(x, 60 + Math.sin(x / 30) * 15);
+    }
+    g.strokePath();
+    // Light bulbs
+    for (let i = 0; i < 25; i++) {
+      const x = i * 32 + 10;
+      const y = 60 + Math.sin(x / 30) * 15;
+      g.fillStyle([0xdc2626, 0x22c55e, 0xfbbf24, 0x3b82f6][i % 4], 1);
+      g.fillCircle(x, y, 3);
+    }
+  }
+
+  // ---- EASTER: garden, flowers, eggs, bunny ----
+  private static drawEasterScene(g: Phaser.GameObjects.Graphics, W: number, H: number) {
+    // Grass ground
+    g.fillStyle(0x4ade80, 0.4);
+    g.fillRect(0, H - 80, W, 80);
+    // Grass blades
+    for (let i = 0; i < 50; i++) {
+      g.fillStyle(0x22c55e, 0.6);
+      g.fillRect(i * 16 + Math.random() * 8, H - 30 - Math.random() * 10, 2, 8);
+    }
+
+    // Flowers
+    const flowerColors = [0xf472b6, 0xfde047, 0xa78bfa, 0xfb7185, 0x60a5fa];
+    for (let i = 0; i < 12; i++) {
+      const x = Math.random() * W;
+      const y = H - 50 - Math.random() * 30;
+      const c = flowerColors[i % flowerColors.length];
+      // Petals
+      g.fillStyle(c, 0.9);
+      g.fillCircle(x - 4, y, 4);
+      g.fillCircle(x + 4, y, 4);
+      g.fillCircle(x, y - 4, 4);
+      g.fillCircle(x, y + 4, 4);
+      // Center
+      g.fillStyle(0xfde047, 1);
+      g.fillCircle(x, y, 3);
+    }
+
+    // Easter eggs (hidden in grass)
+    const eggColors = [0xf472b6, 0x4ade80, 0xfde047, 0xa78bfa, 0x60a5fa];
+    for (let i = 0; i < 8; i++) {
+      const x = 80 + i * 90 + Math.random() * 20;
+      const y = H - 35;
+      const c = eggColors[i % eggColors.length];
+      // Egg body
+      g.fillStyle(c, 0.95);
+      g.fillEllipse(x, y, 18, 24);
+      // Stripes
+      g.fillStyle(0xffffff, 0.6);
+      g.fillRect(x - 9, y - 4, 18, 2);
+      g.fillRect(x - 8, y + 4, 16, 2);
+      // Highlight
+      g.fillStyle(0xffffff, 0.5);
+      g.fillEllipse(x - 4, y - 6, 4, 6);
+    }
+
+    // Bunny (right side)
+    const bx = W - 100, by = H - 90;
+    // Body
+    g.fillStyle(0xffffff, 1);
+    g.fillEllipse(bx, by, 40, 30);
+    // Head
+    g.fillCircle(bx, by - 25, 16);
+    // Ears
+    g.fillEllipse(bx - 8, by - 45, 8, 22);
+    g.fillEllipse(bx + 8, by - 45, 8, 22);
+    g.fillStyle(0xfbcfe8, 0.8);
+    g.fillEllipse(bx - 8, by - 45, 4, 16);
+    g.fillEllipse(bx + 8, by - 45, 4, 16);
+    // Eye
+    g.fillStyle(0x000000, 1);
+    g.fillCircle(bx + 4, by - 27, 2);
+    // Nose
+    g.fillStyle(0xf472b6, 1);
+    g.fillCircle(bx + 8, by - 22, 2);
+
+    // Sun
+    g.fillStyle(0xfde047, 0.4);
+    g.fillCircle(100, 100, 40);
+    g.fillStyle(0xfde047, 0.2);
+    g.fillCircle(100, 100, 55);
   }
 
   // ===========================================================================
@@ -812,7 +950,7 @@ export class Juice {
   scorePopup(x: number, y: number, text: string, color: number = 0xffffff) {
     const popup = this.scene.add.text(x, y, text, {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '42px',
+      fontSize: '32px',
       color: '#' + color.toString(16).padStart(6, '0'),
       fontStyle: 'bold',
       stroke: '#000000',
@@ -1040,13 +1178,13 @@ export class Hud {
     const scoreBg = scene.add.rectangle(20, 24, 150, 36, t.card, 0.7)
       .setStrokeStyle(1, t.accent, 0.5).setDepth(200);
     this.scoreText = scene.add.text(28, 16, 'Score: 0', {
-      fontFamily: 'Inter, sans-serif', fontSize: '27px', color: textHex,
+      fontFamily: 'Inter, sans-serif', fontSize: '21px', color: textHex,
       fontStyle: 'bold',
     }).setDepth(201);
 
     // Streak with fire emoji + accent color
     this.streakText = scene.add.text(180, 22, '🔥 0', {
-      fontFamily: 'Inter, sans-serif', fontSize: '24px',
+      fontFamily: 'Inter, sans-serif', fontSize: '18px',
       color: accentHex, fontStyle: 'bold',
     }).setDepth(201);
 
@@ -1054,7 +1192,7 @@ export class Hud {
     const timerBg = scene.add.rectangle(scene.scale.width - 130, 24, 110, 36, t.card, 0.7)
       .setStrokeStyle(1, t.accent, 0.5).setDepth(200);
     this.timerText = scene.add.text(scene.scale.width - 75, 16, '⏱ 3:00', {
-      fontFamily: 'Inter, sans-serif', fontSize: '27px', color: textHex,
+      fontFamily: 'Inter, sans-serif', fontSize: '21px', color: textHex,
       fontStyle: 'bold',
     }).setOrigin(0.5, 0).setDepth(201);
 

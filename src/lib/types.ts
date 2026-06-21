@@ -1,6 +1,6 @@
 // MiniStar shared types — used across React UI, Phaser scenes, serverless APIs.
 
-export type ThemeId = 'space' | 'jungle' | 'festival' | 'cityscape' | 'ocean' | 'candy' | 'haunted' | 'sports';
+export type ThemeId = 'space' | 'jungle' | 'festival' | 'cityscape' | 'ocean' | 'candy' | 'haunted' | 'sports' | 'christmas' | 'easter';
 
 export interface ThemeManifest {
   id: ThemeId;
@@ -90,7 +90,11 @@ export type GameModeId =
   | 'anagram'
   | 'wordsearch'
   | 'bridge-builder'
-  | 'crossword';
+  | 'crossword'
+  | 'flash-cards'
+  | 'spin-wheel'
+  | 'group-sort'
+  | 'type-answer';
 
 export interface GameModeMeta {
   id: GameModeId;

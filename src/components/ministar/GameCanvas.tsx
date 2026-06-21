@@ -22,6 +22,10 @@ const SCENE_IMPORTS: Record<string, () => Promise<{ default: any }>> = {
   'wordsearch':      () => import('@/game/scenes/WordsearchScene'),
   'bridge-builder':  () => import('@/game/scenes/BridgeBuilderScene'),
   'crossword':       () => import('@/game/scenes/CrosswordScene'),
+  'flash-cards':     () => import('@/game/scenes/FlashCardsScene'),
+  'spin-wheel':      () => import('@/game/scenes/SpinWheelScene'),
+  'group-sort':      () => import('@/game/scenes/GroupSortScene'),
+  'type-answer':     () => import('@/game/scenes/TypeAnswerScene'),
 };
 
 const SCENE_KEY_BY_MODE: Record<string, string> = {
@@ -37,6 +41,10 @@ const SCENE_KEY_BY_MODE: Record<string, string> = {
   'wordsearch':      'WordsearchScene',
   'bridge-builder':  'BridgeBuilderScene',
   'crossword':       'CrosswordScene',
+  'flash-cards':     'FlashCardsScene',
+  'spin-wheel':      'SpinWheelScene',
+  'group-sort':      'GroupSortScene',
+  'type-answer':     'TypeAnswerScene',
 };
 
 interface GameCanvasProps {
@@ -50,7 +58,9 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
   const loadedScenesRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    if (!config || !containerRef.current) return;
+    if (!config || !containerRef.current) {
+      return;
+    }
 
     let cancelled = false;
 
@@ -68,48 +78,38 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
       // Load the scene module (only the active one — keeps bundle light)
       const SceneClass = (await sceneLoader()).default;
 
-      // Responsive sizing — detect container dimensions for mobile landscape support
+      // Responsive sizing — use FIT mode so the 800x600 game scales to fit
+      // any screen (mobile portrait, mobile landscape, desktop) without overflow
       const container = containerRef.current!;
-      const containerWidth = container.clientWidth || 800;
-      const containerHeight = container.clientHeight || 600;
 
-      // Use a 4:3 game canvas that scales to fit any screen (including mobile landscape)
-      const gameWidth = 800;
-      const gameHeight = 600;
+      const bgColor = '#' + (theme?.bg ?? 0x000000).toString(16).padStart(6, '0');
 
       const sceneConfig: Phaser.Types.Core.GameConfig = {
         type: Phaser.AUTO,
         parent: container,
-        width: gameWidth,
-        height: gameHeight,
-        backgroundColor: '#' + theme.bg.toString(16).padStart(6, '0'),
-        scale: {
-          mode: Phaser.Scale.RESIZE, // RESIZE adapts to any orientation/size
-          autoCenter: Phaser.Scale.CENTER_BOTH,
-          width: gameWidth,
-          height: gameHeight,
-        },
+        width: 800,
+        height: 600,
+        backgroundColor: bgColor,
         physics: {
           default: 'arcade',
           arcade: { debug: false, gravity: { x: 0, y: 0 } },
         },
-        // IMPORTANT: pass an EMPTY scene array. We register the active scene
-        // manually after the game boots so we can control its init data.
         scene: [],
         fps: { target: 60, forceSetTimeOut: false },
         render: {
           antialias: true,
-          powerPreference: 'high-performance',
-          roundPixels: true,
         },
         input: {
           activePointers: 3,
         },
       };
 
-      void containerWidth; void containerHeight;
-
-      const game = new Phaser.Game(sceneConfig);
+      let game: Phaser.Game;
+      try {
+        game = new Phaser.Game(sceneConfig);
+      } catch (e: any) {
+        return;
+      }
       gameRef.current = game;
       // Debug: expose game instance
       if (typeof window !== 'undefined') {
@@ -142,15 +142,8 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
   return (
     <div className="relative w-full h-full">
       <div ref={containerRef} className="w-full h-full" />
-      {onExit && (
-        <button
-          onClick={onExit}
-          className="absolute top-2 right-2 z-10 rounded-full bg-black/60 hover:bg-black/80 text-white text-xs px-3 py-1.5 backdrop-blur-md transition"
-          aria-label="Exit game"
-        >
-          ✕ Exit
-        </button>
-      )}
+      {/* Exit button removed — the parent page provides a clear "← Back to Library" button.
+          Having two exit buttons was confusing users. */}
     </div>
   );
 }

@@ -22,6 +22,32 @@ const DEFAULT_TERMS: TermItem[] = [
   { id: 't6', term: 'Mango', emoji: '🥭', definition: 'A tropical orange fruit', verified: true },
 ];
 
+// AAA 2029 — Student progression stats (persisted in localStorage)
+interface StudentStats {
+  xp: number;
+  level: number;
+  streak: number;
+  lastPlayed: string; // ISO date
+  gamesPlayed: number;
+  bestStreak: number;
+}
+
+function loadStats(): StudentStats {
+  if (typeof window === 'undefined') return { xp: 0, level: 1, streak: 0, lastPlayed: '', gamesPlayed: 0, bestStreak: 0 };
+  try {
+    const raw = localStorage.getItem('ministar_stats');
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return { xp: 0, level: 1, streak: 0, lastPlayed: '', gamesPlayed: 0, bestStreak: 0 };
+}
+
+function saveStats(stats: StudentStats) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem('ministar_stats', JSON.stringify(stats));
+  } catch {}
+}
+
 export default function Home() {
   const { brand, setBrandKey } = useBrand();
   const [view, setView] = useState<View>('student');
@@ -29,8 +55,9 @@ export default function Home() {
   const [terms, setTerms] = useState<TermItem[]>(DEFAULT_TERMS);
   const [launch, setLaunch] = useState<GameLaunchConfig | null>(null);
   const [lastBrand, setLastBrand] = useState(brand.subdomain);
+  const [stats, setStats] = useState<StudentStats>(() => loadStats());
 
-  // Sync theme when brand changes (without setState-in-effect)
+  // Sync theme when brand changes
   if (brand.subdomain !== lastBrand) {
     setLastBrand(brand.subdomain);
     setTheme(brand.defaultTheme);
@@ -49,6 +76,24 @@ export default function Home() {
     };
     setLaunch(cfg);
     setView('student');
+
+    // Update stats on game launch
+    const today = new Date().toISOString().split('T')[0];
+    const newStats = { ...stats };
+    newStats.gamesPlayed++;
+    // Streak: if played yesterday, increment; if played today, keep; else reset
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    if (stats.lastPlayed === yesterday) {
+      newStats.streak = stats.streak + 1;
+    } else if (stats.lastPlayed !== today) {
+      newStats.streak = 1;
+    }
+    newStats.lastPlayed = today;
+    newStats.xp += 10; // +10 XP per game played
+    newStats.level = Math.floor(newStats.xp / 100) + 1;
+    if (newStats.streak > newStats.bestStreak) newStats.bestStreak = newStats.streak;
+    setStats(newStats);
+    saveStats(newStats);
   };
 
   // Pick up ?game= shortcut from URL (PWA shortcut support)
@@ -57,7 +102,6 @@ export default function Home() {
     const params = new URLSearchParams(window.location.search);
     const game = params.get('game') as GameModeId | null;
     if (game && GAME_MODE_MAP[game]) {
-      // Defer to allow brand to apply
       setTimeout(() => launchGame(game, theme), 100);
     }
   }, [brand.subdomain]);
@@ -102,7 +146,7 @@ export default function Home() {
               }}
             >
               <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: brand.accentColor }} />
-              AAA 2029 · PWA · 12 Engines · 8 Worlds
+              AAA 2029 · PWA · 16 Engines · 10 Worlds
             </div>
             <h1
               className="text-3xl sm:text-5xl font-black tracking-tight mb-2"
@@ -119,6 +163,44 @@ export default function Home() {
               Physics-driven vocabulary games. AI-authored content. Server-authoritative anti-cheat.
               Whitelabel-ready for every B2B purchaser.
             </p>
+
+            {/* AAA 2029 — Student Stats Bar */}
+            {!launch && stats.gamesPlayed > 0 && (
+              <div className="flex items-center justify-center gap-3 mt-4 flex-wrap">
+                <div className="rounded-xl px-4 py-2 text-sm font-semibold"
+                  style={{
+                    background: 'color-mix(in oklab, var(--brand-accent) 15%, transparent)',
+                    border: '1px solid color-mix(in oklab, var(--brand-accent) 35%, transparent)',
+                    color: 'var(--brand-text)',
+                  }}>
+                  ⭐ Level {stats.level}
+                </div>
+                <div className="rounded-xl px-4 py-2 text-sm font-semibold"
+                  style={{
+                    background: 'color-mix(in oklab, var(--brand-accent) 15%, transparent)',
+                    border: '1px solid color-mix(in oklab, var(--brand-accent) 35%, transparent)',
+                    color: 'var(--brand-text)',
+                  }}>
+                  ✨ {stats.xp} XP
+                </div>
+                <div className="rounded-xl px-4 py-2 text-sm font-semibold"
+                  style={{
+                    background: 'color-mix(in oklab, var(--brand-accent) 15%, transparent)',
+                    border: '1px solid color-mix(in oklab, var(--brand-accent) 35%, transparent)',
+                    color: 'var(--brand-text)',
+                  }}>
+                  🔥 {stats.streak} day streak
+                </div>
+                <div className="rounded-xl px-4 py-2 text-sm font-semibold"
+                  style={{
+                    background: 'color-mix(in oklab, var(--brand-accent) 15%, transparent)',
+                    border: '1px solid color-mix(in oklab, var(--brand-accent) 35%, transparent)',
+                    color: 'var(--brand-text)',
+                  }}>
+                  🎮 {stats.gamesPlayed} games
+                </div>
+              </div>
+            )}
           </div>
         </section>
       )}
@@ -190,6 +272,27 @@ export default function Home() {
           // TEACHER VIEW
           // -----------------------------------------------------------------
           <div className="ministar-rise pt-6">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+              <div>
+                <div className="text-xs uppercase tracking-widest opacity-60" style={{ color: 'var(--brand-text)' }}>
+                  Teacher Dashboard
+                </div>
+                <div className="font-bold text-lg" style={{ color: 'var(--brand-text)' }}>
+                  📚 Content Authoring & Analytics
+                </div>
+              </div>
+              <button
+                onClick={() => setView('student')}
+                className="rounded-xl px-4 py-2 text-sm font-semibold"
+                style={{
+                  background: 'color-mix(in oklab, var(--brand-accent) 20%, transparent)',
+                  color: 'var(--brand-text)',
+                  border: '1px solid color-mix(in oklab, var(--brand-accent) 40%, transparent)',
+                }}
+              >
+                ← Back to Student Library
+              </button>
+            </div>
             <TeacherDashboard
               terms={terms}
               setTerms={setTerms}
@@ -251,9 +354,9 @@ export default function Home() {
             © 2029 {brand.displayName} · Powered by MiniStar Living Textbook Engine
           </div>
           <div className="flex items-center gap-4">
-            <span>12 Engines</span>
+            <span>16 Engines</span>
             <span>·</span>
-            <span>8 Worlds</span>
+            <span>10 Worlds</span>
             <span>·</span>
             <span>xAPI Telemetry</span>
             <span>·</span>

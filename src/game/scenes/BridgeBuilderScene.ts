@@ -35,7 +35,7 @@ export default class BridgeBuilderScene extends BaseEngine {
       '🚀 Bridge Builder',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '39px',
+        fontSize: '30px',
         color: this.hex(this.theme.accent),
         fontStyle: 'bold',
       }
@@ -72,7 +72,7 @@ export default class BridgeBuilderScene extends BaseEngine {
 
     this.hintText = this.add.text(this.scale.width / 2, 100, '', {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '24px',
+      fontSize: '18px',
       color: this.hex(this.theme.textMuted),
       align: 'center',
       wordWrap: { width: 600 },
@@ -115,7 +115,7 @@ export default class BridgeBuilderScene extends BaseEngine {
     for (let i = 0; i < this.targetWord.length; i++) {
       const slot = this.add.text(startX + i * (slotW + gap), 180, '_', {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '48px',
+        fontSize: '37px',
         color: this.hex(this.theme.accent),
         fontStyle: 'bold',
       }).setOrigin(0.5).setDepth(50);
@@ -123,7 +123,11 @@ export default class BridgeBuilderScene extends BaseEngine {
     }
 
     // Hint
-    this.hintText.setText(term.definition ? `Hint: ${term.emoji ?? ''} ${term.definition}` : (term.emoji ? `Hint: ${term.emoji}` : ''));
+    const hintText = term.definition ? `Hint: ${term.emoji ?? ''} ${term.definition}` : (term.emoji ? `Hint: ${term.emoji}` : '');
+    this.hintText.setText(hintText);
+    // ESL: speak the hint aloud when a new round starts
+    this.speakPrompt(term.term, term.definition);
+    this.makeSpeakable(this.hintText, `${term.term}. ${term.definition ?? ''}`);
 
     // Render letter keyboard
     this.letterButtons.forEach(b => b.destroy());
@@ -143,7 +147,7 @@ export default class BridgeBuilderScene extends BaseEngine {
           .setStrokeStyle(2, this.theme.accent, 0.6);
         const txt = this.add.text(0, 0, letter, {
           fontFamily: 'Inter, sans-serif',
-          fontSize: '30px',
+          fontSize: '23px',
           color: this.hex(this.theme.text),
           fontStyle: 'bold',
         }).setOrigin(0.5);

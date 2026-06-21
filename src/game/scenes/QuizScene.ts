@@ -49,7 +49,7 @@ export default class QuizScene extends BaseEngine {
       'Quiz Time',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '42px',
+        fontSize: '32px',
         color: this.hex(this.theme.accent),
         fontStyle: 'bold',
       }
@@ -68,7 +68,7 @@ export default class QuizScene extends BaseEngine {
       '',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '48px',
+        fontSize: '37px',
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
         align: 'center',
@@ -121,7 +121,7 @@ export default class QuizScene extends BaseEngine {
         .setStrokeStyle(2, this.theme.accent, 0.5);
       const txt = this.add.text(0, 0, opt.term, {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '30px',
+        fontSize: '23px',
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
       }).setOrigin(0.5);

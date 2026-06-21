@@ -29,7 +29,7 @@ export default class WhackAMoleScene extends BaseEngine {
       'Whack the correct mole!',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '39px',
+        fontSize: '30px',
         color: this.hex(this.theme.accent),
         fontStyle: 'bold',
       }
@@ -91,7 +91,7 @@ export default class WhackAMoleScene extends BaseEngine {
     const moleImg = this.add.image(0, 0, 'mole-' + this.theme.id).setDisplaySize(60, 60);
     const txt = this.add.text(0, -45, term.emoji ?? term.term.slice(0, 5), {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '24px',
+      fontSize: '18px',
       color: '#ffffff',
       fontStyle: 'bold',
       backgroundColor: '#' + this.theme.card.toString(16).padStart(6, '0'),

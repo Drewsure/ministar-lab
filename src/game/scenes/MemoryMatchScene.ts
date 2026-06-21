@@ -32,7 +32,7 @@ export default class MemoryMatchScene extends BaseEngine {
       'Memory Match',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '42px',
+        fontSize: '32px',
         color: this.hex(this.theme.accent),
         fontStyle: 'bold',
       }
@@ -69,7 +69,7 @@ export default class MemoryMatchScene extends BaseEngine {
       const front = this.add.image(0, 0, 'card-front-' + this.theme.id).setDisplaySize(cardW, cardH).setVisible(false);
       const label = this.add.text(0, 0, c.text, {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '27px',
+        fontSize: '21px',
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
         align: 'center',

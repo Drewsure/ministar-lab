@@ -66,7 +66,7 @@ export default class GameshowScene extends BaseEngine {
       '🎯 GAMESHOW',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '48px',
+        fontSize: '37px',
         color: this.hex(this.theme.accent),
         fontStyle: 'bold',
       }
@@ -78,7 +78,7 @@ export default class GameshowScene extends BaseEngine {
       `❤❤❤ Lifelines`,
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '27px',
+        fontSize: '21px',
         color: this.hex(this.theme.danger),
       }
     ).setOrigin(1, 0).setDepth(50);
@@ -89,7 +89,7 @@ export default class GameshowScene extends BaseEngine {
       '',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '45px',
+        fontSize: '35px',
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
         align: 'center',
@@ -129,13 +129,13 @@ export default class GameshowScene extends BaseEngine {
         .setStrokeStyle(3, this.theme.accent2, 0.6);
       const letter = this.add.text(-btnW / 2 + 25, 0, ['A', 'B', 'C', 'D'][i], {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '42px',
+        fontSize: '32px',
         color: this.hex(this.theme.accent2),
         fontStyle: 'bold',
       }).setOrigin(0.5);
       const txt = this.add.text(20, 0, opt.term, {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '27px',
+        fontSize: '21px',
         color: this.hex(this.theme.text),
       }).setOrigin(0, 0.5);
 

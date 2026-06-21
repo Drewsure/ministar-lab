@@ -90,7 +90,7 @@ export default class MazeChaseScene extends BaseEngine {
       'Collect the correct answer!',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '33px',
+        fontSize: '25px',
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
       }
@@ -101,7 +101,7 @@ export default class MazeChaseScene extends BaseEngine {
       '↑',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '36px',
+        fontSize: '28px',
         color: this.hex(this.theme.success),
         fontStyle: 'bold',
       }
@@ -297,7 +297,7 @@ export default class MazeChaseScene extends BaseEngine {
     // Directional indicator (a small arrow that rotates)
     this.playerDirIndicator = this.add.text(startX, startY, '▶', {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '24px',
+      fontSize: '18px',
       color: '#ffffff',
       fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(21);
@@ -385,7 +385,7 @@ export default class MazeChaseScene extends BaseEngine {
 
     const label = this.add.text(px, py, term.emoji ?? term.term.slice(0, 3), {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '21px',
+      fontSize: '16px',
       color: '#ffffff',
       fontStyle: 'bold',
       wordWrap: { width: 56 },

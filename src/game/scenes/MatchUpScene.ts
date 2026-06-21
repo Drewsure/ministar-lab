@@ -31,7 +31,7 @@ export default class MatchUpScene extends BaseEngine {
       'Drag terms → definitions',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '36px',
+        fontSize: '28px',
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
       }
@@ -62,7 +62,7 @@ export default class MatchUpScene extends BaseEngine {
         .setStrokeStyle(2, this.theme.accent, 0.7);
       const txt = this.add.text(0, 0, term.term, {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '30px',
+        fontSize: '23px',
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
       }).setOrigin(0.5);
@@ -96,7 +96,7 @@ export default class MatchUpScene extends BaseEngine {
         .setStrokeStyle(2, this.theme.accent2, 0.5);
       const txt = this.add.text(0, 0, def.term, {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '27px',
+        fontSize: '21px',
         color: this.hex(this.theme.text),
         align: 'center',
         wordWrap: { width: cardW - 20 },

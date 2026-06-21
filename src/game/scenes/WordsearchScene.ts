@@ -46,7 +46,7 @@ export default class WordsearchScene extends BaseEngine {
       'Find the hidden words',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '36px',
+        fontSize: '28px',
         color: this.hex(this.theme.accent),
         fontStyle: 'bold',
       }
@@ -137,7 +137,7 @@ export default class WordsearchScene extends BaseEngine {
           .setStrokeStyle(1, this.theme.accent, 0.2);
         const txt = this.add.text(x, y, this.grid[r][c], {
           fontFamily: 'Inter, sans-serif',
-          fontSize: '33px',
+          fontSize: '25px',
           color: this.hex(this.theme.text),
           fontStyle: 'bold',
         }).setOrigin(0.5).setInteractive({ useHandCursor: true });
@@ -153,14 +153,14 @@ export default class WordsearchScene extends BaseEngine {
     const listY = 100;
     this.add.text(listX, listY, 'Words to find:', {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '21px',
+      fontSize: '16px',
       color: this.hex(this.theme.textMuted),
     }).setDepth(50);
 
     words.forEach((w, i) => {
       const t = this.add.text(listX, listY + 24 + i * 22, `☐ ${w.word}`, {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '24px',
+        fontSize: '18px',
         color: this.hex(this.theme.text),
       }).setDepth(50);
       this.wordsList.push({ term: w.term, word: w.word, text: t });

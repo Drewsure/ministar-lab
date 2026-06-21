@@ -159,14 +159,28 @@ class AudioBus {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
     this.initTTS();
     try {
-      window.speechSynthesis.cancel(); // cancel any pending speech
+      // Cancel any in-progress speech
+      window.speechSynthesis.cancel();
+      // Resume if suspended (mobile browsers often start suspended)
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
       const utter = new SpeechSynthesisUtterance(text);
       utter.lang = 'en-US';
-      utter.rate = opts.rate ?? 0.9; // slightly slower for ESL learners
+      utter.rate = opts.rate ?? 0.85; // slower for ESL learners
       utter.pitch = opts.pitch ?? 1.0;
       utter.volume = opts.volume ?? 1.0;
+      // Pick a voice if available (prefers en-US female)
+      if (!this.ttsVoice) this.initTTS();
       if (this.ttsVoice) utter.voice = this.ttsVoice;
-      window.speechSynthesis.speak(utter);
+      // Force a small delay to ensure cancel() completes
+      setTimeout(() => {
+        try {
+          window.speechSynthesis.speak(utter);
+        } catch {
+          // fail silently
+        }
+      }, 50);
     } catch {
       // TTS not available — fail silently
     }
@@ -204,6 +218,14 @@ export const audioBus = new AudioBus();
 if (typeof window !== 'undefined') {
   const handler = () => {
     audioBus.init();
+    audioBus.initTTS(); // Initialize TTS voices on first gesture
+    // Trigger a dummy speak to unlock audio on mobile
+    try {
+      if ('speechSynthesis' in window) {
+        const u = new SpeechSynthesisUtterance('');
+        window.speechSynthesis.speak(u);
+      }
+    } catch {}
     window.removeEventListener('pointerdown', handler);
     window.removeEventListener('keydown', handler);
   };

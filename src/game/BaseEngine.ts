@@ -34,6 +34,11 @@ export abstract class BaseEngine extends Phaser.Scene {
   protected answeredEvents: XapiEvent[] = [];
   protected isFinished = false;
   protected lod = getLod();
+  // AAA 2029 — Level progression system
+  protected level = 1;
+  protected levelBadge?: Phaser.GameObjects.Text;
+  protected levelBg?: Phaser.GameObjects.Rectangle;
+  protected termsPerLevel = 3; // every 3 correct answers = level up
 
   // Subclass contract
   protected abstract buildWorld(): void;
@@ -99,6 +104,22 @@ export abstract class BaseEngine extends Phaser.Scene {
     this.juice = new Juice(this, this.theme);
     this.hud = new Hud(this, this.theme, (state) => this.onHudUpdate(state));
     this.startTime = this.time.now;
+
+    // AAA 2029 — Level badge (top-center, prominent like Wordwall)
+    this.levelBg = this.add.rectangle(
+      this.scale.width / 2, 45, 140, 44,
+      0x000000, 0.7
+    ).setStrokeStyle(2, this.theme.warning, 0.8).setDepth(250);
+    this.levelBadge = this.add.text(
+      this.scale.width / 2, 45,
+      `LEVEL ${this.level}`,
+      {
+        fontFamily: 'Inter, sans-serif',
+        fontSize: '22px',
+        color: this.hex(this.theme.warning),
+        fontStyle: 'bold',
+      }
+    ).setOrigin(0.5).setDepth(251);
 
     // Wire global pause key (P)
     this.input.keyboard?.on('keydown-P', () => {
@@ -174,6 +195,8 @@ export abstract class BaseEngine extends Phaser.Scene {
       // ESL: speak the correct term aloud when answered correctly
       audioBus.speak(opts.term);
       audioBus.play('correct');
+      // Check for level up
+      this.checkLevelUp();
     } else {
       this.streak = 0;
       this.juice.burst(opts.coordinate?.x ?? 400, opts.coordinate?.y ?? 300, 'incorrect');
@@ -336,6 +359,42 @@ export abstract class BaseEngine extends Phaser.Scene {
 
   protected hex(c: number): string {
     return '#' + c.toString(16).padStart(6, '0');
+  }
+
+  // ===========================================================================
+  // AAA 2029 — LEVEL PROGRESSION SYSTEM
+  // Every N correct answers triggers a level-up celebration.
+  // ===========================================================================
+  protected checkLevelUp() {
+    const newLevel = Math.floor(this.score / this.termsPerLevel) + 1;
+    if (newLevel > this.level) {
+      this.level = newLevel;
+      this.showLevelUp();
+    }
+  }
+
+  protected showLevelUp() {
+    if (!this.levelBadge) return;
+    // Update badge text
+    this.levelBadge.setText(`LEVEL ${this.level}`);
+    // ESC: speak the level up
+    audioBus.speak(`Level ${this.level}!`);
+    // Big celebration: zoom punch + glow ring + confetti + scale pulse
+    this.juice.zoomPunch(1.08, 400);
+    this.juice.glowRing(this.scale.width / 2, this.scale.height / 2, this.theme.warning, 200);
+    this.juice.confettiRain(1500);
+    this.juice.scorePopup(
+      this.scale.width / 2,
+      this.scale.height / 2 - 50,
+      `LEVEL ${this.level}!`,
+      this.theme.warning
+    );
+    // Pulse the badge
+    this.tweens.add({
+      targets: [this.levelBadge, this.levelBg],
+      scale: { from: 1, to: 1.3 },
+      duration: 200, yoyo: true, repeat: 2, ease: 'Back.out',
+    });
   }
 
   // ===========================================================================

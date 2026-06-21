@@ -58,7 +58,7 @@ export default class AirplaneScene extends BaseEngine {
       'Catch: ...',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '36px',
+        fontSize: '28px',
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
       }
@@ -189,13 +189,13 @@ export default class AirplaneScene extends BaseEngine {
       const strip = this.add.rectangle(0, -bannerH / 2 + 6, bannerW - 6, 4, this.theme.accent2, 0.9);
       const txt = this.add.text(0, 4, entry.term.emoji ?? entry.term.term.slice(0, 10), {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '30px',
+        fontSize: '23px',
         color: '#ffffff',
         fontStyle: 'bold',
       }).setOrigin(0.5);
       const label = this.add.text(0, -8, entry.term.term.slice(0, 12), {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '16px',
+        fontSize: '12px',
         color: '#ffffff',
         fontStyle: 'bold',
       }).setOrigin(0.5).setAlpha(0.8);
