@@ -82,7 +82,8 @@ export default class BalloonPopScene extends BaseEngine {
     this.setupGlobalPointer((x, y) => {
       for (const b of this.balloons) {
         if (b.hit) continue;
-        if (Math.abs(x - b.container.x) < 35 && Math.abs(y - b.container.y) < 40) {
+        // Use larger hit radius for easier clicking (especially on mobile)
+        if (Math.abs(x - b.container.x) < 45 && Math.abs(y - b.container.y) < 50) {
           this.popBalloon(b);
           break;
         }
