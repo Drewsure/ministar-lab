@@ -13,7 +13,10 @@ import { audioBus } from '../lib/audio';
 export class ThemeAtlas {
   static build(scene: Phaser.Scene, theme: ThemeManifest) {
     const tag = 'atlas-' + theme.id;
-    if (scene.textures.exists('particle-' + theme.id)) return; // already built
+    // Cache check: only build once per theme per scene lifecycle
+    if (scene.textures.exists('particle-' + theme.id) &&
+        scene.textures.exists('player-' + theme.id) &&
+        scene.textures.exists('mascot-clouddog-' + theme.id)) return;
     const g = scene.make.graphics({ x: 0, y: 0 });
 
     // 1. Particle dot
@@ -28,12 +31,27 @@ export class ThemeAtlas {
     g.generateTexture('streak-' + theme.id, 16, 3);
     g.clear();
 
-    // 3. Player ship
+    // 3. Player ship (AAA 2029 — proper spaceship with engine glow)
+    g.clear();
+    // Engine glow (back layer)
+    g.fillStyle(theme.accent, 0.4);
+    g.fillCircle(16, 26, 8);
+    g.fillStyle(theme.warning, 0.6);
+    g.fillCircle(16, 26, 5);
+    // Main hull
     g.fillStyle(theme.accent, 1);
     g.beginPath();
-    g.moveTo(16, 0); g.lineTo(28, 24); g.lineTo(4, 24); g.closePath(); g.fillPath();
+    g.moveTo(16, 0); g.lineTo(28, 24); g.lineTo(20, 20); g.lineTo(12, 20); g.lineTo(4, 24); g.closePath();
+    g.fillPath();
+    // Cockpit
     g.fillStyle(theme.accent2, 1);
-    g.fillRect(12, 18, 8, 8);
+    g.fillCircle(16, 14, 5);
+    g.fillStyle(0xffffff, 0.7);
+    g.fillCircle(15, 12, 2);
+    // Wing accents
+    g.fillStyle(theme.accent2, 0.8);
+    g.fillRect(2, 22, 6, 3);
+    g.fillRect(24, 22, 6, 3);
     g.generateTexture('player-' + theme.id, 32, 32);
     g.clear();
 
@@ -242,6 +260,123 @@ export class Juice {
       duration: 90, yoyo: true, ease: 'Quad.out',
     });
   }
+
+  // ===========================================================================
+  // AAA 2029 ADDITIONS — score popups, glow rings, combo flashes, vignette
+  // ===========================================================================
+
+  /**
+   * Float a "+1" / "+N" / "STREAK!" text upward and fade.
+   * Used on every correct answer for instant feedback.
+   */
+  scorePopup(x: number, y: number, text: string, color: number = 0xffffff) {
+    const popup = this.scene.add.text(x, y, text, {
+      fontFamily: 'Inter, sans-serif',
+      fontSize: '28px',
+      color: '#' + color.toString(16).padStart(6, '0'),
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 4,
+    }).setOrigin(0.5).setDepth(9998);
+
+    this.scene.tweens.add({
+      targets: popup,
+      y: y - 60,
+      alpha: 0,
+      scale: { from: 0.6, to: 1.3 },
+      duration: 800,
+      ease: 'Back.out',
+      onComplete: () => popup.destroy(),
+    });
+  }
+
+  /**
+   * Expanding glow ring — radiates outward from a point.
+   * Used on streak milestones and big wins.
+   */
+  glowRing(x: number, y: number, color: number = 0xffffff, maxRadius = 80) {
+    const ring = this.scene.add.circle(x, y, 8, color, 0)
+      .setStrokeStyle(3, color, 1)
+      .setDepth(9997);
+    this.scene.tweens.add({
+      targets: ring,
+      radius: maxRadius,
+      alpha: { from: 0.9, to: 0 },
+      duration: 600,
+      ease: 'Cubic.out',
+      onUpdate: (_, target) => {
+        const c = target as Phaser.GameObjects.Arc;
+        c.setRadius((c as any).radius);
+      },
+      onComplete: () => ring.destroy(),
+    });
+  }
+
+  /**
+   * Camera zoom punch — quick zoom in/out for impact.
+   * Used on big wins and game-over.
+   */
+  zoomPunch(zoomIn = 1.08, duration = 200) {
+    const cam = this.scene.cameras.main;
+    cam.zoomTo(zoomIn, duration * 0.4, 'Quad.out');
+    this.scene.time.delayedCall(duration * 0.4, () => {
+      cam.zoomTo(1, duration * 0.6, 'Quad.in');
+    });
+  }
+
+  /**
+   * Vignette flash — a colored radial overlay that fades from edge to center.
+   * More cinematic than a flat full-screen flash.
+   */
+  vignetteFlash(color: number = 0xffffff, alpha = 0.5, ms = 200) {
+    const w = this.scene.scale.width;
+    const h = this.scene.scale.height;
+    const gfx = this.scene.add.graphics();
+    gfx.fillStyle(color, alpha);
+    gfx.fillRect(0, 0, w, h);
+    gfx.setDepth(9999);
+    this.scene.tweens.add({
+      targets: gfx,
+      alpha: 0,
+      duration: ms,
+      ease: 'Cubic.out',
+      onComplete: () => gfx.destroy(),
+    });
+  }
+
+  /**
+   * Confetti rain — drops colored particles from the top of the screen.
+   * Used on game completion (win state).
+   */
+  confettiRain(durationMs = 2000) {
+    if (!this.lod.blendAdd) return; // skip on low-end
+    const key = 'particle-' + this.theme.id;
+    if (!this.scene.textures.exists(key)) return;
+    const w = this.scene.scale.width;
+    const palette = [
+      ...this.theme.particles.correct,
+      ...this.theme.particles.streak,
+    ];
+    const emitter = this.scene.add.particles(0, 0, key, {
+      x: { min: 0, max: w },
+      y: -10,
+      speedY: { min: 100, max: 220 },
+      speedX: { min: -30, max: 30 },
+      angle: { min: 0, max: 360 },
+      rotation: { min: 0, max: 360 },
+      scale: { start: 1.2, end: 0.4 },
+      alpha: { start: 1, end: 0.6 },
+      lifespan: durationMs + 400,
+      tint: palette,
+      quantity: 3,
+      frequency: 50,
+      blendMode: 'NORMAL',
+    });
+    this.scene.time.delayedCall(durationMs, () => {
+      emitter.stop();
+      this.scene.time.delayedCall(1000, () => emitter.destroy());
+    });
+  }
 }
 
 // ============================================================================
@@ -341,6 +476,8 @@ export class Hud {
   private scoreText: Phaser.GameObjects.Text;
   private streakText: Phaser.GameObjects.Text;
   private timerText: Phaser.GameObjects.Text;
+  private progressBar!: Phaser.GameObjects.Rectangle;
+  private progressBg!: Phaser.GameObjects.Rectangle;
   private mascot: MascotController;
   private startTime = 0;
   private lastUrgentTick = false;
@@ -353,20 +490,48 @@ export class Hud {
   ) {
     const t = theme;
     const textHex = '#' + t.text.toString(16).padStart(6, '0');
-    this.scoreText = scene.add.text(20, 16, 'Score: 0', {
-      fontFamily: 'Inter, sans-serif', fontSize: '20px', color: textHex,
-    }).setDepth(200);
-    this.streakText = scene.add.text(20, 42, '🔥 Streak: 0', {
-      fontFamily: 'Inter, sans-serif', fontSize: '16px',
-      color: '#' + t.accent.toString(16).padStart(6, '0'),
-    }).setDepth(200);
-    this.timerText = scene.add.text(scene.scale.width - 20, 16, '⏱ 3:00', {
-      fontFamily: 'Inter, sans-serif', fontSize: '20px', color: textHex,
-    }).setOrigin(1, 0).setDepth(200);
+    const accentHex = '#' + t.accent.toString(16).padStart(6, '0');
 
+    // AAA 2029 — semi-transparent HUD panel background
+    const hudBg = scene.add.rectangle(0, 0, scene.scale.width, 90, 0x000000, 0.35)
+      .setOrigin(0, 0).setDepth(199);
+
+    // Score with badge background
+    const scoreBg = scene.add.rectangle(20, 24, 150, 36, t.card, 0.7)
+      .setStrokeStyle(1, t.accent, 0.5).setDepth(200);
+    this.scoreText = scene.add.text(28, 16, 'Score: 0', {
+      fontFamily: 'Inter, sans-serif', fontSize: '18px', color: textHex,
+      fontStyle: 'bold',
+    }).setDepth(201);
+
+    // Streak with fire emoji + accent color
+    this.streakText = scene.add.text(180, 22, '🔥 0', {
+      fontFamily: 'Inter, sans-serif', fontSize: '16px',
+      color: accentHex, fontStyle: 'bold',
+    }).setDepth(201);
+
+    // Timer (right side) with badge
+    const timerBg = scene.add.rectangle(scene.scale.width - 130, 24, 110, 36, t.card, 0.7)
+      .setStrokeStyle(1, t.accent, 0.5).setDepth(200);
+    this.timerText = scene.add.text(scene.scale.width - 75, 16, '⏱ 3:00', {
+      fontFamily: 'Inter, sans-serif', fontSize: '18px', color: textHex,
+      fontStyle: 'bold',
+    }).setOrigin(0.5, 0).setDepth(201);
+
+    // Progress bar (under HUD)
+    this.progressBg = scene.add.rectangle(
+      scene.scale.width / 2, 70, scene.scale.width - 40, 6,
+      0x000000, 0.4
+    ).setStrokeStyle(1, t.accent, 0.3).setDepth(200);
+    this.progressBar = scene.add.rectangle(
+      20, 70, 0, 4, t.success, 1
+    ).setOrigin(0, 0.5).setDepth(201);
+
+    // Mascot in bottom-right corner
     this.mascot = new MascotController(scene, theme, scene.scale.width - 60, scene.scale.height - 60);
 
     this.startTime = scene.time.now;
+    void hudBg; void scoreBg; void timerBg;
   }
 
   tick(score: number, streak: number, maxScore: number) {
@@ -388,7 +553,16 @@ export class Hud {
     }
 
     this.scoreText.setText(`Score: ${score}/${maxScore}`);
-    this.streakText.setText(`🔥 Streak: ${streak}`);
+    this.streakText.setText(streak >= 3 ? `🔥 ${streak}` : `🔥 ${streak}`);
+    // Animate progress bar
+    const progress = maxScore > 0 ? score / maxScore : 0;
+    const maxWidth = this.scene.scale.width - 44;
+    this.progressBar.width = maxWidth * progress;
+    // Color shift based on progress
+    if (progress >= 0.8) this.progressBar.setFillStyle(this.theme.success, 1);
+    else if (progress >= 0.5) this.progressBar.setFillStyle(this.theme.warning, 1);
+    else this.progressBar.setFillStyle(this.theme.accent, 1);
+
     if (streak >= 3) this.mascot.setState('hype');
     this.onUpdate({ score, streak, remainingMs });
     return { remainingMs };
