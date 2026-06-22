@@ -38,7 +38,7 @@ export default class SpotItScene extends BaseEngine {
   private card1Center = { x: 220, y: 320 };
   private card2Center = { x: 580, y: 320 };
   private cardRadius = 130;
-  private symbolsPerCard = 6;
+  private symbolsPerCard = 8; // Blueprint: 8 terms/words/images focus
   private canInteract = true;
   private roundStartTime = 0;
   private promptText!: Phaser.GameObjects.Text;
@@ -144,16 +144,20 @@ export default class SpotItScene extends BaseEngine {
     this.speedBonusText.setText('');
 
     // ---- Generate two cards with exactly ONE matching symbol ----
+    // Blueprint: 8 terms focus. Each card has 8 symbols, exactly 1 shared.
     const pool = [...this.terms];
     Phaser.Utils.Array.Shuffle(pool);
 
     // Pick the matching term (shared between both cards)
     const matchTerm = pool[0];
 
-    // Pick unique terms for card 1 (excluding match)
-    const card1Terms = pool.slice(1, this.symbolsPerCard);
-    // Pick unique terms for card 2 (excluding match and card1's terms)
-    const card2Terms = pool.slice(this.symbolsPerCard, this.symbolsPerCard * 2 - 1);
+    // Card 1: match + 7 others (all different from match)
+    const card1Terms = pool.slice(1, this.symbolsPerCard); // 7 terms
+    // Card 2: match + 7 others — can reuse terms from card 1 (just not the match again)
+    // Shuffle pool differently for card 2
+    const pool2 = [...this.terms].filter(t => t.id !== matchTerm.id);
+    Phaser.Utils.Array.Shuffle(pool2);
+    const card2Terms = pool2.slice(0, this.symbolsPerCard - 1); // 7 terms
 
     // Combine: card1 = [match, ...card1Terms], card2 = [match, ...card2Terms]
     const card1All = [matchTerm, ...card1Terms];

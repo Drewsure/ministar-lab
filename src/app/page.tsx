@@ -20,6 +20,8 @@ const DEFAULT_TERMS: TermItem[] = [
   { id: 't4', term: 'Grape', emoji: '🍇', definition: 'A small purple fruit', verified: true },
   { id: 't5', term: 'Lemon', emoji: '🍋', definition: 'A sour yellow fruit', verified: true },
   { id: 't6', term: 'Mango', emoji: '🥭', definition: 'A tropical orange fruit', verified: true },
+  { id: 't7', term: 'Orange', emoji: '🍊', definition: 'A round citrus fruit', verified: true },
+  { id: 't8', term: 'Strawberry', emoji: '🍓', definition: 'A small sweet red fruit', verified: true },
 ];
 
 // AAA 2029 — Student progression stats (persisted in localStorage)
@@ -30,15 +32,28 @@ interface StudentStats {
   lastPlayed: string; // ISO date
   gamesPlayed: number;
   bestStreak: number;
+  streakFreezes: number; // Duolingo-style: protects streak on missed days
+  tokens: number; // Blooket-style: spendable currency for mystery boxes
+  mysteryBoxesOpened: number;
 }
 
 function loadStats(): StudentStats {
-  if (typeof window === 'undefined') return { xp: 0, level: 1, streak: 0, lastPlayed: '', gamesPlayed: 0, bestStreak: 0 };
+  if (typeof window === 'undefined') return { xp: 0, level: 1, streak: 0, lastPlayed: '', gamesPlayed: 0, bestStreak: 0, streakFreezes: 1, tokens: 0, mysteryBoxesOpened: 0 };
   try {
     const raw = localStorage.getItem('ministar_stats');
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // Grant 1 streak freeze per month (max 2)
+      const now = new Date();
+      const lastGrant = parsed.lastFreezeGrant ? new Date(parsed.lastFreezeGrant) : new Date(0);
+      if (now.getMonth() !== lastGrant.getMonth() || now.getFullYear() !== lastGrant.getFullYear()) {
+        parsed.streakFreezes = Math.min(2, (parsed.streakFreezes ?? 0) + 1);
+        parsed.lastFreezeGrant = now.toISOString();
+      }
+      return { xp: 0, level: 1, streak: 0, lastPlayed: '', gamesPlayed: 0, bestStreak: 0, streakFreezes: 1, tokens: 0, mysteryBoxesOpened: 0, ...parsed };
+    }
   } catch {}
-  return { xp: 0, level: 1, streak: 0, lastPlayed: '', gamesPlayed: 0, bestStreak: 0 };
+  return { xp: 0, level: 1, streak: 0, lastPlayed: '', gamesPlayed: 0, bestStreak: 0, streakFreezes: 1, tokens: 0, mysteryBoxesOpened: 0 };
 }
 
 function saveStats(stats: StudentStats) {
@@ -69,6 +84,10 @@ function loadAchievements(stats: StudentStats): Achievement[] {
     { id: 'streak_best', name: 'Unstoppable', emoji: '💎', description: 'Best streak of 5+ days', unlocked: stats.bestStreak >= 5 },
     { id: 'xp_500', name: 'Scholar', emoji: '📚', description: 'Earn 500 XP', unlocked: stats.xp >= 500 },
     { id: 'xp_1000', name: 'Master', emoji: '👑', description: 'Earn 1000 XP', unlocked: stats.xp >= 1000 },
+    { id: 'tokens_100', name: 'Collector', emoji: '🪙', description: 'Earn 100 tokens', unlocked: stats.tokens >= 100 || stats.mysteryBoxesOpened * 20 + stats.tokens >= 100 },
+    { id: 'mystery_1', name: 'Treasure Hunter', emoji: '🎁', description: 'Open your first mystery box', unlocked: stats.mysteryBoxesOpened >= 1 },
+    { id: 'mystery_5', name: 'Lucky Opener', emoji: '🍀', description: 'Open 5 mystery boxes', unlocked: stats.mysteryBoxesOpened >= 5 },
+    { id: 'freeze_used', name: 'Protected', emoji: '❄️', description: 'Use a streak freeze', unlocked: stats.streakFreezes < 2 },
   ];
   return achievements;
 }
@@ -106,15 +125,22 @@ export default function Home() {
     const today = new Date().toISOString().split('T')[0];
     const newStats = { ...stats };
     newStats.gamesPlayed++;
-    // Streak: if played yesterday, increment; if played today, keep; else reset
+    // Streak logic with freeze protection (Duolingo-style)
     const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
     if (stats.lastPlayed === yesterday) {
       newStats.streak = stats.streak + 1;
     } else if (stats.lastPlayed !== today) {
-      newStats.streak = 1;
+      // Check if we missed a day and have a streak freeze
+      if (stats.streak > 0 && stats.streakFreezes > 0) {
+        // Consume a freeze — streak continues
+        newStats.streakFreezes--;
+      } else {
+        newStats.streak = 1;
+      }
     }
     newStats.lastPlayed = today;
     newStats.xp += 10; // +10 XP per game played
+    newStats.tokens += 5; // +5 tokens per game (Blooket-style currency)
     newStats.level = Math.floor(newStats.xp / 100) + 1;
     if (newStats.streak > newStats.bestStreak) newStats.bestStreak = newStats.streak;
     setStats(newStats);
@@ -213,7 +239,7 @@ export default function Home() {
                     border: '1px solid color-mix(in oklab, var(--brand-accent) 35%, transparent)',
                     color: 'var(--brand-text)',
                   }}>
-                  🔥 {stats.streak} day streak
+                  🔥 {stats.streak} day streak {stats.streakFreezes > 0 && `❄️${stats.streakFreezes}`}
                 </div>
                 <div className="rounded-xl px-4 py-2 text-sm font-semibold"
                   style={{
@@ -222,6 +248,14 @@ export default function Home() {
                     color: 'var(--brand-text)',
                   }}>
                   🎮 {stats.gamesPlayed} games
+                </div>
+                <div className="rounded-xl px-4 py-2 text-sm font-semibold"
+                  style={{
+                    background: 'color-mix(in oklab, var(--brand-accent) 15%, transparent)',
+                    border: '1px solid color-mix(in oklab, var(--brand-accent) 35%, transparent)',
+                    color: 'var(--brand-text)',
+                  }}>
+                  🪙 {stats.tokens} tokens
                 </div>
               </div>
             )}
@@ -391,7 +425,7 @@ export default function Home() {
               <div className="text-3xl">📚</div>
               <div className="flex-1 min-w-0">
                 <div className="font-bold" style={{ color: 'var(--brand-text)' }}>
-                  Unit 1 · Fruits & Animals
+                  Unit 1 · Fruits
                 </div>
                 <div className="text-xs opacity-70" style={{ color: 'var(--brand-text)' }}>
                   {verifiedTerms.length} verified terms ready to play
@@ -420,6 +454,32 @@ export default function Home() {
               >
                 <div className="font-bold mb-3 flex items-center gap-2" style={{ color: 'var(--brand-text)' }}>
                   <span className="text-xl">🏅</span> Achievements
+                  <span className="ml-auto flex items-center gap-2">
+                    {/* Mystery Box — Blooket-style reward */}
+                    <button
+                      onClick={() => {
+                        if (stats.tokens >= 20) {
+                          const newStats = { ...stats, tokens: stats.tokens - 20, mysteryBoxesOpened: stats.mysteryBoxesOpened + 1, xp: stats.xp + 50 };
+                          setStats(newStats);
+                          saveStats(newStats);
+                          audioBus.init();
+                          audioBus.speak('You opened a mystery box! Plus fifty XP!');
+                        }
+                      }}
+                      disabled={stats.tokens < 20}
+                      className="rounded-xl px-3 py-1.5 text-xs font-bold transition-all"
+                      style={{
+                        background: stats.tokens >= 20 ? 'linear-gradient(135deg, #f59e0b, #ec4899)' : 'var(--brand-card)',
+                        color: stats.tokens >= 20 ? '#fff' : 'var(--brand-text)',
+                        opacity: stats.tokens >= 20 ? 1 : 0.4,
+                        border: '1px solid rgba(255,255,255,0.2)',
+                        cursor: stats.tokens >= 20 ? 'pointer' : 'not-allowed',
+                      }}
+                      title="Open a mystery box for 20 tokens — get 50 bonus XP!"
+                    >
+                      🎁 Mystery Box (20🪙)
+                    </button>
+                  </span>
                 </div>
                 <div className="flex flex-wrap gap-3">
                   {loadAchievements(stats).map(a => (

@@ -229,7 +229,14 @@ export abstract class BaseEngine extends Phaser.Scene {
       } catch (e) { /* ignore juice errors */ }
       // ESL: speak the correct term aloud when answered correctly
       audioBus.speak(opts.term);
-      audioBus.play('correct');
+      // Pitch-rising streak audio: each correct in a row goes up a semitone
+      const baseFreq = 660;
+      const streakFreq = baseFreq * Math.pow(2, Math.min(this.streak, 12) / 12);
+      audioBus.play('correct', { freq: streakFreq });
+      // Hit-stop on streaks (weighty game feel)
+      if (this.streak >= 3) {
+        try { this.juice.hitStop(60); } catch {}
+      }
       // AAA 2029 — Encouraging voice feedback (engagement driver for kids)
       if (this.streak >= 5) {
         this.time.delayedCall(800, () => audioBus.speak(this.streak >= 7 ? 'Amazing!' : 'Excellent!'));
