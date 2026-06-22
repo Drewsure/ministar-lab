@@ -50,7 +50,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script src="https://cdn.jsdelivr.net/npm/phaser@4.2.0/dist/phaser.min.js" />
+        <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}

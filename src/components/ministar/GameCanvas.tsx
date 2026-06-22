@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-// Phaser loaded via CDN script tag in layout.tsx — window.Phaser is available globally
 import type { GameLaunchConfig } from '@/lib/types';
 import { THEMES } from '@/lib/themes';
 
@@ -61,15 +60,6 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
     (async () => {
       const Phaser: any = window.Phaser;
       if (!Phaser || cancelled) return;
-
-      // Patch: Phaser 4.2.0 CDN puts renderer classes under Phaser.Renderer.Canvas.CanvasRenderer
-      // but the game boot sequence expects them at Phaser.CanvasRenderer
-      if (Phaser.Renderer && Phaser.Renderer.Canvas && Phaser.Renderer.Canvas.CanvasRenderer) {
-        Phaser.CanvasRenderer = Phaser.Renderer.Canvas.CanvasRenderer;
-      }
-      if (Phaser.Renderer && Phaser.Renderer.WebGL && Phaser.Renderer.WebGL.WebGLRenderer) {
-        Phaser.WebGLRenderer = Phaser.Renderer.WebGL.WebGLRenderer;
-      }
 
       const mode = config.mode;
       const sceneKey = SCENE_KEY_BY_MODE[mode];
