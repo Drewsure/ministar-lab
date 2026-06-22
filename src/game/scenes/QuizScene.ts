@@ -26,6 +26,7 @@ interface QuizRound {
 export default class QuizScene extends BaseEngine {
   private round = 0;
   private rounds: QuizRound[] = [];
+  private wrongQueue: QuizRound[] = []; // Spaced repetition: wrong answers resurface
   private optionButtons: Phaser.GameObjects.Container[] = [];
   private promptText!: Phaser.GameObjects.Text;
   private promptBg!: Phaser.GameObjects.Rectangle;
@@ -186,8 +187,14 @@ export default class QuizScene extends BaseEngine {
 
   private renderRound() {
     if (this.round >= this.rounds.length) {
-      this.finishGame(this.score >= this.maxScore * 0.6);
-      return;
+      // Spaced repetition: if there are wrong answers queued, re-ask them
+      if (this.wrongQueue.length > 0) {
+        this.rounds.push(...this.wrongQueue);
+        this.wrongQueue = [];
+      } else {
+        this.finishGame(this.score >= this.maxScore * 0.6);
+        return;
+      }
     }
     this.canAnswer = true;
     const r = this.rounds[this.round];
@@ -382,6 +389,11 @@ export default class QuizScene extends BaseEngine {
       success: isCorrect,
       coordinate: { x: btn.x, y: btn.y, t: this.time.now },
     });
+
+    // Spaced repetition: queue wrong answers to resurface later
+    if (!isCorrect) {
+      this.wrongQueue.push(this.rounds[this.round]);
+    }
 
     if (isCorrect) {
       bg.setFillStyle(this.theme.success, 1);

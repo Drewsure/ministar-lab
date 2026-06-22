@@ -353,17 +353,26 @@ export default class BalloonPopScene extends BaseEngine {
     stringGfx.lineTo(1, 68);
     stringGfx.strokePath();
 
-    // Term text on balloon
+    // Term text on balloon — bigger and with term name for readability
     const txt = this.add.text(0, -8, term.emoji ?? term.term.slice(0, 6), {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '18px',
+      fontSize: '22px',
       color: '#ffffff',
       fontStyle: 'bold',
     }).setOrigin(0.5);
     txt.setShadow(0, 2, '#000000', 3, true, true);
 
+    // Term name below emoji (smaller, for ESL reading)
+    const nameTxt = this.add.text(0, 12, term.term.slice(0, 8), {
+      fontFamily: 'Inter, sans-serif',
+      fontSize: '12px',
+      color: '#ffffff',
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
+    nameTxt.setShadow(0, 1, '#000000', 2, true, true);
+
     const container = this.add.container(startX, startY, [
-      glow, body, inner, highlight, highlight2, knot, stringGfx, txt
+      glow, body, inner, highlight, highlight2, knot, stringGfx, txt, nameTxt
     ]).setSize(56, 70).setInteractive({ useHandCursor: true }).setDepth(15);
 
     const b: Balloon = { container, term, isCorrect, hit: false, glow };

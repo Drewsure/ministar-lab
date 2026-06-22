@@ -229,6 +229,14 @@ export abstract class BaseEngine extends Phaser.Scene {
       // ESL: speak the correct term aloud when answered correctly
       audioBus.speak(opts.term);
       audioBus.play('correct');
+      // AAA 2029 — Encouraging voice feedback (engagement driver for kids)
+      if (this.streak >= 5) {
+        this.time.delayedCall(800, () => audioBus.speak(this.streak >= 7 ? 'Amazing!' : 'Excellent!'));
+      } else if (this.streak >= 3) {
+        this.time.delayedCall(800, () => audioBus.speak('Great job!'));
+      } else if (this.score === 1) {
+        this.time.delayedCall(800, () => audioBus.speak('Nice!'));
+      }
       // Check for level up
       this.checkLevelUp();
     } else {
@@ -321,7 +329,7 @@ export abstract class BaseEngine extends Phaser.Scene {
       ? verify.anomalyReason ?? 'anomaly detected'
       : isReview
       ? verify.anomalyReason ?? 'review required'
-      : `Score ${this.score} / ${this.maxScore} · ${(durationMs / 1000).toFixed(1)}s`;
+      : `Score: ${this.score} / ${this.maxScore}`;
 
     const titleText = this.add.text(
       this.scale.width / 2, this.scale.height / 2 - 80,
@@ -374,6 +382,20 @@ export abstract class BaseEngine extends Phaser.Scene {
       }
     ).setOrigin(0.5).setDepth(501);
 
+    // AAA 2029 — Detailed stats breakdown
+    const accuracy = this.maxScore > 0 ? Math.round((this.score / this.maxScore) * 100) : 0;
+    const timeSec = (durationMs / 1000).toFixed(1);
+    const statsText = this.add.text(
+      this.scale.width / 2, this.scale.height / 2 + 50,
+      `Accuracy: ${accuracy}%  ·  Best Streak: ${this.streak}  ·  Time: ${timeSec}s`,
+      {
+        fontFamily: 'Inter, sans-serif',
+        fontSize: '14px',
+        color: '#ffffff',
+        fontStyle: 'bold',
+      }
+    ).setOrigin(0.5).setDepth(501).setAlpha(0.8);
+
     const btnBg = this.add.rectangle(
       this.scale.width / 2 - 110, this.scale.height / 2 + 80,
       180, 48, statusColor, 0.9
@@ -424,13 +446,15 @@ export abstract class BaseEngine extends Phaser.Scene {
     overlay.setAlpha(0);
     titleText.setAlpha(0);
     subText.setAlpha(0);
+    statsText.setAlpha(0);
     btnBg.setAlpha(0);
     btn.setAlpha(0);
     btnBg2.setAlpha(0);
     btn2.setAlpha(0);
     this.tweens.add({
-      targets: [overlay, titleText, subText, btnBg, btn, btnBg2, btn2],
-      alpha: 1, duration: 400, ease: 'Cubic.out',
+      targets: [overlay, titleText, subText, statsText, btnBg, btn, btnBg2, btn2],
+      alpha: { from: 0, to: 1 },
+      duration: 400, ease: 'Cubic.out',
     });
   }
 

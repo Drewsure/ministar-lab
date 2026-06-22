@@ -346,6 +346,42 @@ export default function Home() {
           // STUDENT VIEW — game library
           // -----------------------------------------------------------------
           <div className="ministar-rise pt-2">
+            {/* Daily Challenge — featured game with bonus XP */}
+            <div className="rounded-2xl mb-6 p-4 flex items-center gap-4 flex-wrap"
+              style={{
+                background: 'linear-gradient(135deg, color-mix(in oklab, var(--brand-accent) 30%, var(--brand-card)), var(--brand-card))',
+                border: '2px solid color-mix(in oklab, var(--brand-accent) 50%, transparent)',
+              }}
+            >
+              <div className="text-4xl">🎯</div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-lg" style={{ color: 'var(--brand-text)' }}>
+                  Daily Challenge!
+                </div>
+                <div className="text-xs opacity-80" style={{ color: 'var(--brand-text)' }}>
+                  Play today's featured game for <span className="font-bold">DOUBLE XP</span> + bonus badges
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  const today = new Date();
+                  const gameIds: GameModeId[] = ['maze-chase', 'quiz', 'balloon-pop', 'gameshow', 'spin-wheel', 'memory-match', 'airplane', 'whack-a-mole', 'flash-cards', 'anagram', 'group-sort', 'bridge-builder', 'wordsearch', 'crossword', 'type-answer', 'match-up'];
+                  const dailyGame = gameIds[today.getDate() % gameIds.length];
+                  launchGame(dailyGame, theme);
+                }}
+                className="rounded-xl px-5 py-3 text-sm font-bold"
+                style={{
+                  background: 'var(--brand-accent)',
+                  color: 'var(--brand-bg)',
+                  border: 'none',
+                  boxShadow: '0 4px 12px -2px var(--brand-accent)',
+                }}
+              >
+                ▶ Play Now!
+              </button>
+            </div>
+
+            {/* Unit info */}
             <div className="rounded-2xl mb-6 p-4 flex items-center gap-4 flex-wrap"
               style={{
                 background: 'color-mix(in oklab, var(--brand-card) 60%, transparent)',

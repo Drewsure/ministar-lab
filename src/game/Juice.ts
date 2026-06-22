@@ -1079,7 +1079,17 @@ export class MascotController {
       ? 'mascot-clouddog-' + theme.id
       : 'mascot-starkid-' + theme.id;
     if (!scene.textures.exists(texKey)) ThemeAtlas.build(scene, theme);
-    this.sprite = scene.add.sprite(x, y, texKey).setDepth(100).setScale(1.2);
+    this.sprite = scene.add.sprite(x, y, texKey).setDepth(100).setScale(1.5);
+    // Make mascot interactive — tap to hear it speak
+    this.sprite.setInteractive({ useHandCursor: true });
+    this.sprite.on('pointerdown', () => {
+      audioBus.speak('Hi there! Keep playing!');
+      scene.tweens.add({
+        targets: this.sprite,
+        scale: { from: 1.8, to: 1.5 },
+        duration: 200, ease: 'Back.out',
+      });
+    });
     this.enterState('idle');
   }
 
@@ -1159,6 +1169,7 @@ export class Hud {
   private mascot: MascotController;
   private startTime = 0;
   private lastUrgentTick = false;
+  private lastStreakShown = 0;
 
   constructor(
     private scene: Phaser.Scene,
@@ -1231,7 +1242,24 @@ export class Hud {
     }
 
     this.scoreText.setText(`Score: ${score}/${maxScore}`);
-    this.streakText.setText(streak >= 3 ? `🔥 ${streak}` : `🔥 ${streak}`);
+    // Combo multiplier display — shows x2, x3 etc. when on streak
+    const mult = streak >= 5 ? 3 : streak >= 3 ? 2 : 1;
+    this.streakText.setText(streak >= 3 ? `🔥${streak} x${mult}!` : `🔥 ${streak}`);
+    if (streak >= 3) {
+      this.streakText.setColor('#' + this.theme.warning.toString(16).padStart(6, '0'));
+      // Pulse the streak text on streak
+      if (streak !== this.lastStreakShown) {
+        this.scene.tweens.add({
+          targets: this.streakText,
+          scale: { from: 1.4, to: 1 },
+          duration: 300, ease: 'Back.out',
+        });
+        this.lastStreakShown = streak;
+      }
+    } else {
+      this.streakText.setColor(accentHex);
+      this.lastStreakShown = 0;
+    }
     // Animate progress bar
     const progress = maxScore > 0 ? score / maxScore : 0;
     const maxWidth = this.scene.scale.width - 44;
