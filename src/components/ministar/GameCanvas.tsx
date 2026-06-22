@@ -67,7 +67,9 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
     let cancelled = false;
 
     (async () => {
-      const Phaser = (await import('phaser')).default;
+      // Phaser 4 ESM has no default export — import the namespace
+      const PhaserModule: any = await import('phaser');
+      const Phaser = PhaserModule.default ?? PhaserModule;
       if (cancelled) return;
 
       const mode = config.mode;
@@ -87,7 +89,7 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
       const bgColor = '#' + (theme?.bg ?? 0x000000).toString(16).padStart(6, '0');
 
       const sceneConfig: Phaser.Types.Core.GameConfig = {
-        type: Phaser.AUTO,
+        type: Phaser.AUTO, // Auto-select best renderer (WebGL preferred, Canvas fallback)
         parent: container,
         width: 800,
         height: 600,
