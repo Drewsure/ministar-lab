@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "MiniStar English Global Lab — Living Textbook",
-  description: "AAA 2029 white-label PWA learning portal. 11 physics-driven vocabulary games, AI authoring, xAPI anti-cheat telemetry, and four immersive theme worlds.",
+  description: "AAA 2029 white-label PWA learning portal. Physics-driven vocabulary games, AI authoring, xAPI anti-cheat telemetry, and immersive theme worlds.",
   keywords: ["MiniStar", "English", "ESL", "vocabulary", "games", "PWA", "white-label", "Phaser", "xAPI"],
   authors: [{ name: "MiniStar Lab" }],
   manifest: "/manifest.json",
@@ -49,13 +49,16 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <script src="https://cdn.jsdelivr.net/npm/phaser@4.2.0/dist/phaser.min.js" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         style={{ background: 'var(--brand-bg)', color: 'var(--brand-text)' }}
       >
         {children}
         <Toaster />
-      </body><script src="https://cdn.jsdelivr.net/npm/phaser@4.2.0/dist/phaser.min.js"></script>
+      </body>
     </html>
   );
 }
