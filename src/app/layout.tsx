@@ -55,7 +55,7 @@ export default function RootLayout({
       >
         {children}
         <Toaster />
-      </body>
+      </body><script src="https://cdn.jsdelivr.net/npm/phaser@4.2.0/dist/phaser.min.js"></script>
     </html>
   );
 }

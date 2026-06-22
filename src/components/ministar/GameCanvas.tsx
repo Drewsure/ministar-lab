@@ -68,7 +68,7 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
 
     (async () => {
       // Phaser 4 ESM has no default export — import the namespace
-      const PhaserModule: any = await import('phaser');
+      const Phaser: any = window.Phaser;
       const Phaser = PhaserModule.default ?? PhaserModule;
       if (cancelled) return;
 
