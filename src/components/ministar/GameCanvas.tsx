@@ -26,6 +26,7 @@ const SCENE_IMPORTS: Record<string, () => Promise<{ default: any }>> = {
   'spin-wheel':      () => import('@/game/scenes/SpinWheelScene'),
   'group-sort':      () => import('@/game/scenes/GroupSortScene'),
   'type-answer':     () => import('@/game/scenes/TypeAnswerScene'),
+  'spot-it':         () => import('@/game/scenes/SpotItScene'),
 };
 
 const SCENE_KEY_BY_MODE: Record<string, string> = {
@@ -45,6 +46,7 @@ const SCENE_KEY_BY_MODE: Record<string, string> = {
   'spin-wheel':      'SpinWheelScene',
   'group-sort':      'GroupSortScene',
   'type-answer':     'TypeAnswerScene',
+  'spot-it':         'SpotItScene',
 };
 
 interface GameCanvasProps {

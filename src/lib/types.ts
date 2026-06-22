@@ -94,7 +94,8 @@ export type GameModeId =
   | 'flash-cards'
   | 'spin-wheel'
   | 'group-sort'
-  | 'type-answer';
+  | 'type-answer'
+  | 'spot-it';
 
 export interface GameModeMeta {
   id: GameModeId;

@@ -166,6 +166,7 @@ export abstract class BaseEngine extends Phaser.Scene {
       'SpinWheelScene': 'Welcome to Spin Wheel! Spin the wheel and match the answer!',
       'GroupSortScene': 'Welcome to Group Sort! Drag the words into the right boxes!',
       'TypeAnswerScene': 'Welcome to Type Answer! Read the meaning and type the word!',
+      'SpotItScene': 'Welcome to Spot It! Find the matching symbol between the two cards! Be fast!',
     };
     const instruction = instructions[gameMode] ?? 'Welcome! Tap to play!';
     audioBus.speak(instruction);

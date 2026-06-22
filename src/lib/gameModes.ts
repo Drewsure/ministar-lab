@@ -167,6 +167,16 @@ export const GAME_MODES: GameModeMeta[] = [
     maxTerms: 20,
     accent: '#8b5cf6',
   },
+  {
+    id: 'spot-it',
+    name: 'Spot It!',
+    engine: 'Selection',
+    description: 'Find the matching symbol between two cards! Fast eyes win! Based on the hit card game Dobble.',
+    emoji: '👁️',
+    minTerms: 3,
+    maxTerms: 20,
+    accent: '#f43f5e',
+  },
 ];
 
 export function getGameMode(id: GameModeId): GameModeMeta {
