@@ -89,7 +89,7 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
       const bgColor = '#' + (theme?.bg ?? 0x000000).toString(16).padStart(6, '0');
 
       const sceneConfig: Phaser.Types.Core.GameConfig = {
-        type: Phaser.AUTO, // Auto-select best renderer (WebGL preferred, Canvas fallback)
+        type: Phaser.CANVAS, // Auto-select best renderer (WebGL preferred, Canvas fallback)
         parent: container,
         width: 800,
         height: 600,
