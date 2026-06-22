@@ -119,6 +119,8 @@ export default class CrosswordScene extends BaseEngine {
           if (txt && txt.text === '⌫ DEL') {
             this.deleteLetter();
           } else if (txt) {
+            // ESL: speak the letter when tapped
+            audioBus.speak(txt.text);
             this.typeLetter(txt.text);
           }
           return;

@@ -127,7 +127,7 @@ export default class QuizScene extends BaseEngine {
 
     this.renderRound();
 
-    // Global pointer handler for reliable button clicks
+      // Global pointer handler for reliable button clicks
     this.setupGlobalPointer((x, y) => {
       if (!this.canAnswer) return;
       const r = this.rounds[this.round];
@@ -136,6 +136,8 @@ export default class QuizScene extends BaseEngine {
       this.optionButtons.forEach((btn, i) => {
         const btnW = 300, btnH = 80;
         if (Math.abs(x - btn.x) < btnW / 2 && Math.abs(y - btn.y) < btnH / 2) {
+          // ESL: speak the option text before answering
+          audioBus.speak(r.options[i].term);
           this.handleAnswer(btn, i, r.correctIndex, r.options[i]);
         }
       });

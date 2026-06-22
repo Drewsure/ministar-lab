@@ -132,6 +132,8 @@ export default class SpinWheelScene extends BaseEngine {
         const opt = btn.getData('opt') as { isCorrect: boolean; term: TermItem };
         const btnWorldY = 530 + (btn.getData('y') as number);
         if (opt && Math.abs(p.x - 400) < 160 && Math.abs(p.y - btnWorldY) < 25) {
+          // ESL: speak the definition before answering
+          audioBus.speak(opt.term.definition ?? opt.term.term);
           this.selectOption(opt.isCorrect, opt.term, btn);
         }
       });

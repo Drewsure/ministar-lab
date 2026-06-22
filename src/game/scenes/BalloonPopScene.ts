@@ -84,6 +84,8 @@ export default class BalloonPopScene extends BaseEngine {
         if (b.hit) continue;
         // Use larger hit radius for easier clicking (especially on mobile)
         if (Math.abs(x - b.container.x) < 45 && Math.abs(y - b.container.y) < 50) {
+          // ESL: speak the balloon's term when tapped
+          audioBus.speak(b.term.term);
           this.popBalloon(b);
           break;
         }

@@ -166,6 +166,15 @@ export default class FlashCardsScene extends BaseEngine {
       const cardX = this.scale.width / 2;
       const cardY = this.scale.height / 2;
       if (Math.abs(x - cardX) < 180 && Math.abs(y - cardY) < 120) {
+        // ESL: speak the card content
+        const card = this.cards[this.currentIdx];
+        if (card) {
+          if (card.isFlipped) {
+            audioBus.speak(card.term.definition ?? card.term.term);
+          } else {
+            audioBus.speak(card.term.term);
+          }
+        }
         this.flipCard();
         return;
       }

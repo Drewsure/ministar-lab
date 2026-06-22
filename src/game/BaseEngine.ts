@@ -130,6 +130,11 @@ export abstract class BaseEngine extends Phaser.Scene {
     // Subclass builds the actual game world
     this.buildWorld();
 
+    // AAA 2029 — Speak game welcome + instructions when game starts (ESL critical)
+    this.time.delayedCall(500, () => {
+      this.speakGameWelcome();
+    });
+
     // HUD loop
     this.events.on('update', () => {
       if (this.isFinished) return;
@@ -137,6 +142,33 @@ export abstract class BaseEngine extends Phaser.Scene {
       this.onTick(remainingMs);
       if (remainingMs <= 0) this.finishGame(false);
     });
+  }
+
+  // ===========================================================================
+  // ESL GAME WELCOME — speaks instructions when game starts
+  // ===========================================================================
+  protected speakGameWelcome() {
+    const gameMode = this.scene.key;
+    const instructions: Record<string, string> = {
+      'MazeChaseScene': 'Welcome to Maze Chase! Move through the maze and find the correct answer!',
+      'QuizScene': 'Welcome to Quiz! Read the question and tap the correct answer!',
+      'AirplaneScene': 'Welcome to Airplane! Steer your rocket and catch the correct answer!',
+      'GameshowScene': 'Welcome to the Gameshow! Answer the question before time runs out!',
+      'MemoryMatchScene': 'Welcome to Memory Match! Flip cards to find matching pairs!',
+      'MatchUpScene': 'Welcome to Match Up! Drag the words to their meanings! Tap any text to hear it!',
+      'BalloonPopScene': 'Welcome to Balloon Pop! Pop the balloon with the correct answer!',
+      'WhackAMoleScene': 'Welcome to Whack a Mole! Bonk the mole with the correct answer!',
+      'AnagramScene': 'Welcome to Anagram! Unscramble the letters to spell the word!',
+      'WordsearchScene': 'Welcome to Word Search! Find the hidden words in the grid!',
+      'BridgeBuilderScene': 'Welcome to Bridge Builder! Guess letters to help the rocket cross!',
+      'CrosswordScene': 'Welcome to Crossword! Tap cells and type the answers!',
+      'FlashCardsScene': 'Welcome to Flash Cards! Tap the card to flip and hear the word!',
+      'SpinWheelScene': 'Welcome to Spin Wheel! Spin the wheel and match the answer!',
+      'GroupSortScene': 'Welcome to Group Sort! Drag the words into the right boxes!',
+      'TypeAnswerScene': 'Welcome to Type Answer! Read the meaning and type the word!',
+    };
+    const instruction = instructions[gameMode] ?? 'Welcome! Tap to play!';
+    audioBus.speak(instruction);
   }
 
   protected onHudUpdate(_state: { score: number; streak: number; remainingMs: number }) {

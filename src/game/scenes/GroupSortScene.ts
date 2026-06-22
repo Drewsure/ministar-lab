@@ -80,13 +80,18 @@ export default class GroupSortScene extends BaseEngine {
       const bg = this.add.rectangle(x, bucketY, bucketW, bucketH, this.theme.card, 0.7)
         .setStrokeStyle(3, this.theme.accent, 0.8).setDepth(20);
 
-      // Category label
-      this.add.text(x, bucketY - bucketH / 2 + 20, name, {
+      // Category label — tap to hear (ESL: kids who can't read need to hear the category)
+      const catLabel = this.add.text(x, bucketY - bucketH / 2 + 20, name, {
         fontFamily: 'Inter, sans-serif',
         fontSize: '20px',
         color: this.hex(this.theme.warning),
         fontStyle: 'bold',
-      }).setOrigin(0.5).setDepth(21);
+      }).setOrigin(0.5).setDepth(21).setInteractive({ useHandCursor: true });
+      catLabel.on('pointerdown', () => {
+        audioBus.speak(name);
+        audioBus.play('tap');
+        this.tweens.add({ targets: catLabel, scale: { from: 1.1, to: 1 }, duration: 200, ease: 'Quad.out' });
+      });
 
       // Drop zone indicator
       this.add.text(x, bucketY + 20, 'Drop here', {

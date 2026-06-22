@@ -99,6 +99,8 @@ export default class AnagramScene extends BaseEngine {
       for (const tile of this.pool) {
         if (this.answer.includes(tile)) continue;
         if (Math.abs(x - tile.sprite.x) < 27 && Math.abs(y - tile.sprite.y) < 27) {
+          // ESL: speak the letter when tapped
+          audioBus.speak(tile.letter);
           this.tapTile(tile.letter, tile.originalIndex);
           break;
         }

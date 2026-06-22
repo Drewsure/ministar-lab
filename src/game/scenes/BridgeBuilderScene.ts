@@ -138,6 +138,8 @@ export default class BridgeBuilderScene extends BaseEngine {
         const letter = btn.getData('letter') as string;
         if (this.usedLetters.has(letter)) continue;
         if (Math.abs(x - btn.x) < 21 && Math.abs(y - btn.y) < 21) {
+          // ESL: speak the letter when tapped
+          audioBus.speak(letter);
           this.guessLetter(letter, btn);
           break;
         }

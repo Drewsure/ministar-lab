@@ -193,6 +193,13 @@ export default class MatchUpScene extends BaseEngine {
       }).setOrigin(0.5).setDepth(11);
 
       const container = this.add.container(x, y, [bg, indicator]).setSize(cardW, cardH).setDepth(10);
+      // Make right-column definitions tap-to-speak (ESL: students who can't read need to hear the definition)
+      indicator.setInteractive({ useHandCursor: true });
+      indicator.on('pointerdown', () => {
+        audioBus.speak(def.term);
+        audioBus.play('tap');
+        this.tweens.add({ targets: container, scale: { from: 1.05, to: 1 }, duration: 200, ease: 'Quad.out' });
+      });
       this.slots.push({
         definition: def, container, bg,
         occupied: false, x, y,

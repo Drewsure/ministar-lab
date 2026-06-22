@@ -126,6 +126,8 @@ export default class GameshowScene extends BaseEngine {
       this.optionButtons.forEach((btn, i) => {
         const btnW = 300, btnH = 85;
         if (Math.abs(x - btn.x) < btnW / 2 && Math.abs(y - btn.y) < btnH / 2) {
+          // ESL: speak the option text before answering
+          audioBus.speak(r.options[i].term);
           this.handleAnswer(btn, i, r.correctIndex, r.options[i]);
         }
       });

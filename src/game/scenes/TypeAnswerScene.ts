@@ -126,7 +126,11 @@ export default class TypeAnswerScene extends BaseEngine {
       for (const key of this.keyboardKeys) {
         if (Math.abs(x - key.x) < 18 && Math.abs(y - key.y) < 18) {
           const txt = key.getAt(1) as Phaser.GameObjects.Text;
-          if (txt) this.typeLetter(txt.text);
+          if (txt) {
+            // ESL: speak the letter when tapped
+            audioBus.speak(txt.text);
+            this.typeLetter(txt.text);
+          }
           return;
         }
       }

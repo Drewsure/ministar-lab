@@ -111,6 +111,8 @@ export default class WhackAMoleScene extends BaseEngine {
       for (const hole of this.holes) {
         if (!hole.mole || !hole.mole.active) continue;
         if (Math.abs(p.x - hole.mole.container.x) < 35 && Math.abs(p.y - hole.mole.container.y) < 35) {
+          // ESL: speak the mole's term when whacked
+          audioBus.speak(hole.mole.term.term);
           this.whack(hole, hole.mole);
           break;
         }
