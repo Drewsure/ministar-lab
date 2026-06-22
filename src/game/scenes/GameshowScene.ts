@@ -348,10 +348,23 @@ export default class GameshowScene extends BaseEngine {
         if (heart) {
           heart.setText('💔');
         }
+        // Highlight the correct answer with pulsing green flash
         const correctBtn = this.optionButtons[correctIndex];
         const cBg = correctBtn.getData('bg') as Phaser.GameObjects.Rectangle;
-        cBg.setFillStyle(this.theme.success, 0.6);
+        cBg.setFillStyle(this.theme.success, 0.8);
         cBg.setStrokeStyle(5, this.theme.success, 1);
+        // Pulsing animation on correct answer
+        this.tweens.add({
+          targets: correctBtn,
+          scale: { from: 1, to: 1.15 },
+          duration: 300, yoyo: true, repeat: 2, ease: 'Sine.inOut',
+        });
+        // Green glow ring
+        this.juice.glowRing(correctBtn.x, correctBtn.y, this.theme.success, 80);
+        // Speak the correct answer
+        this.time.delayedCall(300, () => {
+          audioBus.speak(`The answer is ${this.rounds[this.round].options[correctIndex].term}`);
+        });
         this.juice.shake('heavy');
         this.juice.burst(btn.x, btn.y, 'incorrect');
         audioBus.play('incorrect');

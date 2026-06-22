@@ -94,17 +94,51 @@ export default class SpinWheelScene extends BaseEngine {
     });
 
     // Wheel center hub
-    const hub = this.add.circle(0, 0, 20, this.theme.warning, 1)
-      .setStrokeStyle(3, 0xffffff, 0.8);
+    const hub = this.add.circle(0, 0, 22, this.theme.warning, 1)
+      .setStrokeStyle(4, 0xffffff, 0.9);
     this.wheel.add(hub);
+    // Hub center jewel
+    const jewel = this.add.circle(0, 0, 8, 0xffffff, 0.9);
+    this.wheel.add(jewel);
 
-    // Pointer (at top, pointing down)
-    this.pointer = this.add.text(wheelX, wheelY - wheelRadius - 10, '▼', {
+    // ---- Decorative lights around the wheel rim ----
+    const lightCount = 16;
+    for (let i = 0; i < lightCount; i++) {
+      const angle = (i / lightCount) * Math.PI * 2 - Math.PI / 2;
+      const lx = Math.cos(angle) * (wheelRadius + 8);
+      const ly = Math.sin(angle) * (wheelRadius + 8);
+      const lightColor = i % 2 === 0 ? this.theme.warning : 0xffffff;
+      const light = this.add.circle(lx, ly, 4, lightColor, 1).setDepth(35);
+      this.wheel.add(light);
+      // Blinking animation (alternating)
+      this.tweens.add({
+        targets: light,
+        alpha: { from: 1, to: 0.3 },
+        duration: 400 + i * 30,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.inOut',
+      });
+    }
+
+    // Outer wheel ring (gold border)
+    const ring = this.add.circle(0, 0, wheelRadius + 4, 0x000000, 0)
+      .setStrokeStyle(6, this.theme.warning, 0.8).setDepth(34);
+    this.wheel.add(ring);
+
+    // Pointer (at top, pointing down) — bigger and more dramatic
+    this.pointer = this.add.text(wheelX, wheelY - wheelRadius - 15, '▼', {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '36px',
+      fontSize: '44px',
       color: this.hex(this.theme.danger),
       fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(40);
+    // Pointer bounce
+    this.tweens.add({
+      targets: this.pointer,
+      y: wheelY - wheelRadius - 5,
+      duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut',
+    });
 
     // ---- Spin button ----
     const btnY = wheelY + wheelRadius + 50;

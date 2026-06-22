@@ -48,45 +48,54 @@ export default class FlashCardsScene extends BaseEngine {
       }
     ).setOrigin(0.5).setDepth(50);
 
-    // ---- Card (center of screen) ----
-    const cardW = 360, cardH = 240;
+    // ---- Card (center of screen) — BIGGER and more colorful ----
+    const cardW = 440, cardH = 280;
     const cardX = this.scale.width / 2;
     const cardY = this.scale.height / 2;
 
-    // Card background with shadow
-    const shadow = this.add.rectangle(cardX + 6, cardY + 6, cardW, cardH, 0x000000, 0.3).setDepth(48);
+    // Card shadow
+    const shadow = this.add.rectangle(cardX + 8, cardY + 8, cardW, cardH, 0x000000, 0.4).setDepth(48);
+
+    // Card background with gradient effect (two layers)
     this.cardBg = this.add.rectangle(cardX, cardY, cardW, cardH, this.theme.card, 1)
-      .setStrokeStyle(3, this.theme.accent, 0.8).setDepth(49)
+      .setStrokeStyle(5, this.theme.accent, 1).setDepth(49)
       .setInteractive({ useHandCursor: true });
 
-    // Card emoji (large, top)
-    this.cardEmoji = this.add.text(cardX, cardY - 60, '', {
+    // Colorful top stripe
+    const topStripe = this.add.rectangle(cardX, cardY - cardH / 2 + 6, cardW - 10, 8, this.theme.accent2, 0.9)
+      .setDepth(49);
+    // Colorful bottom stripe
+    const bottomStripe = this.add.rectangle(cardX, cardY + cardH / 2 - 6, cardW - 10, 8, this.theme.warning, 0.9)
+      .setDepth(49);
+
+    // Card emoji (BIGGER — 80px)
+    this.cardEmoji = this.add.text(cardX, cardY - 70, '', {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '60px',
+      fontSize: '80px',
     }).setOrigin(0.5).setDepth(50);
 
-    // Card text (term or definition)
-    this.cardText = this.add.text(cardX, cardY + 20, '', {
+    // Card text (BIGGER — 30px)
+    this.cardText = this.add.text(cardX, cardY + 30, '', {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '26px',
+      fontSize: '30px',
       color: this.hex(this.theme.text),
       fontStyle: 'bold',
       align: 'center',
-      wordWrap: { width: cardW - 40 },
+      wordWrap: { width: cardW - 50 },
     }).setOrigin(0.5).setDepth(50);
 
-    // Hint text (below card)
+    // Hint text (below card) — bigger
     this.hintText = this.add.text(cardX, cardY + cardH / 2 + 30, 'Tap card to flip · Tap text to hear', {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '14px',
+      fontSize: '16px',
       color: this.hex(this.theme.textMuted),
     }).setOrigin(0.5).setDepth(50);
 
-    // Navigation arrows
+    // Navigation arrows — BIGGER
     const arrowY = cardY;
     const prevArrow = this.add.text(cardX - cardW / 2 - 50, arrowY, '◀', {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '40px',
+      fontSize: '50px',
       color: this.hex(this.theme.accent),
       fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(50).setInteractive({ useHandCursor: true });
@@ -94,14 +103,14 @@ export default class FlashCardsScene extends BaseEngine {
 
     const nextArrow = this.add.text(cardX + cardW / 2 + 50, arrowY, '▶', {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '40px',
+      fontSize: '50px',
       color: this.hex(this.theme.accent),
       fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(50).setInteractive({ useHandCursor: true });
     nextArrow.on('pointerdown', () => this.nextCard());
 
-    // Known / Review buttons
-    const btnY = cardY + cardH / 2 + 70;
+    // Known / Review buttons — BIGGER and more colorful
+    const btnY = cardY + cardH / 2 + 80;
     const knownBtn = this.add.rectangle(cardX - 90, btnY, 140, 44, this.theme.success, 0.8)
       .setStrokeStyle(2, this.theme.success, 1).setDepth(50)
       .setInteractive({ useHandCursor: true });
@@ -162,10 +171,10 @@ export default class FlashCardsScene extends BaseEngine {
 
     // Global pointer handler for reliable card interactions
     this.setupGlobalPointer((x, y) => {
-      // Hit-test card (flip)
+      // Hit-test card (flip) — bigger card
       const cardX = this.scale.width / 2;
       const cardY = this.scale.height / 2;
-      if (Math.abs(x - cardX) < 180 && Math.abs(y - cardY) < 120) {
+      if (Math.abs(x - cardX) < 220 && Math.abs(y - cardY) < 140) {
         // ESL: speak the card content
         const card = this.cards[this.currentIdx];
         if (card) {
