@@ -1,13 +1,9 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import type Phaser from 'phaser';
+// Phaser loaded via CDN script tag in layout.tsx — window.Phaser is available globally
 import type { GameLaunchConfig } from '@/lib/types';
 import { THEMES } from '@/lib/themes';
-
-// Dynamic import so Phaser only loads on the client.
-// All 11 game scenes are registered here; the active scene is selected
-// by the `mode` field in the launch config.
 
 const SCENE_IMPORTS: Record<string, () => Promise<{ default: any }>> = {
   'maze-chase':      () => import('@/game/scenes/MazeChaseScene'),
@@ -56,61 +52,37 @@ interface GameCanvasProps {
 
 export default function GameCanvas({ config, onExit }: GameCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const gameRef = useRef<Phaser.Game | null>(null);
-  const loadedScenesRef = useRef<Set<string>>(new Set());
+  const gameRef = useRef<any>(null);
 
   useEffect(() => {
-    if (!config || !containerRef.current) {
-      return;
-    }
-
+    if (!config || !containerRef.current) return;
     let cancelled = false;
 
     (async () => {
-      // Phaser 4 ESM has no default export — import the namespace
       const Phaser: any = window.Phaser;
-      if (cancelled) return;
+      if (!Phaser || cancelled) return;
 
       const mode = config.mode;
       const sceneKey = SCENE_KEY_BY_MODE[mode];
       const sceneLoader = SCENE_IMPORTS[mode];
-
-      // Resolve theme manifest from ThemeId
       const theme = THEMES[config.theme];
-
-      // Load the scene module (only the active one — keeps bundle light)
       const SceneClass = (await sceneLoader()).default;
-
-      // Responsive sizing — use FIT mode so the 800x600 game scales to fit
-      // any screen (mobile portrait, mobile landscape, desktop) without overflow
       const container = containerRef.current!;
-
       const bgColor = '#' + (theme?.bg ?? 0x000000).toString(16).padStart(6, '0');
 
-      const sceneConfig: Phaser.Types.Core.GameConfig = {
-        type: Phaser.CANVAS, // Auto-select best renderer (WebGL preferred, Canvas fallback)
+      const sceneConfig = {
+        type: Phaser.CANVAS,
         parent: container,
         width: 800,
         height: 600,
         backgroundColor: bgColor,
-        physics: {
-          default: 'arcade',
-          arcade: { debug: false, gravity: { x: 0, y: 0 } },
-        },
+        physics: { default: 'arcade', arcade: { debug: false, gravity: { x: 0, y: 0 } } },
         scene: [],
         fps: { target: 60, forceSetTimeOut: false },
-        render: {
-          antialias: true,
-        },
-        input: {
-          activePointers: 3,
-          keyboard: true,  // Explicitly enable keyboard
-          touch: true,     // Explicitly enable touch
-          mouse: true,     // Explicitly enable mouse
-        },
+        render: { antialias: true },
+        input: { activePointers: 3, keyboard: true, touch: true, mouse: true },
       };
 
-      // Make canvas focusable for keyboard input + ensure it receives pointer events
       setTimeout(() => {
         const canvas = container.querySelector('canvas');
         if (canvas) {
@@ -118,7 +90,6 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
           canvas.style.outline = 'none';
           canvas.style.touchAction = 'none';
           canvas.style.pointerEvents = 'auto';
-          // Constrain canvas to fit viewport — critical for mobile and desktop
           canvas.style.maxWidth = '100%';
           canvas.style.maxHeight = '70vh';
           canvas.style.width = 'auto';
@@ -128,35 +99,26 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
         }
       }, 200);
 
-      let game: Phaser.Game;
+      let game: any;
       try {
         game = new Phaser.Game(sceneConfig);
       } catch (e: any) {
         return;
       }
       gameRef.current = game;
-      // Debug: expose game instance
-      if (typeof window !== 'undefined') {
-        (window as any).__PHASER_GAME = game;
-      }
+      if (typeof window !== 'undefined') (window as any).__PHASER_GAME = game;
 
-      // Pass launch config via registry — scenes read it in init()
       const resolvedConfig = { ...config, theme } as any;
       game.registry.set('launchConfig', resolvedConfig);
 
-      // Register the active scene class WITHOUT auto-start (autoStart=false),
-      // then explicitly start it with the launch config data once the game boots.
       game.events.once('ready', () => {
         game.scene.add(sceneKey, SceneClass, false);
         game.scene.start(sceneKey, { config: resolvedConfig });
       });
-
-      loadedScenesRef.current.add(mode);
     })();
 
     return () => {
       cancelled = true;
-      // Cancel any in-progress TTS when game exits
       try {
         if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
           window.speechSynthesis.cancel();
@@ -171,13 +133,7 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
 
   return (
     <div className="relative w-full h-full" style={{ touchAction: 'none' }}>
-      <div
-        ref={containerRef}
-        className="w-full h-full"
-        style={{ touchAction: 'none', pointerEvents: 'auto' }}
-      />
-      {/* Exit button removed — the parent page provides a clear "← Back to Library" button.
-          Having two exit buttons was confusing users. */}
+      <div ref={containerRef} className="w-full h-full" style={{ touchAction: 'none', pointerEvents: 'auto' }} />
     </div>
   );
 }
