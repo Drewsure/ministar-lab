@@ -153,6 +153,12 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
 
     return () => {
       cancelled = true;
+      // Cancel any in-progress TTS when game exits
+      try {
+        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+        }
+      } catch {}
       if (gameRef.current) {
         try { gameRef.current.destroy(true); } catch {}
         gameRef.current = null;

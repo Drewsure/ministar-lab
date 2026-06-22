@@ -205,25 +205,27 @@ export abstract class BaseEngine extends Phaser.Scene {
     if (opts.success) {
       this.score++;
       this.streak++;
-      this.juice.burst(opts.coordinate?.x ?? 400, opts.coordinate?.y ?? 300, this.streak >= 3 ? 'streak' : 'correct');
-      this.juice.shake('light');
-      this.juice.flash(this.theme.success, 0.18, 100);
-      // AAA 2029 additions — score popup + glow ring on streaks + zoom punch on big streaks
-      this.juice.scorePopup(
-        opts.coordinate?.x ?? this.scale.width / 2,
-        opts.coordinate?.y ?? this.scale.height / 2,
-        this.streak >= 3 ? `STREAK x${this.streak}!` : '+1',
-        this.streak >= 3 ? this.theme.warning : this.theme.success
-      );
-      if (this.streak === 3 || this.streak === 5 || this.streak === 7) {
-        this.juice.glowRing(
+      // Stability: wrap juice calls in try-catch to prevent freezes
+      try {
+        this.juice.burst(opts.coordinate?.x ?? 400, opts.coordinate?.y ?? 300, this.streak >= 3 ? 'streak' : 'correct');
+        this.juice.shake('light');
+        this.juice.flash(this.theme.success, 0.18, 100);
+        this.juice.scorePopup(
           opts.coordinate?.x ?? this.scale.width / 2,
           opts.coordinate?.y ?? this.scale.height / 2,
-          this.theme.warning,
-          120
+          this.streak >= 3 ? `STREAK x${this.streak}!` : '+1',
+          this.streak >= 3 ? this.theme.warning : this.theme.success
         );
-        this.juice.zoomPunch(1.04, 250);
-      }
+        if (this.streak === 3 || this.streak === 5 || this.streak === 7) {
+          this.juice.glowRing(
+            opts.coordinate?.x ?? this.scale.width / 2,
+            opts.coordinate?.y ?? this.scale.height / 2,
+            this.theme.warning,
+            120
+          );
+          this.juice.zoomPunch(1.04, 250);
+        }
+      } catch (e) { /* ignore juice errors */ }
       // ESL: speak the correct term aloud when answered correctly
       audioBus.speak(opts.term);
       audioBus.play('correct');
@@ -231,16 +233,17 @@ export abstract class BaseEngine extends Phaser.Scene {
       this.checkLevelUp();
     } else {
       this.streak = 0;
-      this.juice.burst(opts.coordinate?.x ?? 400, opts.coordinate?.y ?? 300, 'incorrect');
-      this.juice.shake('medium');
-      this.juice.flash(this.theme.danger, 0.25, 140);
-      // AAA 2029 — negative feedback popup
-      this.juice.scorePopup(
-        opts.coordinate?.x ?? this.scale.width / 2,
-        opts.coordinate?.y ?? this.scale.height / 2,
-        'X',
-        this.theme.danger
-      );
+      try {
+        this.juice.burst(opts.coordinate?.x ?? 400, opts.coordinate?.y ?? 300, 'incorrect');
+        this.juice.shake('medium');
+        this.juice.flash(this.theme.danger, 0.25, 140);
+        this.juice.scorePopup(
+          opts.coordinate?.x ?? this.scale.width / 2,
+          opts.coordinate?.y ?? this.scale.height / 2,
+          'X',
+          this.theme.danger
+        );
+      } catch (e) { /* ignore juice errors */ }
       audioBus.play('incorrect');
     }
     this.hud.tick(this.score, this.streak, this.maxScore);
@@ -468,10 +471,13 @@ export abstract class BaseEngine extends Phaser.Scene {
 
   // ===========================================================================
   // GLOBAL POINTER HANDLER — sets up a reliable pointerdown listener
-  // that works even when Phaser's per-object input fails
+  // that works even when Phaser's per-object input fails.
+  // Also cancels any in-progress TTS on user activity.
   // ===========================================================================
   protected setupGlobalPointer(handler: (x: number, y: number) => void) {
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      // Cancel any in-progress speech on user activity (prevents overlap)
+      audioBus.stopSpeaking();
       handler(p.x, p.y);
     });
   }

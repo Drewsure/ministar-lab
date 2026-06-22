@@ -48,6 +48,31 @@ function saveStats(stats: StudentStats) {
   } catch {}
 }
 
+// AAA 2029 — Achievement badges (Blooket-grade engagement)
+interface Achievement {
+  id: string;
+  name: string;
+  emoji: string;
+  description: string;
+  unlocked: boolean;
+}
+
+function loadAchievements(stats: StudentStats): Achievement[] {
+  const achievements: Achievement[] = [
+    { id: 'first_game', name: 'First Steps', emoji: '🌱', description: 'Play your first game', unlocked: stats.gamesPlayed >= 1 },
+    { id: 'five_games', name: 'Getting Started', emoji: '⭐', description: 'Play 5 games', unlocked: stats.gamesPlayed >= 5 },
+    { id: 'ten_games', name: 'Game Explorer', emoji: '🎮', description: 'Play 10 games', unlocked: stats.gamesPlayed >= 10 },
+    { id: 'level_5', name: 'Rising Star', emoji: '✨', description: 'Reach Level 5', unlocked: stats.level >= 5 },
+    { id: 'level_10', name: 'Super Star', emoji: '🏆', description: 'Reach Level 10', unlocked: stats.level >= 10 },
+    { id: 'streak_3', name: 'On Fire', emoji: '🔥', description: '3-day streak', unlocked: stats.streak >= 3 },
+    { id: 'streak_7', name: 'Week Warrior', emoji: '⚔️', description: '7-day streak', unlocked: stats.streak >= 7 },
+    { id: 'streak_best', name: 'Unstoppable', emoji: '💎', description: 'Best streak of 5+ days', unlocked: stats.bestStreak >= 5 },
+    { id: 'xp_500', name: 'Scholar', emoji: '📚', description: 'Earn 500 XP', unlocked: stats.xp >= 500 },
+    { id: 'xp_1000', name: 'Master', emoji: '👑', description: 'Earn 1000 XP', unlocked: stats.xp >= 1000 },
+  ];
+  return achievements;
+}
+
 export default function Home() {
   const { brand, setBrandKey } = useBrand();
   const [view, setView] = useState<View>('student');
@@ -146,7 +171,7 @@ export default function Home() {
               }}
             >
               <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: brand.accentColor }} />
-              AAA 2029 · PWA · 16 Engines · 10 Worlds
+              AAA 2029 · 16 Games · 10 Worlds · Audio Learning
             </div>
             <h1
               className="text-3xl sm:text-5xl font-black tracking-tight mb-2"
@@ -160,8 +185,7 @@ export default function Home() {
               The Living Textbook
             </h1>
             <p className="text-sm sm:text-base opacity-80 max-w-2xl mx-auto" style={{ color: 'var(--brand-text)' }}>
-              Physics-driven vocabulary games. AI-authored content. Server-authoritative anti-cheat.
-              Whitelabel-ready for every B2B purchaser.
+              Play amazing games, learn new words, and level up! Every game speaks to you — tap anything to hear it.
             </p>
 
             {/* AAA 2029 — Student Stats Bar */}
@@ -281,7 +305,7 @@ export default function Home() {
             </div>
 
             <div className="text-center mt-4 text-xs opacity-60" style={{ color: 'var(--brand-text)' }}>
-              WASD / Arrow keys to move · Tap to steer · Press <kbd className="px-1.5 py-0.5 rounded bg-white/10 mx-1">P</kbd> to pause
+              Tap to play · Tap any text to hear it · Press P to pause
             </div>
           </div>
         ) : view === 'teacher' ? (
@@ -350,6 +374,40 @@ export default function Home() {
               </button>
             </div>
 
+            {/* Achievement Badges — Blooket-grade engagement */}
+            {stats.gamesPlayed > 0 && (
+              <div className="rounded-2xl mb-6 p-4"
+                style={{
+                  background: 'color-mix(in oklab, var(--brand-card) 50%, transparent)',
+                  border: '1px solid color-mix(in oklab, var(--brand-accent) 20%, transparent)',
+                }}
+              >
+                <div className="font-bold mb-3 flex items-center gap-2" style={{ color: 'var(--brand-text)' }}>
+                  <span className="text-xl">🏅</span> Achievements
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  {loadAchievements(stats).map(a => (
+                    <div
+                      key={a.id}
+                      className="rounded-xl p-2 text-center transition-all"
+                      style={{
+                        background: a.unlocked
+                          ? 'color-mix(in oklab, var(--brand-accent) 25%, transparent)'
+                          : 'color-mix(in oklab, var(--brand-card) 80%, transparent)',
+                        border: `1px solid ${a.unlocked ? 'color-mix(in oklab, var(--brand-accent) 50%, transparent)' : 'color-mix(in oklab, var(--brand-accent) 15%, transparent)'}`,
+                        opacity: a.unlocked ? 1 : 0.4,
+                        width: '80px',
+                      }}
+                      title={a.description}
+                    >
+                      <div className="text-2xl mb-1" style={{ filter: a.unlocked ? 'none' : 'grayscale(1)' }}>{a.emoji}</div>
+                      <div className="text-[10px] font-semibold leading-tight" style={{ color: 'var(--brand-text)' }}>{a.name}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <GameLibrary
               onPick={(m, t) => launchGame(m, t)}
               selectedTheme={theme}
@@ -368,16 +426,16 @@ export default function Home() {
         <div className="mx-auto max-w-7xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs opacity-60"
           style={{ color: 'var(--brand-text)' }}>
           <div>
-            © 2029 {brand.displayName} · Powered by MiniStar Living Textbook Engine
+            © 2029 {brand.displayName} · MiniStar Learning Games
           </div>
           <div className="flex items-center gap-4">
-            <span>16 Engines</span>
+            <span>16 Games</span>
             <span>·</span>
             <span>10 Worlds</span>
             <span>·</span>
-            <span>xAPI Telemetry</span>
+            <span>Audio Enabled</span>
             <span>·</span>
-            <span>White-Label PWA</span>
+            <span>Level Up!</span>
           </div>
         </div>
       </footer>
