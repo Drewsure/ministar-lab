@@ -86,12 +86,11 @@ export default class GroupSortScene extends BaseEngine {
         fontSize: '20px',
         color: this.hex(this.theme.warning),
         fontStyle: 'bold',
-      }).setOrigin(0.5).setDepth(21).setInteractive({ useHandCursor: true });
-      catLabel.on('pointerdown', () => {
-        audioBus.speak(name);
-        audioBus.play('tap');
-        this.tweens.add({ targets: catLabel, scale: { from: 1.1, to: 1 }, duration: 200, ease: 'Quad.out' });
-      });
+      }).setOrigin(0.5).setDepth(21);
+      // Store speak text for global pointer handler (Phaser 4 per-object input unreliable)
+      catLabel.setData('speakText', name);
+      catLabel.setData('catX', x);
+      catLabel.setData('catY', bucketY - bucketH / 2 + 20);
 
       // Drop zone indicator
       this.add.text(x, bucketY + 20, 'Drop here', {
@@ -110,6 +109,17 @@ export default class GroupSortScene extends BaseEngine {
 
       this.categories.push({ name, x, terms: [], bg });
       void belongs;
+    });
+
+    // Global pointer for tap-to-speak on category labels
+    this.setupGlobalPointer((x, y) => {
+      for (const cat of this.categories) {
+        if (Math.abs(x - cat.x) < 60 && Math.abs(y - 150) < 20) {
+          audioBus.speak(cat.name);
+          audioBus.play('tap');
+          return;
+        }
+      }
     });
 
     // ---- Create draggable terms at top ----

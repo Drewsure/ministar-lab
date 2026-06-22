@@ -80,6 +80,26 @@ export default class MatchUpScene extends BaseEngine {
     this.progressText.setText(`Matched: 0 / ${this.rows.length}`);
 
     this.buildColumns();
+
+    // Global pointer handler for tap-to-speak on right column (definitions)
+    this.setupGlobalPointer((x, y) => {
+      // Check if tapping a right-column slot (to hear the definition)
+      for (const slot of this.slots) {
+        if (Math.abs(x - slot.x) < 130 && Math.abs(y - slot.y) < 32) {
+          audioBus.speak(slot.definition.term);
+          audioBus.play('tap');
+          return;
+        }
+      }
+      // Check if tapping a left-column card (to hear the term)
+      for (const card of this.cards) {
+        if (!card.placed && Math.abs(x - card.homeX) < 130 && Math.abs(y - card.homeY) < 32) {
+          audioBus.speak(card.term.term);
+          audioBus.play('tap');
+          return;
+        }
+      }
+    });
   }
 
   protected onTick(_remainingMs: number) { /* HUD */ }
@@ -193,13 +213,8 @@ export default class MatchUpScene extends BaseEngine {
       }).setOrigin(0.5).setDepth(11);
 
       const container = this.add.container(x, y, [bg, indicator]).setSize(cardW, cardH).setDepth(10);
-      // Make right-column definitions tap-to-speak (ESL: students who can't read need to hear the definition)
-      indicator.setInteractive({ useHandCursor: true });
-      indicator.on('pointerdown', () => {
-        audioBus.speak(def.term);
-        audioBus.play('tap');
-        this.tweens.add({ targets: container, scale: { from: 1.05, to: 1 }, duration: 200, ease: 'Quad.out' });
-      });
+      // Store speak text for the global pointer handler (Phaser 4 per-object input is unreliable)
+      indicator.setData('speakText', def.term);
       this.slots.push({
         definition: def, container, bg,
         occupied: false, x, y,

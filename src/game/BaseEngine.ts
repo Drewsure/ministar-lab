@@ -559,19 +559,12 @@ export abstract class BaseEngine extends Phaser.Scene {
     audioBus.speakTerm(term, definition);
   }
 
-  /** Make a text object speak its content when tapped (ESL tap-to-hear) */
+  /** Make a text object speak its content when tapped (ESL tap-to-hear)
+   *  NOTE: Phaser 4 per-object input is unreliable. The global pointer handler
+   *  in each scene's setupGlobalPointer handles tap-to-speak.
+   *  This method stores the speak text for reference but does NOT register
+   *  its own pointerdown listener (which caused duplicate/repeated speech). */
   protected makeSpeakable(text: Phaser.GameObjects.Text, speechText?: string) {
-    text.setInteractive({ useHandCursor: true });
-    text.on('pointerdown', () => {
-      audioBus.speak(speechText ?? text.text);
-      audioBus.play('tap');
-      // Visual feedback: pulse
-      this.tweens.add({
-        targets: text,
-        scale: { from: 1.1, to: 1 },
-        duration: 200,
-        ease: 'Quad.out',
-      });
-    });
+    text.setData('speakText', speechText ?? text.text);
   }
 }
