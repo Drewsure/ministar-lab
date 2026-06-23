@@ -38,6 +38,7 @@ export default class SnakingScene extends BaseEngine {
   private promptBg!: Phaser.GameObjects.Rectangle;
   private lengthText!: Phaser.GameObjects.Text;
   private isMoving = false;
+  private startHint?: Phaser.GameObjects.Text;
 
   protected maxQuestions() { return Math.min(this.terms.length, 10); }
 
@@ -61,8 +62,16 @@ export default class SnakingScene extends BaseEngine {
       fontFamily: 'Inter, sans-serif', fontSize: '16px', color: this.hex(this.theme.warning), fontStyle: 'bold',
     }).setDepth(50);
 
-    // Initialize snake (3 segments starting center)
-    const startX = Math.floor(this.scale.width / 2 / this.gridStep) * this.gridStep;
+    // AAAA — "Tap to start" instruction (snake doesn't move until first direction input)
+    this.startHint = this.add.text(this.scale.width / 2, this.scale.height / 2 + 80, 'Tap arrow keys or swipe to start!', {
+      fontFamily: 'Inter, sans-serif', fontSize: '14px', color: this.hex(this.theme.warning),
+    }).setOrigin(0.5).setDepth(50).setAlpha(0);
+    this.tweens.add({
+      targets: this.startHint, alpha: { from: 0.4, to: 1 }, duration: 800, yoyo: true, repeat: -1,
+    });
+
+    // Initialize snake (3 segments starting center-LEFT so it has room to move right)
+    const startX = 120;  // start near left side
     const startY = Math.floor(this.scale.height / 2 / this.gridStep) * this.gridStep;
     for (let i = 0; i < 3; i++) {
       const seg: SnakeSegment = {
@@ -81,25 +90,21 @@ export default class SnakingScene extends BaseEngine {
     this.input.keyboard?.on('keydown-UP', () => this.changeDirection(0, -1));
     this.input.keyboard?.on('keydown-DOWN', () => this.changeDirection(0, 1));
 
-    // Touch controls — swipe
-    let touchStart: { x: number; y: number } | null = null;
+    // Touch controls — tap a direction (not swipe, which is confusing for kids)
     this.setupGlobalPointer((x, y) => {
-      if (!touchStart) {
-        touchStart = { x, y };
+      const head = this.snake[0];
+      const dx = x - head.x;
+      const dy = y - head.y;
+      if (Math.abs(dx) > Math.abs(dy)) {
+        this.changeDirection(dx > 0 ? 1 : -1, 0);
       } else {
-        const dx = x - touchStart.x;
-        const dy = y - touchStart.y;
-        if (Math.abs(dx) > Math.abs(dy)) {
-          this.changeDirection(dx > 0 ? 1 : -1, 0);
-        } else {
-          this.changeDirection(0, dy > 0 ? 1 : -1);
-        }
-        touchStart = null;
+        this.changeDirection(0, dy > 0 ? 1 : -1);
       }
     });
 
     this.spawnFood();
-    this.isMoving = true;
+    // AAAA — Snake does NOT move until first direction input
+    this.isMoving = false;
   }
 
   protected onTick(_remainingMs: number) {
@@ -114,8 +119,16 @@ export default class SnakingScene extends BaseEngine {
 
   private changeDirection(x: number, y: number) {
     // Prevent reversing into itself
-    if (this.direction.x === -x && this.direction.y === -y) return;
+    if (this.direction.x === -x && this.direction.y === -y && this.isMoving) return;
     this.nextDirection = { x, y };
+    // AAAA — Start moving on first direction input
+    if (!this.isMoving) {
+      this.isMoving = true;
+      if (this.startHint) {
+        this.startHint.destroy();
+        this.startHint = undefined;
+      }
+    }
     audioBus.play('tap');
   }
 

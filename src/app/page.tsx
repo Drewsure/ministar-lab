@@ -13,6 +13,7 @@ import StarGarden from '@/components/ministar/StarGarden';
 import OnboardingFlow from '@/components/ministar/OnboardingFlow';
 import ParentGate from '@/components/ministar/ParentGate';
 import LaunchCard from '@/components/ministar/LaunchCard';
+import ErrorBoundary from '@/components/ministar/ErrorBoundary';
 import { useBrand } from '@/components/ministar/useBrand';
 import { THEMES } from '@/lib/themes';
 import { GAME_MODE_MAP } from '@/lib/gameModes';
@@ -230,6 +231,7 @@ export default function Home() {
   }, []);
 
   return (
+    <ErrorBoundary>
     <div
       className="min-h-screen flex flex-col"
       style={{
@@ -886,5 +888,6 @@ export default function Home() {
         onLaunch={(m, t) => launchGame(m, t)}
       />
     </div>
+    </ErrorBoundary>
   );
 }

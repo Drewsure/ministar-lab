@@ -378,9 +378,16 @@ export class WorldEffectsManager {
         color: '#ffffff',
       }).setOrigin(0.5).setDepth(901).setAlpha(0);
 
+      // "Tap to skip" hint
+      const skipHint = this.scene.add.text(w / 2, h - 40, 'tap to skip', {
+        fontFamily: 'Inter, sans-serif',
+        fontSize: '12px',
+        color: '#ffffff',
+      }).setOrigin(0.5).setDepth(901).setAlpha(0.4);
+
       // Animate in
       this.scene.tweens.add({
-        targets: [overlay, emoji, name, modBadge],
+        targets: [overlay, emoji, name, modBadge, skipHint],
         alpha: { from: 0, to: 1 },
         duration: 400,
         ease: 'Cubic.out',
@@ -394,25 +401,43 @@ export class WorldEffectsManager {
         ease: 'Back.out',
       });
 
-      // Speak the intro
-      audioBus.speak(this.config.introText);
+      // Speak the intro (wrapped in try-catch — TTS may not be available)
+      try { audioBus.speak(this.config.introText); } catch {}
 
-      // After 2.5s, fade out + complete
+      // Tap to skip
+      let completed = false;
+      const doComplete = () => {
+        if (completed) return;
+        completed = true;
+        try {
+          this.scene.tweens.add({
+            targets: [overlay, emoji, name, modBadge, skipHint],
+            alpha: 0,
+            duration: 200,
+            ease: 'Cubic.in',
+            onComplete: () => {
+              overlay.destroy();
+              emoji.destroy();
+              name.destroy();
+              modBadge.destroy();
+              skipHint.destroy();
+              onComplete();
+            },
+          });
+        } catch {
+          onComplete();
+        }
+      };
+
+      // Allow tap to skip after 500ms
       setTimeout(() => {
-        this.scene.tweens.add({
-          targets: [overlay, emoji, name, modBadge],
-          alpha: 0,
-          duration: 300,
-          ease: 'Cubic.in',
-          onComplete: () => {
-            overlay.destroy();
-            emoji.destroy();
-            name.destroy();
-            modBadge.destroy();
-            onComplete();
-          },
-        });
-      }, 2500);
+        try {
+          this.scene.input.on('pointerdown', doComplete);
+        } catch {}
+      }, 500);
+
+      // After 1.8s, auto-complete (shorter than before to avoid impatience)
+      setTimeout(doComplete, 1800);
     } catch (e) {
       // If anything fails, just continue
       onComplete();

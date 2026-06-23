@@ -32,16 +32,20 @@ export default function OnboardingFlow({ onComplete }: Props) {
 
   // Initialize audio on first render
   useEffect(() => {
-    audioBus.init();
-    audioBus.startMusic();
+    try {
+      audioBus.init();
+      audioBus.startMusic();
+    } catch {}
   }, []);
 
   // Step 1: Welcome — after 2s, Cloud Dog wakes up
   useEffect(() => {
     if (step === 'welcome') {
       const t = setTimeout(() => {
-        setCloudDogMood('happy');
-        audioBus.speak('Hi friend! I am Cloud Dog!');
+        try {
+          setCloudDogMood('happy');
+          audioBus.speak('Hi friend! I am Cloud Dog!');
+        } catch {}
         setTimeout(() => {
           setStep('feed');
         }, 2000);
@@ -55,7 +59,7 @@ export default function OnboardingFlow({ onComplete }: Props) {
     if (step === 'feed') {
       setCloudDogMood('happy');
       setTreatVisible(true);
-      audioBus.speak("I'm hungry! Tap the star to feed me!");
+      try { audioBus.speak("I'm hungry! Tap the star to feed me!"); } catch {}
     }
   }, [step]);
 
@@ -64,7 +68,7 @@ export default function OnboardingFlow({ onComplete }: Props) {
     if (step === 'mission') {
       setCloudDogMood('excited');
       setStarVisible(true);
-      audioBus.speak('Wow! Now tap the super jump star!');
+      try { audioBus.speak('Wow! Now tap the super jump star!'); } catch {}
     }
   }, [step]);
 
@@ -72,7 +76,7 @@ export default function OnboardingFlow({ onComplete }: Props) {
   useEffect(() => {
     if (step === 'reward') {
       setCloudDogMood('celebrating');
-      audioBus.speak('Yay! You earned Star Dust! Let us play!');
+      try { audioBus.speak('Yay! You earned Star Dust! Let us play!'); } catch {}
       // Spawn confetti
       const newConfetti = Array.from({ length: 20 }, (_, i) => ({
         id: i,
@@ -85,7 +89,7 @@ export default function OnboardingFlow({ onComplete }: Props) {
       const interval = setInterval(() => {
         count += 5;
         setStarDustCount(count);
-        audioBus.play('correct', { freq: 660 + count });
+        try { audioBus.play('correct', { freq: 660 + count }); } catch {}
         if (count >= 50) {
           clearInterval(interval);
           setTimeout(() => {
@@ -93,6 +97,7 @@ export default function OnboardingFlow({ onComplete }: Props) {
           }, 1500);
         }
       }, 100);
+      return () => clearInterval(interval);
     }
   }, [step, onComplete]);
 
