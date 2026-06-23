@@ -415,9 +415,40 @@ export default class QuizScene extends BaseEngine {
     if (this.questionTimerEvent) this.questionTimerEvent.remove();
     const isCorrect = index === correctIndex;
     const bg = btn.getData('bg') as Phaser.GameObjects.Rectangle;
+    const currentRound = this.round; // capture before recordAnswer changes anything
+
+    // AAAA — Schedule the next-round transition FIRST, before recordAnswer.
+    // Use setTimeout (browser-native) instead of this.time.delayedCall
+    // because Phaser's scene time can get stuck if the tween manager
+    // gets overloaded during level-up celebrations.
+    const advanceRound = () => {
+      try {
+        this.optionButtons.forEach((b, i) => {
+          this.tweens.add({
+            targets: b,
+            alpha: 0, y: b.y - 30,
+            duration: 200, delay: i * 30, ease: 'Cubic.in',
+          });
+        });
+        setTimeout(() => {
+          try {
+            this.round++;
+            this.renderRound();
+          } catch (e) {
+            console.error('[MiniStar] renderRound error:', e);
+          }
+        }, 300);
+      } catch (e) {
+        console.error('[MiniStar] advanceRound error:', e);
+        // Fallback: just advance immediately
+        this.round++;
+        this.renderRound();
+      }
+    };
+    setTimeout(advanceRound, 900);
 
     this.recordAnswer({
-      term: this.rounds[this.round].prompt.term,
+      term: this.rounds[currentRound].prompt.term,
       response: option.term,
       success: isCorrect,
       coordinate: { x: btn.x, y: btn.y, t: this.time.now },
@@ -425,7 +456,7 @@ export default class QuizScene extends BaseEngine {
 
     // Spaced repetition: queue wrong answers to resurface later
     if (!isCorrect) {
-      this.wrongQueue.push(this.rounds[this.round]);
+      this.wrongQueue.push(this.rounds[currentRound]);
     }
 
     if (isCorrect) {
@@ -455,25 +486,10 @@ export default class QuizScene extends BaseEngine {
       this.juice.glowRing(correctBtn.x, correctBtn.y, this.theme.success, 80);
       // Speak the correct answer
       this.time.delayedCall(300, () => {
-        audioBus.speak(`The answer is ${this.rounds[this.round].options[correctIndex].term}`);
+        try { audioBus.speak(`The answer is ${this.rounds[currentRound].options[correctIndex].term}`); } catch {}
       });
       this.juice.shake('medium');
       this.juice.burst(btn.x, btn.y, 'incorrect');
     }
-
-    // Slide out transition
-    this.time.delayedCall(900, () => {
-      this.optionButtons.forEach((b, i) => {
-        this.tweens.add({
-          targets: b,
-          alpha: 0, y: b.y - 30,
-          duration: 200, delay: i * 30, ease: 'Cubic.in',
-        });
-      });
-      this.time.delayedCall(300, () => {
-        this.round++;
-        this.renderRound();
-      });
-    });
   }
 }

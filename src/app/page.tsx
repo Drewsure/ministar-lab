@@ -399,7 +399,32 @@ export default function Home() {
                 boxShadow: `0 30px 80px -20px ${brand.primaryColor}80`,
               }}
             >
-              <GameCanvas config={launch} onExit={exitGame} />
+              <GameCanvas
+              config={launch}
+              onExit={exitGame}
+              onSwitchGame={(data) => {
+                // Switch template: relaunch with same terms but different game mode
+                setLaunch({
+                  mode: data.mode as GameModeId,
+                  theme: data.theme,
+                  terms: data.terms,
+                  unit: data.unit,
+                  tenantId: data.tenantId,
+                });
+              }}
+              onPrint={(data) => {
+                // Open print PDF in new tab via API
+                const params = new URLSearchParams({
+                  mode: data.mode,
+                  theme: typeof data.theme === 'string' ? data.theme : 'space',
+                });
+                // Encode terms as URL-safe base64 (replace + with -, / with _)
+                const termsJson = JSON.stringify(data.terms);
+                const termsB64 = btoa(unescape(encodeURIComponent(termsJson))).replace(/\+/g, '-').replace(/\//g, '_');
+                window.open(`/api/print?${params.toString()}&terms=${termsB64}`, '_blank');
+                setLaunch(null);
+              }}
+            />
             </div>
 
             <div className="text-center mt-4 text-xs opacity-60" style={{ color: 'var(--brand-text)' }}>

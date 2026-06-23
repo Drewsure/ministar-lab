@@ -30,6 +30,8 @@ const SCENE_IMPORTS: Record<string, () => Promise<{ default: any }>> = {
   'group-sort':      () => import('@/game/scenes/GroupSortScene'),
   'type-answer':     () => import('@/game/scenes/TypeAnswerScene'),
   'spot-it':         () => import('@/game/scenes/SpotItScene'),
+  'label-it':        () => import('@/game/scenes/LabelItScene'),
+  'speak-it':        () => import('@/game/scenes/SpeakItScene'),
 };
 
 const SCENE_KEY_BY_MODE: Record<string, string> = {
@@ -50,16 +52,24 @@ const SCENE_KEY_BY_MODE: Record<string, string> = {
   'group-sort':      'GroupSortScene',
   'type-answer':     'TypeAnswerScene',
   'spot-it':         'SpotItScene',
+  'label-it':        'LabelItScene',
+  'speak-it':        'SpeakItScene',
 };
 
 interface GameCanvasProps {
   config: GameLaunchConfig | null;
   onExit?: () => void;
+  onSwitchGame?: (newConfig: { mode: string; theme: any; terms: any[]; unit: string; tenantId?: string }) => void;
+  onPrint?: (printData: { mode: string; terms: any[]; theme: any }) => void;
 }
 
-export default function GameCanvas({ config, onExit }: GameCanvasProps) {
+export default function GameCanvas({ config, onExit, onSwitchGame, onPrint }: GameCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
+  const switchRef = useRef(onSwitchGame);
+  const printRef = useRef(onPrint);
+  switchRef.current = onSwitchGame;
+  printRef.current = onPrint;
   const [loading, setLoading] = useState(true);
   const [fadeIn, setFadeIn] = useState(false);
 
@@ -186,6 +196,19 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
 
     return () => {
       cancelled = true;
+      // Check if the game was destroyed for a switch or print request
+      if (gameRef.current) {
+        try {
+          const switchData = gameRef.current.registry.get('switchGame');
+          const printData = gameRef.current.registry.get('printRequest');
+          if (switchData && switchRef.current) {
+            // Small delay so the game canvas unmounts cleanly first
+            setTimeout(() => switchRef.current?.(switchData), 100);
+          } else if (printData && printRef.current) {
+            setTimeout(() => printRef.current?.(printData), 100);
+          }
+        } catch {}
+      }
       // Cancel any in-progress TTS + stop music when game exits
       try {
         if (typeof window !== 'undefined' && 'speechSynthesis' in window) {

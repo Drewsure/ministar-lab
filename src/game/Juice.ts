@@ -989,20 +989,33 @@ export class Juice {
     const startRadius = 8;
     const duration = 600;
     const startTime = this.scene.time.now;
+    let destroyed = false;
 
     const update = () => {
+      if (destroyed) return;
+      if (!gfx.active) {
+        destroyed = true;
+        return;
+      }
       const elapsed = this.scene.time.now - startTime;
       const t = Math.min(1, elapsed / duration);
       const eased = 1 - Math.pow(1 - t, 3); // Cubic.out
       curRadius = startRadius + (maxRadius - startRadius) * eased;
       const alpha = 0.9 * (1 - t);
-      gfx.clear();
-      gfx.lineStyle(3, color, alpha);
-      gfx.strokeCircle(x, y, curRadius);
+      try {
+        gfx.clear();
+        gfx.lineStyle(3, color, alpha);
+        gfx.strokeCircle(x, y, curRadius);
+      } catch {
+        destroyed = true;
+        try { gfx.destroy(); } catch {}
+        return;
+      }
       if (t < 1) {
         this.scene.time.delayedCall(16, update);
       } else {
-        gfx.destroy();
+        destroyed = true;
+        try { gfx.destroy(); } catch {}
       }
     };
     update();

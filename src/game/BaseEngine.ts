@@ -50,6 +50,11 @@ export abstract class BaseEngine extends Phaser.Scene {
   protected bossName?: Phaser.GameObjects.Text;
   protected storyOverlay?: Phaser.GameObjects.Container;
 
+  // AAAA — Cinematic UI
+  protected comboMeter?: Phaser.GameObjects.Container;
+  protected comboFill?: Phaser.GameObjects.Rectangle;
+  protected comboText?: Phaser.GameObjects.Text;
+
   // Subclass contract
   protected abstract buildWorld(): void;
   protected abstract onTick(_remainingMs: number): void;
@@ -124,6 +129,24 @@ export abstract class BaseEngine extends Phaser.Scene {
     this.juice = new Juice(this, this.theme);
     this.hud = new Hud(this, this.theme, (state) => this.onHudUpdate(state));
     this.startTime = Date.now(); // Use real time, not Phaser game time (which accumulates)
+
+    // AAAA — COMBO METER: visual streak counter on the left side of screen
+    // Shows current streak with animated fill bar — like fighting games
+    // (Removed vignette overlay — was causing scene time to freeze)
+    this.comboMeter = this.add.container(20, this.scale.height / 2, []);
+    this.comboMeter.setDepth(180).setAlpha(0); // hidden until streak > 1
+    const comboBg = this.add.rectangle(0, 0, 8, 120, 0x000000, 0.5).setDepth(180);
+    const comboFill = this.add.rectangle(0, 60, 6, 0, this.theme.warning, 1).setOrigin(0.5, 1).setDepth(181);
+    const comboText = this.add.text(0, -75, 'x1', {
+      fontFamily: 'Inter, sans-serif', fontSize: '20px', color: '#' + this.theme.warning.toString(16).padStart(6, '0'),
+      fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(182);
+    const comboLabel = this.add.text(0, 80, 'COMBO', {
+      fontFamily: 'Inter, sans-serif', fontSize: '9px', color: '#ffffff',
+    }).setOrigin(0.5).setDepth(182);
+    this.comboMeter.add([comboBg, comboFill, comboText, comboLabel]);
+    this.comboFill = comboFill;
+    this.comboText = comboText;
 
     // AAA 2029 — Level badge (top-center, prominent like Wordwall)
     this.levelBg = this.add.rectangle(
@@ -263,6 +286,8 @@ export abstract class BaseEngine extends Phaser.Scene {
     if (opts.success) {
       this.score++;
       this.streak++;
+      // AAAA — Update combo meter
+      this.updateComboMeter();
       // AAAA — Mobile haptic feedback (subtle on correct, stronger on streak)
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
         try { navigator.vibrate(this.streak >= 3 ? [15, 30, 30] : 12); } catch {}
@@ -303,6 +328,8 @@ export abstract class BaseEngine extends Phaser.Scene {
       this.checkLevelUp();
     } else {
       this.streak = 0;
+      // AAAA — Hide combo meter on wrong answer
+      this.updateComboMeter();
       // AAAA — Mobile haptic feedback (long buzz on wrong answer)
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
         try { navigator.vibrate([30, 50, 60]); } catch {}
@@ -518,6 +545,68 @@ export abstract class BaseEngine extends Phaser.Scene {
       this.game.destroy(true);
     });
 
+    // AAAA — SWITCH TEMPLATE: show a row of game icons the player can
+    // switch to. Same terms, different game. Wordwall's killer feature.
+    const switchLabel = this.add.text(
+      this.scale.width / 2, this.scale.height / 2 + 130,
+      'Play same words as:',
+      { fontFamily: 'Inter, sans-serif', fontSize: '12px', color: '#ffffff', fontStyle: 'bold' }
+    ).setOrigin(0.5).setDepth(501).setAlpha(0);
+
+    const switchGames = [
+      { mode: 'quiz', emoji: '❓', name: 'Quiz' },
+      { mode: 'maze-chase', emoji: '🧭', name: 'Maze' },
+      { mode: 'balloon-pop', emoji: '🎈', name: 'Balloon' },
+      { mode: 'memory-match', emoji: '🃏', name: 'Memory' },
+      { mode: 'match-up', emoji: '🔗', name: 'Match' },
+      { mode: 'anagram', emoji: '🔤', name: 'Anagram' },
+    ];
+    const currentMode = (this.registry.get('launchConfig') as any)?.mode;
+    const btnSize = 50;
+    const btnSpacing = 56;
+    const switchBtns: Phaser.GameObjects.Text[] = [];
+    switchGames.forEach((g, i) => {
+      const sx = this.scale.width / 2 + (i - (switchGames.length - 1) / 2) * btnSpacing;
+      const isCurrent = g.mode === currentMode;
+      const sb = this.add.text(sx, this.scale.height / 2 + 165, g.emoji, {
+        fontFamily: 'Inter, sans-serif', fontSize: '28px',
+      }).setOrigin(0.5).setDepth(502).setAlpha(0).setInteractive({ useHandCursor: true });
+
+      if (isCurrent) {
+        sb.setScale(1.2).setTint(this.theme.warning);
+      }
+
+      sb.on('pointerover', () => { if (!isCurrent) sb.setScale(1.15); });
+      sb.on('pointerout', () => { if (!isCurrent) sb.setScale(1); });
+      sb.on('pointerdown', () => {
+        if (isCurrent) return;
+        audioBus.play('tap');
+        // Signal the React layer to switch games
+        const cfg = this.registry.get('launchConfig') as any;
+        const switchData = { mode: g.mode, theme: cfg.theme, terms: cfg.terms, unit: cfg.unit, tenantId: cfg.tenantId };
+        this.registry.set('switchGame', switchData);
+        this.game.destroy(true);
+      });
+      switchBtns.push(sb);
+    });
+
+    // Print button — generates a printable PDF worksheet
+    const printBtn = this.add.text(
+      this.scale.width / 2, this.scale.height / 2 + 220,
+      '🖨️ Print Worksheet',
+      { fontFamily: 'Inter, sans-serif', fontSize: '14px', color: '#ffffff', fontStyle: 'bold' }
+    ).setOrigin(0.5).setDepth(501).setAlpha(0).setInteractive({ useHandCursor: true });
+
+    printBtn.on('pointerover', () => printBtn.setScale(1.05));
+    printBtn.on('pointerout', () => printBtn.setScale(1));
+    printBtn.on('pointerdown', () => {
+      audioBus.play('tap');
+      const cfg = this.registry.get('launchConfig') as any;
+      const printData = { mode: currentMode, terms: cfg.terms, theme: cfg.theme };
+      this.registry.set('printRequest', printData);
+      this.game.destroy(true);
+    });
+
     // Animate overlay in
     overlay.setAlpha(0);
     titleText.setAlpha(0);
@@ -527,8 +616,9 @@ export abstract class BaseEngine extends Phaser.Scene {
     btn.setAlpha(0);
     btnBg2.setAlpha(0);
     btn2.setAlpha(0);
+    const animTargets: any[] = [overlay, titleText, subText, statsText, btnBg, btn, btnBg2, btn2, switchLabel, printBtn, ...switchBtns];
     this.tweens.add({
-      targets: [overlay, titleText, subText, statsText, btnBg, btn, btnBg2, btn2],
+      targets: animTargets,
       alpha: { from: 0, to: 1 },
       duration: 400, ease: 'Cubic.out',
     });
@@ -708,6 +798,53 @@ export abstract class BaseEngine extends Phaser.Scene {
     // AAAA — Boss battle every 5 levels
     if (isBossLevel(this.level)) {
       this.startBossBattle();
+    }
+  }
+
+  // ===========================================================================
+  // AAAA — COMBO METER: visual streak indicator (console-game style)
+  // ===========================================================================
+  protected updateComboMeter() {
+    if (!this.comboMeter || !this.comboFill || !this.comboText) return;
+    try {
+      if (this.streak > 1) {
+        // Show + animate
+        this.comboMeter.setAlpha(1);
+        this.comboText.setText(`x${this.streak}`);
+        // Fill height proportional to streak (capped at 10)
+        const fillH = Math.min(120, this.streak * 12);
+        // AAAA — Guard: only add tween if comboFill is still active
+        if (this.comboFill.active) {
+          this.tweens.add({
+            targets: this.comboFill,
+            height: fillH,
+            duration: 200, ease: 'Back.out',
+          });
+        }
+        // Color shifts: 2-4 = warning (gold), 5+ = danger (red)
+        const color = this.streak >= 5 ? this.theme.danger : this.theme.warning;
+        this.comboFill.setFillStyle(color, 1);
+        this.comboText.setColor('#' + color.toString(16).padStart(6, '0'));
+        // Pulse on update — guard against destroyed objects
+        if (this.comboMeter.active) {
+          this.tweens.add({
+            targets: this.comboMeter,
+            scale: { from: 1.15, to: 1 },
+            duration: 200, ease: 'Back.out',
+          });
+        }
+      } else {
+        // Fade out
+        if (this.comboMeter.active) {
+          this.tweens.add({
+            targets: this.comboMeter,
+            alpha: 0, scale: 0.8,
+            duration: 300, ease: 'Cubic.in',
+          });
+        }
+      }
+    } catch (e) {
+      console.error('[MiniStar] updateComboMeter error (suppressed):', e);
     }
   }
 

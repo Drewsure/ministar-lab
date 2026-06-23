@@ -139,7 +139,7 @@ class AudioBus {
     if (this.ttsVoiceReady) return;
     const pickVoice = () => {
       const voices = window.speechSynthesis.getVoices();
-      if (voices.length === 0) return;
+      if (voices.length === 0) return false;
       // Priority 1: Premium/natural voices (Google, Microsoft Natural, Apple Enhanced)
       this.ttsVoice =
         voices.find(v => v.lang === 'en-US' && /google us english|natural|enhanced|premium/i.test(v.name)) ??
@@ -151,9 +151,22 @@ class AudioBus {
         voices.find(v => v.lang.startsWith('en')) ??
         voices[0];
       this.ttsVoiceReady = true;
+      return true;
     };
-    pickVoice();
-    window.speechSynthesis.onvoiceschanged = pickVoice;
+    if (pickVoice()) {
+      // Voices loaded successfully
+      window.speechSynthesis.onvoiceschanged = null;
+    } else {
+      // Voices not loaded yet — set up listener + retry
+      window.speechSynthesis.onvoiceschanged = pickVoice;
+      // Retry every 250ms for up to 5 seconds (some browsers are slow)
+      let attempts = 0;
+      const retry = setInterval(() => {
+        if (pickVoice() || attempts++ > 20) {
+          clearInterval(retry);
+        }
+      }, 250);
+    }
   }
 
   /** Speak any text aloud with natural prosody. Cancels any in-progress speech. */
@@ -162,14 +175,6 @@ class AudioBus {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
     this.initTTS();
     try {
-      // Cancel any in-progress speech immediately
-      window.speechSynthesis.cancel();
-      this.currentUtterance = null;
-      // Resume if suspended (mobile browsers often start suspended)
-      if (window.speechSynthesis.paused) {
-        window.speechSynthesis.resume();
-      }
-
       // Clean text for speech (remove emojis, special chars)
       const cleanText = text
         .replace(/[\u{1F000}-\u{1FFFF}]/gu, '') // Remove emojis
@@ -182,28 +187,38 @@ class AudioBus {
       utter.lang = this.ttsVoice?.lang ?? 'en-US';
       // Natural prosody: slightly varied rate, higher pitch for questions
       const isQ = opts.isQuestion ?? cleanText.includes('?');
-      utter.rate = opts.rate ?? (isQ ? 0.88 : 0.92); // Questions slightly slower
-      utter.pitch = opts.pitch ?? (isQ ? 1.15 : 1.05); // Questions slightly higher
+      utter.rate = opts.rate ?? (isQ ? 0.88 : 0.92);
+      utter.pitch = opts.pitch ?? (isQ ? 1.15 : 1.05);
       utter.volume = opts.volume ?? 1.0;
 
       // Pick a voice if available
       if (!this.ttsVoice) this.initTTS();
       if (this.ttsVoice) utter.voice = this.ttsVoice;
 
-      // Track current utterance for cancel
       this.currentUtterance = utter;
       utter.onend = () => { this.currentUtterance = null; };
       utter.onerror = () => { this.currentUtterance = null; };
 
-      // AAAA — iOS Safari requires speech to be triggered synchronously from
-      // the user gesture. setTimeout breaks this on iOS. We call .speak()
-      // directly here; the caller is responsible for ensuring this is invoked
-      // from a pointer/keyboard handler. (For programmatic speech like level-up
-      // announcements, iOS may still skip the first utterance — that's an iOS
-      // limitation, not a bug.)
-      try {
-        window.speechSynthesis.speak(utter);
-      } catch {}
+      // Detect iOS Safari — requires synchronous speak() from user gesture
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      
+      const doSpeak = () => {
+        try {
+          window.speechSynthesis.speak(utter);
+        } catch {}
+      };
+
+      if (isIOS) {
+        // iOS: cancel + speak synchronously (no setTimeout — breaks gesture chain)
+        window.speechSynthesis.cancel();
+        doSpeak();
+      } else {
+        // Desktop/Android: cancel, then speak after tiny delay
+        // Without the delay, Chrome cancels the new utterance before it starts
+        window.speechSynthesis.cancel();
+        setTimeout(doSpeak, 50);
+      }
     } catch {
       // TTS not available — fail silently
     }
