@@ -981,44 +981,36 @@ export class Juice {
    * Used on streak milestones and big wins.
    */
   glowRing(x: number, y: number, color: number = 0xffffff, maxRadius = 80) {
-    // Use a Graphics circle we redraw each frame — far more reliable than
-    // tweening a Circle's radius (which corrupts its geometry in Phaser 3.80).
-    const gfx = this.scene.add.graphics();
-    gfx.setDepth(9997);
-    let curRadius = 8;
-    const startRadius = 8;
-    const duration = 600;
-    const startTime = this.scene.time.now;
-    let destroyed = false;
+    // AAAA — Use a SINGLE tween with onUpdate instead of recursive delayedCall.
+    // The old approach created 37 timers per glow ring (delayedCall every 16ms
+    // for 600ms), which overloaded Phaser's timer queue and froze the scene.
+    try {
+      const gfx = this.scene.add.graphics();
+      gfx.setDepth(9997);
+      const startRadius = 8;
+      const duration = 600;
+      let currentRadius = startRadius;
+      let currentAlpha = 0.9;
 
-    const update = () => {
-      if (destroyed) return;
-      if (!gfx.active) {
-        destroyed = true;
-        return;
-      }
-      const elapsed = this.scene.time.now - startTime;
-      const t = Math.min(1, elapsed / duration);
-      const eased = 1 - Math.pow(1 - t, 3); // Cubic.out
-      curRadius = startRadius + (maxRadius - startRadius) * eased;
-      const alpha = 0.9 * (1 - t);
-      try {
-        gfx.clear();
-        gfx.lineStyle(3, color, alpha);
-        gfx.strokeCircle(x, y, curRadius);
-      } catch {
-        destroyed = true;
-        try { gfx.destroy(); } catch {}
-        return;
-      }
-      if (t < 1) {
-        this.scene.time.delayedCall(16, update);
-      } else {
-        destroyed = true;
-        try { gfx.destroy(); } catch {}
-      }
-    };
-    update();
+      this.scene.tweens.add({
+        targets: this,
+        duration: duration,
+        ease: 'Cubic.out',
+        onUpdate: (tween) => {
+          const t = tween.progress;
+          currentRadius = startRadius + (maxRadius - startRadius) * (1 - Math.pow(1 - t, 3));
+          currentAlpha = 0.9 * (1 - t);
+          try {
+            gfx.clear();
+            gfx.lineStyle(3, color, currentAlpha);
+            gfx.strokeCircle(x, y, currentRadius);
+          } catch {}
+        },
+        onComplete: () => {
+          try { gfx.destroy(); } catch {}
+        },
+      });
+    } catch {}
   }
 
   /**

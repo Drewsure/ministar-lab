@@ -95,7 +95,14 @@ export type GameModeId =
   | 'spin-wheel'
   | 'group-sort'
   | 'type-answer'
-  | 'spot-it';
+  | 'spot-it'
+  | 'label-it'
+  | 'speak-it'
+  | 'endless-runner'
+  | 'physics-puzzler'
+  | 'snaking'
+  | 'training-academy'
+  | 'rescue-quest';
 
 export interface GameModeMeta {
   id: GameModeId;

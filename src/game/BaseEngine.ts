@@ -1,10 +1,12 @@
 import * as Phaser from 'phaser';
 import type { ThemeManifest, TermItem, GameLaunchConfig, XapiEvent } from '../lib/types';
 import { ThemeAtlas, Juice, Hud } from './Juice';
+import { WorldEffectsManager, WORLD_CONFIGS } from './WorldEffects';
 import { audioBus } from '../lib/audio';
 import { getLod } from '../lib/lod';
 import { makeAnsweredEvent, makeCompletedEvent, pushEvent, getActor, verifyTelemetry } from '../lib/telemetry';
 import { loadProfile, recordAnswer as recordAdaptive, recordGameCompletion, isBossLevel, createBossBattle, getStoryBeat, type StudentProfile, type BossBattle } from '../lib/adaptive';
+import { earnStarDust, loadStarDust, getCurrentEvolution } from '../lib/stardust';
 
 // ============================================================================
 // BaseEngine — every game scene extends this.
@@ -55,6 +57,11 @@ export abstract class BaseEngine extends Phaser.Scene {
   protected comboFill?: Phaser.GameObjects.Rectangle;
   protected comboText?: Phaser.GameObjects.Text;
 
+  // AAAA — World Effects Manager (world-specific gameplay + ambient)
+  protected worldEffects?: WorldEffectsManager;
+  protected worldScoreMultiplier = 1.0;
+  protected worldTimerMultiplier = 1.0;
+
   // Subclass contract
   protected abstract buildWorld(): void;
   protected abstract onTick(_remainingMs: number): void;
@@ -97,6 +104,20 @@ export abstract class BaseEngine extends Phaser.Scene {
       this.cameras.main.fadeIn(300, 0, 0, 0);
     } catch {}
 
+    // AAAA — Initialize World Effects Manager
+    // Each world now has UNIQUE gameplay effects, not just visual skins!
+    this.worldEffects = new WorldEffectsManager(this, this.theme);
+    const mod = this.worldEffects.getModifier();
+    this.worldScoreMultiplier = mod.scoreMultiplier;
+    this.worldTimerMultiplier = mod.timerMultiplier;
+
+    // AAAA — Play theatrical world intro, THEN build the game world
+    this.worldEffects.playIntro(() => {
+      // After intro completes, start ambient particles + build game
+      this.worldEffects?.startAmbient();
+      this.buildWorldWithEffects();
+    });
+
     // Try to add the illustrated background image (may not render in Phaser 4 WebGL)
     const bgKey = 'bg-' + this.theme.id;
     if (this.textures.exists(bgKey)) {
@@ -104,7 +125,13 @@ export abstract class BaseEngine extends Phaser.Scene {
         this.add.image(0, 0, bgKey).setOrigin(0).setDisplaySize(this.scale.width, this.scale.height).setDepth(-10);
       } catch { /* ignore texture errors */ }
     }
+  }
 
+  // ===========================================================================
+  // buildWorldWithEffects — called after theatrical intro completes
+  // Sets up HUD, combo meter, level badge, then calls subclass buildWorld()
+  // ===========================================================================
+  protected buildWorldWithEffects() {
     // Parallax starfield (skipped on low LOD)
     if (this.lod.ambientParticles > 0) {
       const sfKey = 'starfield-' + this.theme.id;
@@ -292,17 +319,20 @@ export abstract class BaseEngine extends Phaser.Scene {
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
         try { navigator.vibrate(this.streak >= 3 ? [15, 30, 30] : 12); } catch {}
       }
-      // Stability: wrap juice calls in try-catch to prevent freezes
+      // AAAA — THROTTLED effects: only fire the essentials to prevent tween
+      // manager overload. Previous code fired 7+ simultaneous effects on
+      // streak 3, which froze the scene.
       try {
         this.juice.burst(opts.coordinate?.x ?? 400, opts.coordinate?.y ?? 300, this.streak >= 3 ? 'streak' : 'correct');
         this.juice.shake('light');
-        this.juice.flash(this.theme.success, 0.18, 100);
         this.juice.scorePopup(
           opts.coordinate?.x ?? this.scale.width / 2,
           opts.coordinate?.y ?? this.scale.height / 2,
           this.streak >= 3 ? `STREAK x${this.streak}!` : '+1',
           this.streak >= 3 ? this.theme.warning : this.theme.success
         );
+        // Only fire glow ring + zoom punch on milestone streaks (3, 5, 7)
+        // NOT every correct answer — prevents effect stacking
         if (this.streak === 3 || this.streak === 5 || this.streak === 7) {
           this.juice.glowRing(
             opts.coordinate?.x ?? this.scale.width / 2,
@@ -310,12 +340,17 @@ export abstract class BaseEngine extends Phaser.Scene {
             this.theme.warning,
             120
           );
-          this.juice.zoomPunch(1.04, 250);
+          // Removed zoomPunch here — it conflicts with level-up zoomPunch
         }
       } catch (e) { /* ignore juice errors */ }
       // ESL: speak the correct term aloud when answered correctly
       // (user explicitly tapped — this is user-initiated, not automatic)
       audioBus.speak(opts.term);
+      // AAAA — World-specific mascot phrase (not just "correct")
+      if (this.worldEffects) {
+        const phrase = this.worldEffects.getPhrase('correct');
+        setTimeout(() => { try { audioBus.speak(phrase); } catch {} }, 600);
+      }
       // Pitch-rising streak audio: each correct in a row goes up a semitone
       const baseFreq = 660;
       const streakFreq = baseFreq * Math.pow(2, Math.min(this.streak, 12) / 12);
@@ -324,6 +359,18 @@ export abstract class BaseEngine extends Phaser.Scene {
       if (this.streak >= 3) {
         try { this.juice.hitStop(60); } catch {}
       }
+      // AAAA — Earn Star Dust (scaled by world multiplier + streak bonus)
+      const starDustEarned = Math.round((10 + this.streak * 2) * this.worldScoreMultiplier);
+      try {
+        earnStarDust(starDustEarned, this.scene.key);
+        // Floating Star Dust popup
+        this.juice.scorePopup(
+          (opts.coordinate?.x ?? this.scale.width / 2) + 40,
+          (opts.coordinate?.y ?? this.scale.height / 2) - 30,
+          `+${starDustEarned} ⭐`,
+          0xfbbf24  // gold
+        );
+      } catch {}
       // Check for level up
       this.checkLevelUp();
     } else {
@@ -412,6 +459,13 @@ export abstract class BaseEngine extends Phaser.Scene {
     } else if (won) {
       this.hud.celebrate();
       this.juice.burst(this.scale.width / 2, this.scale.height / 2, 'win');
+      // AAAA — World-specific win celebration (emoji rain)
+      this.worldEffects?.playWinCelebration();
+      // AAAA — World-specific win phrase
+      if (this.worldEffects) {
+        const phrase = this.worldEffects.getPhrase('win');
+        setTimeout(() => { try { audioBus.speak(phrase); } catch {} }, 500);
+      }
       // AAA 2029 — confetti rain + zoom punch on win
       this.juice.confettiRain(2500);
       this.juice.zoomPunch(1.06, 400);
@@ -772,9 +826,10 @@ export abstract class BaseEngine extends Phaser.Scene {
     this.levelBadge.setText(`LEVEL ${this.level}`);
     // ESC: speak the level up
     audioBus.speak(`Level ${this.level}!`);
-    // AAAA — Throttled celebration.
+    // AAAA — Throttled celebration. Use setTimeout for any timed callbacks
+    // to avoid Phaser's delayedCall queue (which can get stuck).
     try {
-      this.juice.confettiRain(1200);
+      this.juice.confettiRain(1000);
       this.juice.scorePopup(
         this.scale.width / 2,
         this.scale.height / 2 - 50,
@@ -782,22 +837,30 @@ export abstract class BaseEngine extends Phaser.Scene {
         this.theme.warning
       );
     } catch {}
-    // Pulse the badge
-    this.tweens.add({
-      targets: [this.levelBadge, this.levelBg],
-      scale: { from: 1, to: 1.3 },
-      duration: 200, yoyo: true, repeat: 2, ease: 'Back.out',
-    });
+    // Pulse the badge — guard against destroyed objects
+    if (this.levelBadge.active && this.levelBg?.active) {
+      try {
+        this.tweens.add({
+          targets: [this.levelBadge, this.levelBg],
+          scale: { from: 1, to: 1.3 },
+          duration: 200, yoyo: true, repeat: 2, ease: 'Back.out',
+        });
+      } catch {}
+    }
 
     // AAAA — Story beat on chapter change (every 5 levels)
     const beat = getStoryBeat(Math.ceil(this.level / 5));
     if (beat && this.level % 5 === 1 && this.level > 1) {
-      this.showStoryBeat(beat);
+      setTimeout(() => {
+        try { this.showStoryBeat(beat); } catch {}
+      }, 800);
     }
 
     // AAAA — Boss battle every 5 levels
     if (isBossLevel(this.level)) {
-      this.startBossBattle();
+      setTimeout(() => {
+        try { this.startBossBattle(); } catch {}
+      }, 600);
     }
   }
 

@@ -32,6 +32,11 @@ const SCENE_IMPORTS: Record<string, () => Promise<{ default: any }>> = {
   'spot-it':         () => import('@/game/scenes/SpotItScene'),
   'label-it':        () => import('@/game/scenes/LabelItScene'),
   'speak-it':        () => import('@/game/scenes/SpeakItScene'),
+  'endless-runner':  () => import('@/game/scenes/EndlessRunnerScene'),
+  'physics-puzzler': () => import('@/game/scenes/PhysicsPuzzlerScene'),
+  'snaking':         () => import('@/game/scenes/SnakingScene'),
+  'training-academy':() => import('@/game/scenes/TrainingAcademyScene'),
+  'rescue-quest':    () => import('@/game/scenes/RescueQuestScene'),
 };
 
 const SCENE_KEY_BY_MODE: Record<string, string> = {
@@ -54,6 +59,11 @@ const SCENE_KEY_BY_MODE: Record<string, string> = {
   'spot-it':         'SpotItScene',
   'label-it':        'LabelItScene',
   'speak-it':        'SpeakItScene',
+  'endless-runner':  'EndlessRunnerScene',
+  'physics-puzzler': 'PhysicsPuzzlerScene',
+  'snaking':         'SnakingScene',
+  'training-academy':'TrainingAcademyScene',
+  'rescue-quest':    'RescueQuestScene',
 };
 
 interface GameCanvasProps {

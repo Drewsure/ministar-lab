@@ -9,6 +9,10 @@ import LiveMultiplayer from '@/components/ministar/LiveMultiplayer';
 import LiveArena from '@/components/ministar/LiveArena';
 import AIAuthStudio from '@/components/ministar/AIAuthStudio';
 import ActivityOptions from '@/components/ministar/ActivityOptions';
+import StarGarden from '@/components/ministar/StarGarden';
+import OnboardingFlow from '@/components/ministar/OnboardingFlow';
+import ParentGate from '@/components/ministar/ParentGate';
+import LaunchCard from '@/components/ministar/LaunchCard';
 import { useBrand } from '@/components/ministar/useBrand';
 import { THEMES } from '@/lib/themes';
 import { GAME_MODE_MAP } from '@/lib/gameModes';
@@ -106,6 +110,10 @@ export default function Home() {
   const [arenaMode, setArenaMode] = useState<{ mode: GameModeId; theme: ThemeId } | null>(null);
   const [aiStudio, setAiStudio] = useState<boolean>(false);
   const [showOptions, setShowOptions] = useState<boolean>(false);
+  const [showStarGarden, setShowStarGarden] = useState<boolean>(false);
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
+  const [showParentGate, setShowParentGate] = useState<boolean>(false);
+  const [showLaunchCard, setShowLaunchCard] = useState<boolean>(false);
   const [lastScore, setLastScore] = useState<number>(0);
   const [lastDurationMs, setLastDurationMs] = useState<number>(0);
   const [lastBrand, setLastBrand] = useState(brand.subdomain);
@@ -158,17 +166,28 @@ export default function Home() {
   };
 
   // Pick up ?game= shortcut from URL (PWA shortcut support)
-  // Also pick up ?room=XXXX for multiplayer join
+  // Also pick up ?room=XXXX for multiplayer join + ?auto=1 for launch card
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     const game = params.get('game') as GameModeId | null;
     const room = params.get('room');
+    const autoLaunch = params.get('auto');
     if (room) {
-      // Auto-open multiplayer join with the room code preloaded
-      setLiveMode({ mode: game ?? 'quiz', theme });
+      setLiveMode({ mode: game ?? 'quiz', theme: (params.get('theme') as ThemeId) ?? 'space' });
     } else if (game && GAME_MODE_MAP[game]) {
-      setTimeout(() => launchGame(game, theme), 100);
+      // auto=1 means instant launch from a LaunchCard QR (skip onboarding)
+      if (autoLaunch) {
+        setTimeout(() => launchGame(game, (params.get('theme') as ThemeId) ?? theme), 200);
+      } else {
+        setTimeout(() => launchGame(game, theme), 100);
+      }
+    } else {
+      // Check if this is the first visit (show onboarding)
+      const onboarded = localStorage.getItem('ministar_onboarded');
+      if (!onboarded) {
+        setShowOnboarding(true);
+      }
     }
   }, [brand.subdomain]);
 
@@ -247,12 +266,21 @@ export default function Home() {
           }}
           onCancel={() => setAiStudio(false)}
         />
+      ) : showStarGarden ? (
+        <StarGarden onClose={() => setShowStarGarden(false)} />
       ) : (
         <>
       <BrandHeader
         brand={brand}
         onSwitchBrand={(k) => { setBrandKey(k); }}
-        onOpenTeacher={() => setView(v => v === 'teacher' ? 'student' : 'teacher')}
+        onOpenTeacher={() => {
+          // AAAA — Parent Gate protects teacher area from young children
+          if (view === 'teacher') {
+            setView('student');
+          } else {
+            setShowParentGate(true);
+          }
+        }}
         isTeacherOpen={view === 'teacher'}
       />
 
@@ -530,6 +558,64 @@ export default function Home() {
           // STUDENT VIEW — game library
           // -----------------------------------------------------------------
           <div className="ministar-rise pt-2">
+            {/* AAAA — Launch Card CTA (classroom QR instant-launch) */}
+            <div className="rounded-2xl mb-3 p-4 flex items-center gap-4 flex-wrap"
+              style={{
+                background: 'linear-gradient(135deg, color-mix(in oklab, #06b6d4 25%, var(--brand-card)), color-mix(in oklab, #3b82f6 20%, var(--brand-card)))',
+                border: '2px solid color-mix(in oklab, #06b6d4 50%, transparent)',
+              }}>
+              <div className="text-4xl">🚀</div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-lg" style={{ color: 'var(--brand-text)' }}>
+                  Launch Card
+                </div>
+                <div className="text-xs opacity-80" style={{ color: 'var(--brand-text)' }}>
+                  QR code + magic link · Students scan → instant game launch
+                </div>
+              </div>
+              <button
+                onClick={() => { setShowLaunchCard(true); audioBus.init(); audioBus.play('tap'); }}
+                className="rounded-xl px-5 py-3 text-sm font-bold"
+                style={{
+                  background: 'linear-gradient(135deg, #06b6d4, #3b82f6)',
+                  color: '#fff',
+                  border: 'none',
+                  boxShadow: '0 4px 12px -2px rgba(6,182,212,0.6)',
+                }}
+              >
+                🚀 Create Card
+              </button>
+            </div>
+
+            {/* AAAA — Star Garden CTA (progression system) */}
+            <div className="rounded-2xl mb-3 p-4 flex items-center gap-4 flex-wrap"
+              style={{
+                background: 'linear-gradient(135deg, color-mix(in oklab, #fbbf24 25%, var(--brand-card)), color-mix(in oklab, #a855f7 20%, var(--brand-card)))',
+                border: '2px solid color-mix(in oklab, #fbbf24 50%, transparent)',
+              }}>
+              <div className="text-4xl">✨</div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-lg" style={{ color: 'var(--brand-text)' }}>
+                  Star Garden
+                </div>
+                <div className="text-xs opacity-80" style={{ color: 'var(--brand-text)' }}>
+                  Earn Star Dust · Grow plants · Evolve your Cloud Dog
+                </div>
+              </div>
+              <button
+                onClick={() => { setShowStarGarden(true); audioBus.init(); audioBus.play('tap'); }}
+                className="rounded-xl px-5 py-3 text-sm font-bold"
+                style={{
+                  background: 'linear-gradient(135deg, #fbbf24, #a855f7)',
+                  color: '#fff',
+                  border: 'none',
+                  boxShadow: '0 4px 12px -2px rgba(251,191,36,0.6)',
+                }}
+              >
+                ✨ Open Garden
+              </button>
+            </div>
+
             {/* AAAA — AI Authoring Studio CTA (the Wordwall killer) */}
             <div className="rounded-2xl mb-3 p-4 flex items-center gap-4 flex-wrap"
               style={{
@@ -774,6 +860,31 @@ export default function Home() {
       </footer>
         </>
       )}
+
+      {/* AAAA — Onboarding Flow (first visit only) */}
+      {showOnboarding && (
+        <OnboardingFlow onComplete={() => {
+          setShowOnboarding(false);
+          localStorage.setItem('ministar_onboarded', '1');
+        }} />
+      )}
+
+      {/* AAAA — Parent Gate (protects teacher area) */}
+      <ParentGate
+        open={showParentGate}
+        onSuccess={() => {
+          setShowParentGate(false);
+          setView('teacher');
+        }}
+        onCancel={() => setShowParentGate(false)}
+      />
+
+      {/* AAAA — Launch Card (QR + magic link for classroom) */}
+      <LaunchCard
+        open={showLaunchCard}
+        onClose={() => setShowLaunchCard(false)}
+        onLaunch={(m, t) => launchGame(m, t)}
+      />
     </div>
   );
 }
