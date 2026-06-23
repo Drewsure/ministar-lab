@@ -1,9 +1,12 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type * as Phaser from 'phaser';
 import type { GameLaunchConfig } from '@/lib/types';
 import { THEMES } from '@/lib/themes';
+import { GAME_MODE_MAP } from '@/lib/gameModes';
+import { audioBus } from '@/lib/audio';
+import LoadingScreen from './LoadingScreen';
 
 // Dynamic import so Phaser only loads on the client.
 // All 17 game scenes are registered here; the active scene is selected
@@ -57,6 +60,15 @@ interface GameCanvasProps {
 export default function GameCanvas({ config, onExit }: GameCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [fadeIn, setFadeIn] = useState(false);
+
+  // Trigger fade-in transition once loading completes
+  const handleLoadingComplete = () => {
+    setLoading(false);
+    // Small delay then trigger the fade-in
+    requestAnimationFrame(() => setFadeIn(true));
+  };
 
   useEffect(() => {
     if (!config || !containerRef.current) {
@@ -66,7 +78,7 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
     let cancelled = false;
 
     (async () => {
-      // Phaser 3.80 ESM has no default export — import the namespace.
+      // Phaser 3.80 ESM has no default export — import the namespace and use it directly.
       const Phaser: any = await import('phaser');
       if (cancelled) return;
 
@@ -104,8 +116,8 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
         // IMPORTANT: leave scene array empty. We register the scene explicitly
         // after the game boots so we can control the scene key. Passing the
         // class directly here causes Phaser to register it under whatever key
-        // it can derive from the class (often mangled by Turbopack/webpack),
-        // which breaks later `game.scene.start('QuizScene', ...)` calls.
+        // it can derive from the class (often mangled by Turbopack), which
+        // breaks later `game.scene.start('QuizScene', ...)` calls.
         scene: [],
         fps: { target: 60, forceSetTimeOut: false },
         render: {
@@ -174,11 +186,12 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
 
     return () => {
       cancelled = true;
-      // Cancel any in-progress TTS when game exits
+      // Cancel any in-progress TTS + stop music when game exits
       try {
         if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
           window.speechSynthesis.cancel();
         }
+        audioBus.stopMusic();
       } catch {}
       if (gameRef.current) {
         try { gameRef.current.destroy(true); } catch {}
@@ -187,8 +200,38 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
     };
   }, [config?.mode, config?.theme, config?.terms.length, config?.unit, config?.qrSlug]);
 
+  // ===========================================================================
+  // RENDER
+  // ===========================================================================
+  if (!config) return null;
+  const theme = THEMES[config.theme];
+  const gameMeta = GAME_MODE_MAP[config.mode];
+
   return (
-    <div className="relative w-full h-full" style={{ touchAction: 'none' }}>
+    <div
+      className="relative w-full h-full transition-opacity duration-500"
+      style={{
+        touchAction: 'none',
+        opacity: fadeIn ? 1 : 0,
+        minHeight: '500px',
+        // Safe-area insets for notched phones
+        paddingTop: 'env(safe-area-inset-top)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+        paddingLeft: 'env(safe-area-inset-left)',
+        paddingRight: 'env(safe-area-inset-right)',
+      }}
+    >
+      {loading && (
+        <div className="absolute inset-0 z-50">
+          <LoadingScreen
+            gameName={gameMeta.name}
+            gameEmoji={gameMeta.emoji}
+            themeName={theme.name}
+            themeEmoji={theme.emoji ?? '🌟'}
+            onReady={handleLoadingComplete}
+          />
+        </div>
+      )}
       <div
         ref={containerRef}
         className="w-full h-full"

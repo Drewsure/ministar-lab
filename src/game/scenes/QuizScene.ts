@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { BaseEngine } from '../BaseEngine';
 import type { TermItem } from '../../lib/types';
 import { audioBus } from '../../lib/audio';
@@ -123,22 +123,34 @@ export default class QuizScene extends BaseEngine {
       }
     ).setOrigin(0.5).setDepth(49);
 
+    // Make the prompt banner tap-to-speak — students tap the question to hear it read aloud.
+    // Also make the promptBg rectangle speakable so the whole banner is tappable.
+    this.makeSpeakable(this.promptText, 'Tap to hear the question'); // placeholder; updated in renderRound()
+
+    // Widen the tappable area: also tag the promptBg with the same speakText
+    // (updated each round via setPromptSpeakText)
+    this.promptBg.setData('speakText', 'Tap to hear the question');
+    this.promptBg.setInteractive({ useHandCursor: true });
+
     // ---- Lifeline buttons (bottom) ----
     this.createLifelineButtons();
 
     this.renderRound();
 
       // Global pointer handler for reliable button clicks
+    // NOTE: BaseEngine's setupGlobalPointer intercepts taps on any object
+    // with `speakText` data (prompt banner, option text, letter badge) and
+    // reads them aloud — those taps never reach this handler. This handler
+    // only fires for taps on non-speakable areas (e.g., the button bg),
+    // which means: tap text = hear it; tap button chrome = answer.
     this.setupGlobalPointer((x, y) => {
       if (!this.canAnswer) return;
       const r = this.rounds[this.round];
       if (!r) return;
-      // Hit-test option buttons
+      // Hit-test option buttons (the full button area, including bg)
       this.optionButtons.forEach((btn, i) => {
         const btnW = 300, btnH = 80;
         if (Math.abs(x - btn.x) < btnW / 2 && Math.abs(y - btn.y) < btnH / 2) {
-          // ESL: speak the option text before answering
-          audioBus.speak(r.options[i].term);
           this.handleAnswer(btn, i, r.correctIndex, r.options[i]);
         }
       });
@@ -198,10 +210,25 @@ export default class QuizScene extends BaseEngine {
     }
     this.canAnswer = true;
     const r = this.rounds[this.round];
+    // Build the spoken prompt — plain text (no quote chars, no emoji) for clean TTS
+    const promptSpeech = `Which word matches: ${r.prompt.definition ?? r.prompt.emoji ?? r.prompt.term}?`;
     this.promptText.setText(`Which word matches: "${r.prompt.definition ?? r.prompt.emoji ?? r.prompt.term}"?`);
-    // ESL: speak the prompt aloud
-    this.speakPrompt(r.prompt.term, r.prompt.definition);
-    this.makeSpeakable(this.promptText, `${r.prompt.term}. ${r.prompt.definition ?? ''}`);
+
+    // UNIVERSAL TAP-TO-SPEAK: update the speakText on BOTH the prompt text
+    // and the prompt background so students can tap anywhere on the banner
+    // to hear the question read aloud.
+    this.promptText.setData('speakText', promptSpeech);
+    this.promptBg.setData('speakText', promptSpeech);
+    // Move the 🔊 hint to follow the prompt text
+    const hint = this.promptText.getData('speakHint') as Phaser.GameObjects.Text | undefined;
+    if (hint) {
+      hint.setPosition(
+        this.promptText.x + (this.promptText.width ?? 0) / 2 + 14,
+        this.promptText.y
+      );
+    }
+
+
 
     // Update progress bar
     const pct = this.round / this.rounds.length;
@@ -252,6 +279,12 @@ export default class QuizScene extends BaseEngine {
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
       }).setOrigin(0.5);
+      // UNIVERSAL TAP-TO-SPEAK: tag the option text + letter badge with speakText.
+      // The global pointer handler in BaseEngine will intercept taps on these
+      // text objects and speak them aloud — student can hear an option before
+      // deciding. Tapping the empty bg area behind the text still answers.
+      txt.setData('speakText', opt.term);
+      letterTxt.setData('speakText', `Option ${letters[i]}: ${opt.term}`);
 
       const container = this.add.container(cx, cy, [bg, letterBg, letterTxt, txt])
         .setSize(btnW, btnH).setInteractive({ useHandCursor: true });

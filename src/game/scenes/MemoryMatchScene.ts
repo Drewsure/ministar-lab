@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { BaseEngine } from '../BaseEngine';
 import type { TermItem } from '../../lib/types';
 import { audioBus } from '../../lib/audio';
@@ -215,7 +215,7 @@ export default class MemoryMatchScene extends BaseEngine {
     if (a.pairId === b.pairId) {
       // Match!
       audioBus.play('correct');
-      this.speakPrompt(a.term.term, a.term.definition);
+  
 
       // Glow ring connecting the two cards
       this.juice.glowRing(a.container.x, a.container.y, this.theme.success, 60);

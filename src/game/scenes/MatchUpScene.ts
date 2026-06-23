@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { BaseEngine } from '../BaseEngine';
 import type { TermItem } from '../../lib/types';
 import { audioBus } from '../../lib/audio';
@@ -167,7 +167,7 @@ export default class MatchUpScene extends BaseEngine {
         // Show glow
         this.tweens.add({ targets: glow, alpha: 0.3, duration: 200 });
         // ESL: speak the term
-        this.speakPrompt(term.term);
+    
       });
       container.on('drag', (_p: Phaser.Input.Pointer, dx: number, dy: number) => {
         container.x = dx;
@@ -184,7 +184,7 @@ export default class MatchUpScene extends BaseEngine {
 
       // Tap to hear
       container.on('pointerdown', () => {
-        this.speakPrompt(term.term);
+    
       });
 
       // Entrance animation
@@ -266,7 +266,7 @@ export default class MatchUpScene extends BaseEngine {
 
         if (isCorrect) {
           audioBus.play('correct');
-          this.speakPrompt(term.term, term.definition);
+      
           this.juice.burst(slot.x, slot.y, 'correct');
           this.juice.glowRing(slot.x, slot.y, this.theme.success, 60);
 

@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { BaseEngine } from '../BaseEngine';
 import type { TermItem } from '../../lib/types';
 import { audioBus } from '../../lib/audio';
@@ -200,7 +200,7 @@ export default class WordsearchScene extends BaseEngine {
       audioBus.play('correct');
       this.foundWords.add(found.word);
       // ESL: speak the found word aloud
-      this.speakPrompt(found.term.term, found.term.definition);
+  
       this.recordAnswer({
         term: found.term.term,
         response: found.word,

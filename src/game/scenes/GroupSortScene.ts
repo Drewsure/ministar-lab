@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { BaseEngine } from '../BaseEngine';
 import type { TermItem } from '../../lib/types';
 import { audioBus } from '../../lib/audio';
@@ -172,7 +172,7 @@ export default class GroupSortScene extends BaseEngine {
         // Show glow
         this.tweens.add({ targets: glow, alpha: 0.3, duration: 200 });
         // ESL: speak the term when picked up
-        this.speakPrompt(term.term);
+    
       });
       container.on('drag', (_p: Phaser.Input.Pointer, dx: number, dy: number) => {
         container.x = dx;
@@ -187,7 +187,7 @@ export default class GroupSortScene extends BaseEngine {
       // Tap to hear
       container.on('pointerdown', () => {
         if (!container.input?.dragState || container.input.dragState === 0) {
-          this.speakPrompt(term.term);
+      
         }
       });
     });

@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { BaseEngine } from '../BaseEngine';
 import type { TermItem } from '../../lib/types';
 import { audioBus } from '../../lib/audio';
@@ -177,8 +177,8 @@ export default class TypeAnswerScene extends BaseEngine {
     const def = this.currentTerm.definition ?? this.currentTerm.term;
     this.promptText.setText(`"${def}"`);
     // ESL: speak the definition
-    this.speakPrompt(this.currentTerm.term, this.currentTerm.definition);
-    this.makeSpeakable(this.promptText, this.currentTerm.definition ?? this.currentTerm.term);
+
+
   }
 
   private renderKeyboard() {

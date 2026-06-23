@@ -1,38 +1,84 @@
 {
   "name": "MiniStar English Global Lab — Living Textbook",
-  "short_name": "MiniStar Lab",
-  "description": "AAA 2029 white-label PWA learning portal with 11 physics-driven vocabulary games.",
+  "short_name": "MiniStar",
+  "description": "AAAA 2029 white-label PWA learning portal with 17 physics-driven vocabulary games, AI authoring, live multiplayer, and adaptive difficulty.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "orientation": "any",
+  "display_override": ["standalone", "fullscreen", "minimal-ui"],
+  "orientation": "portrait",
   "background_color": "#05030f",
   "theme_color": "#7c3aed",
-  "categories": ["education", "kids", "games"],
+  "categories": ["education", "kids", "games", "productivity"],
+  "lang": "en",
+  "dir": "ltr",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "shortcuts": [
     {
+      "name": "Quiz Game",
+      "short_name": "Quiz",
+      "description": "Multiple-choice quiz with streaks",
+      "url": "/?game=quiz",
+      "icons": [{ "src": "/icon.svg", "sizes": "any" }]
+    },
+    {
       "name": "Maze Chase",
       "short_name": "Maze",
+      "description": "Navigate a procedural maze",
       "url": "/?game=maze-chase",
       "icons": [{ "src": "/icon.svg", "sizes": "any" }]
     },
     {
       "name": "Memory Match",
       "short_name": "Memory",
+      "description": "Flip cards to find pairs",
       "url": "/?game=memory-match",
       "icons": [{ "src": "/icon.svg", "sizes": "any" }]
     },
     {
-      "name": "Bridge Builder",
-      "short_name": "Bridge",
-      "url": "/?game=bridge-builder",
+      "name": "Balloon Pop",
+      "short_name": "Balloons",
+      "description": "Pop the correct balloon",
+      "url": "/?game=balloon-pop",
+      "icons": [{ "src": "/icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Host Live Game",
+      "short_name": "Live",
+      "description": "Host a multiplayer classroom game",
+      "url": "/?live=1",
       "icons": [{ "src": "/icon.svg", "sizes": "any" }]
     }
   ]

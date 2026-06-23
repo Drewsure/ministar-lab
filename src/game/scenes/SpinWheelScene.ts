@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { BaseEngine } from '../BaseEngine';
 import type { TermItem } from '../../lib/types';
 import { audioBus } from '../../lib/audio';
@@ -235,7 +235,7 @@ export default class SpinWheelScene extends BaseEngine {
     });
 
     // ESL: speak the landed term
-    this.speakPrompt(this.landedTerm.term, this.landedTerm.definition);
+
 
     // Show definition options
     this.showDefinitionOptions();

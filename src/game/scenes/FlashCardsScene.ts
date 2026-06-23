@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { BaseEngine } from '../BaseEngine';
 import type { TermItem } from '../../lib/types';
 import { audioBus } from '../../lib/audio';
@@ -146,9 +146,9 @@ export default class FlashCardsScene extends BaseEngine {
       const card = this.cards[this.currentIdx];
       if (!card) return;
       if (card.isFlipped) {
-        this.speakPrompt(card.term.term, card.term.definition);
+    
       } else {
-        this.speakPrompt(card.term.term);
+    
       }
       audioBus.play('tap');
     });
@@ -227,7 +227,7 @@ export default class FlashCardsScene extends BaseEngine {
     this.navText.setText(`Card ${this.currentIdx + 1} / ${this.cards.length}  ·  Known: ${this.knownCount}`);
 
     // ESL: speak the term when card is shown
-    this.speakPrompt(card.term.term, card.isFlipped ? card.term.definition : undefined);
+
   }
 
   private flipCard() {

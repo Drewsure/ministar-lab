@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { BaseEngine } from '../BaseEngine';
 import type { TermItem } from '../../lib/types';
 import { audioBus } from '../../lib/audio';
@@ -156,8 +156,8 @@ export default class AnagramScene extends BaseEngine {
     // Definition hint
     const hint = term.definition ? `${term.emoji ?? ''} ${term.definition}`.trim() : `${term.emoji ?? 'Unscramble the word'}`;
     this.promptText.setText(`${hint}  (${word.length} letters)`);
-    this.speakPrompt(term.term, term.definition);
-    this.makeSpeakable(this.promptText, term.definition ?? term.term);
+
+
   }
 
   private makeTile(letter: string, originalIndex: number, x: number, y: number): Tile {
@@ -278,7 +278,7 @@ export default class AnagramScene extends BaseEngine {
 
     if (isCorrect) {
       this.solvedRounds++;
-      this.speakPrompt(this.rounds[this.round].term, this.rounds[this.round].definition);
+  
 
       // Celebrate: tiles spin + glow + particles
       this.answer.forEach((t, i) => {

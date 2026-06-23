@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import type { ThemeManifest } from '../lib/types';
 import { getLod } from '../lib/lod';
 import { audioBus } from '../lib/audio';
@@ -911,8 +911,16 @@ export class Juice {
   }
 
   hitStop(ms = 80) {
-    this.scene.physics.world.pause();
-    this.scene.time.delayedCall(ms, () => this.scene.physics.world.resume());
+    // Only pause physics if there are active bodies — pausing on a scene
+    // with no bodies can leave the time loop in a bad state.
+    try {
+      const world = this.scene.physics.world;
+      if (!world || this.scene.physics.world.getBodies().length === 0) return;
+      world.pause();
+      this.scene.time.delayedCall(ms, () => {
+        try { world.resume(); } catch {}
+      });
+    } catch {}
   }
 
   flash(color = 0xffffff, alpha = 0.4, ms = 120) {
@@ -973,21 +981,31 @@ export class Juice {
    * Used on streak milestones and big wins.
    */
   glowRing(x: number, y: number, color: number = 0xffffff, maxRadius = 80) {
-    const ring = this.scene.add.circle(x, y, 8, color, 0)
-      .setStrokeStyle(3, color, 1)
-      .setDepth(9997);
-    this.scene.tweens.add({
-      targets: ring,
-      radius: maxRadius,
-      alpha: { from: 0.9, to: 0 },
-      duration: 600,
-      ease: 'Cubic.out',
-      onUpdate: (_, target) => {
-        const c = target as Phaser.GameObjects.Arc;
-        c.setRadius((c as any).radius);
-      },
-      onComplete: () => ring.destroy(),
-    });
+    // Use a Graphics circle we redraw each frame — far more reliable than
+    // tweening a Circle's radius (which corrupts its geometry in Phaser 3.80).
+    const gfx = this.scene.add.graphics();
+    gfx.setDepth(9997);
+    let curRadius = 8;
+    const startRadius = 8;
+    const duration = 600;
+    const startTime = this.scene.time.now;
+
+    const update = () => {
+      const elapsed = this.scene.time.now - startTime;
+      const t = Math.min(1, elapsed / duration);
+      const eased = 1 - Math.pow(1 - t, 3); // Cubic.out
+      curRadius = startRadius + (maxRadius - startRadius) * eased;
+      const alpha = 0.9 * (1 - t);
+      gfx.clear();
+      gfx.lineStyle(3, color, alpha);
+      gfx.strokeCircle(x, y, curRadius);
+      if (t < 1) {
+        this.scene.time.delayedCall(16, update);
+      } else {
+        gfx.destroy();
+      }
+    };
+    update();
   }
 
   /**
@@ -996,10 +1014,31 @@ export class Juice {
    */
   zoomPunch(zoomIn = 1.08, duration = 200) {
     const cam = this.scene.cameras.main;
-    cam.zoomTo(zoomIn, duration * 0.4, 'Quad.out');
-    this.scene.time.delayedCall(duration * 0.4, () => {
-      cam.zoomTo(1, duration * 0.6, 'Quad.in');
-    });
+    // AAAA — Cancel any existing zoom effect/tween before starting a new one.
+    // Phaser's cam.zoomTo creates an internal tween; calling it twice in
+    // quick succession (e.g. streak effect + level-up effect) corrupts the
+    // camera's tween state and throws "this.ease is not a function" inside
+    // the game loop, freezing the entire game.
+    try {
+      // Remove any existing zoom tweens from this scene's tween manager
+      const tweens = this.scene.tweens.getTweens();
+      for (const t of tweens) {
+        const targets = t.targets ? (t.targets() || []) : [];
+        if (targets.includes(cam)) {
+          t.remove();
+        }
+      }
+    } catch {}
+    // Reset the camera zoom to 1 before starting (in case a previous tween
+    // left it stuck at zoom != 1)
+    try { cam.setZoom(1); } catch {}
+    // Now start the new zoom punch
+    try {
+      cam.zoomTo(zoomIn, duration * 0.4, 'Quad.out');
+      this.scene.time.delayedCall(duration * 0.4, () => {
+        try { cam.zoomTo(1, duration * 0.6, 'Quad.in'); } catch {}
+      });
+    } catch {}
   }
 
   /**

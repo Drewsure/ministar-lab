@@ -5,6 +5,9 @@ import { BrandHeader } from '@/components/ministar/BrandHeader';
 import { GameLibrary } from '@/components/ministar/GameLibrary';
 import { TeacherDashboard } from '@/components/ministar/TeacherDashboard';
 import GameCanvas from '@/components/ministar/GameCanvas';
+import LiveMultiplayer from '@/components/ministar/LiveMultiplayer';
+import LiveArena from '@/components/ministar/LiveArena';
+import AIAuthStudio from '@/components/ministar/AIAuthStudio';
 import { useBrand } from '@/components/ministar/useBrand';
 import { THEMES } from '@/lib/themes';
 import { GAME_MODE_MAP } from '@/lib/gameModes';
@@ -98,6 +101,9 @@ export default function Home() {
   const [theme, setTheme] = useState<ThemeId>(brand.defaultTheme);
   const [terms, setTerms] = useState<TermItem[]>(DEFAULT_TERMS);
   const [launch, setLaunch] = useState<GameLaunchConfig | null>(null);
+  const [liveMode, setLiveMode] = useState<{ mode: GameModeId; theme: ThemeId } | null>(null);
+  const [arenaMode, setArenaMode] = useState<{ mode: GameModeId; theme: ThemeId } | null>(null);
+  const [aiStudio, setAiStudio] = useState<boolean>(false);
   const [lastBrand, setLastBrand] = useState(brand.subdomain);
   const [stats, setStats] = useState<StudentStats>(() => loadStats());
 
@@ -148,14 +154,42 @@ export default function Home() {
   };
 
   // Pick up ?game= shortcut from URL (PWA shortcut support)
+  // Also pick up ?room=XXXX for multiplayer join
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     const game = params.get('game') as GameModeId | null;
-    if (game && GAME_MODE_MAP[game]) {
+    const room = params.get('room');
+    if (room) {
+      // Auto-open multiplayer join with the room code preloaded
+      setLiveMode({ mode: game ?? 'quiz', theme });
+    } else if (game && GAME_MODE_MAP[game]) {
       setTimeout(() => launchGame(game, theme), 100);
     }
   }, [brand.subdomain]);
+
+  const launchLiveGame = (mode: GameModeId, themeId: ThemeId) => {
+    audioBus.init();
+    setLiveMode({ mode, theme: themeId });
+    setLaunch(null);
+  };
+
+  const launchArena = (mode: GameModeId, themeId: ThemeId) => {
+    audioBus.init();
+    setArenaMode({ mode, theme: themeId });
+    setLaunch(null);
+  };
+
+  const exitLive = () => {
+    setLiveMode(null);
+    if (typeof window !== 'undefined' && window.location.search) {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  };
+
+  const exitArena = () => {
+    setArenaMode(null);
+  };
 
   const exitGame = () => {
     setLaunch(null);
@@ -170,6 +204,36 @@ export default function Home() {
         fontFamily: 'var(--font-display)',
       }}
     >
+      {/* LIVE MULTIPLAYER MODE — takes over the whole screen */}
+      {liveMode ? (
+        <LiveMultiplayer
+          mode={liveMode.mode}
+          theme={liveMode.theme}
+          terms={verifiedTerms.length > 0 ? verifiedTerms : terms}
+          unit="unit-1"
+          tenantId={brand.id}
+          onExit={exitLive}
+        />
+      ) : arenaMode ? (
+        <LiveArena
+          mode={arenaMode.mode}
+          theme={arenaMode.theme}
+          terms={verifiedTerms.length > 0 ? verifiedTerms : terms}
+          unit="unit-1"
+          tenantId={brand.id}
+          onExit={exitArena}
+        />
+      ) : aiStudio ? (
+        <AIAuthStudio
+          onPublish={(newTerms, unit) => {
+            setTerms(prev => [...prev, ...newTerms]);
+            setAiStudio(false);
+            setView('student');
+          }}
+          onCancel={() => setAiStudio(false)}
+        />
+      ) : (
+        <>
       <BrandHeader
         brand={brand}
         onSwitchBrand={(k) => { setBrandKey(k); }}
@@ -380,6 +444,93 @@ export default function Home() {
           // STUDENT VIEW — game library
           // -----------------------------------------------------------------
           <div className="ministar-rise pt-2">
+            {/* AAAA — AI Authoring Studio CTA (the Wordwall killer) */}
+            <div className="rounded-2xl mb-3 p-4 flex items-center gap-4 flex-wrap"
+              style={{
+                background: 'linear-gradient(135deg, color-mix(in oklab, #8b5cf6 25%, var(--brand-card)), color-mix(in oklab, #ec4899 20%, var(--brand-card)))',
+                border: '2px solid color-mix(in oklab, #8b5cf6 50%, transparent)',
+              }}>
+              <div className="text-4xl">🤖</div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-lg" style={{ color: 'var(--brand-text)' }}>
+                  AI Authoring Studio
+                </div>
+                <div className="text-xs opacity-80" style={{ color: 'var(--brand-text)' }}>
+                  Type a topic → get 12 ready-to-play terms in 30 seconds
+                </div>
+              </div>
+              <button
+                onClick={() => { setAiStudio(true); audioBus.init(); audioBus.play('tap'); }}
+                className="rounded-xl px-5 py-3 text-sm font-bold"
+                style={{
+                  background: 'linear-gradient(135deg, #8b5cf6, #ec4899)',
+                  color: '#fff',
+                  border: 'none',
+                  boxShadow: '0 4px 12px -2px rgba(139,92,246,0.6)',
+                }}
+              >
+                ✨ Generate a Lesson
+              </button>
+            </div>
+
+            {/* AAAA — Competitive Arena CTA (1v1 duels) */}
+            <div className="rounded-2xl mb-3 p-4 flex items-center gap-4 flex-wrap"
+              style={{
+                background: 'linear-gradient(135deg, color-mix(in oklab, #f43f5e 25%, var(--brand-card)), color-mix(in oklab, #8b5cf6 20%, var(--brand-card)))',
+                border: '2px solid color-mix(in oklab, #f43f5e 50%, transparent)',
+              }}>
+              <div className="text-4xl">⚔️</div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-lg" style={{ color: 'var(--brand-text)' }}>
+                  Arena — 1v1 Duel
+                </div>
+                <div className="text-xs opacity-80" style={{ color: 'var(--brand-text)' }}>
+                  Battle a friend · HP-based combat · Sabotage power-ups
+                </div>
+              </div>
+              <button
+                onClick={() => launchArena('quiz', theme)}
+                className="rounded-xl px-5 py-3 text-sm font-bold"
+                style={{
+                  background: 'linear-gradient(135deg, #f43f5e, #8b5cf6)',
+                  color: '#fff',
+                  border: 'none',
+                  boxShadow: '0 4px 12px -2px rgba(244,63,94,0.6)',
+                }}
+              >
+                ⚔️ Start Duel
+              </button>
+            </div>
+
+            {/* AAAA — Live Multiplayer CTA (the Blooket killer) */}
+            <div className="rounded-2xl mb-6 p-4 flex items-center gap-4 flex-wrap"
+              style={{
+                background: 'linear-gradient(135deg, color-mix(in oklab, #ef4444 25%, var(--brand-card)), color-mix(in oklab, #f59e0b 20%, var(--brand-card)))',
+                border: '2px solid color-mix(in oklab, #ef4444 50%, transparent)',
+              }}>
+              <div className="text-4xl">🔴</div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-lg" style={{ color: 'var(--brand-text)' }}>
+                  Live Multiplayer Classroom!
+                </div>
+                <div className="text-xs opacity-80" style={{ color: 'var(--brand-text)' }}>
+                  Host a live game · Students join with a 6-digit code · Real-time leaderboard
+                </div>
+              </div>
+              <button
+                onClick={() => launchLiveGame('quiz', theme)}
+                className="rounded-xl px-5 py-3 text-sm font-bold"
+                style={{
+                  background: 'linear-gradient(135deg, #ef4444, #f59e0b)',
+                  color: '#fff',
+                  border: 'none',
+                  boxShadow: '0 4px 12px -2px rgba(239,68,68,0.6)',
+                }}
+              >
+                ▶ Host Live Game
+              </button>
+            </div>
+
             {/* Daily Challenge — featured game with bonus XP */}
             <div className="rounded-2xl mb-6 p-4 flex items-center gap-4 flex-wrap"
               style={{
@@ -535,6 +686,8 @@ export default function Home() {
           </div>
         </div>
       </footer>
+        </>
+      )}
     </div>
   );
 }

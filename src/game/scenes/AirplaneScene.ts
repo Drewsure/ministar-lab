@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { BaseEngine } from '../BaseEngine';
 import type { TermItem } from '../../lib/types';
 import { audioBus } from '../../lib/audio';
@@ -125,7 +125,11 @@ export default class AirplaneScene extends BaseEngine {
 
   protected onTick(_remainingMs: number) {
     if (this.isFinished || !this.activePrompt) return;
-    this.updatePromptText();
+    // NOTE: updatePromptText() contains speakPrompt — do NOT call it every frame.
+    // The prompt text is already set when the prompt changes (in buildWorld + after catch).
+    // Just update the combo display here.
+    const comboTxt = this.catches >= 3 ? `  (x${this.speedMultiplier.toFixed(1)} speed!)` : '';
+    this.promptText.setText(`Catch: ${this.activePrompt.emoji ?? ''} ${this.activePrompt.term}${comboTxt}`);
   }
 
   // ===========================================================================
@@ -259,8 +263,8 @@ export default class AirplaneScene extends BaseEngine {
     const comboTxt = this.catches >= 3 ? `  (x${this.speedMultiplier.toFixed(1)} speed!)` : '';
     this.promptText.setText(`Catch: ${this.activePrompt.emoji ?? ''} ${this.activePrompt.term}${comboTxt}`);
     // ESL: speak the prompt aloud
-    this.speakPrompt(this.activePrompt.term, this.activePrompt.definition);
-    this.makeSpeakable(this.promptText, this.activePrompt.term);
+
+
   }
 
   // ===========================================================================

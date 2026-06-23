@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { BaseEngine } from '../BaseEngine';
 import type { TermItem } from '../../lib/types';
 import { audioBus } from '../../lib/audio';
@@ -224,8 +224,8 @@ export default class GameshowScene extends BaseEngine {
     this.promptText.setText(`"${r.prompt.definition ?? r.prompt.emoji ?? r.prompt.term}"`);
 
     // ESL: speak the prompt
-    this.speakPrompt(r.prompt.term, r.prompt.definition);
-    this.makeSpeakable(this.promptText, r.prompt.definition ?? r.prompt.term);
+
+
 
     // Dramatic reveal animation
     this.promptBg.setScale(0).setAlpha(0);

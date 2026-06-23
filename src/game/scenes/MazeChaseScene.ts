@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { BaseEngine } from '../BaseEngine';
 import type { TermItem } from '../../lib/types';
 import { audioBus } from '../../lib/audio';
@@ -147,8 +147,8 @@ export default class MazeChaseScene extends BaseEngine {
     if (this.isFinished) return;
     if (this.activeTerm) {
       this.promptText.setText(`Find: ${this.activeTerm.term}`);
-    this.speakPrompt(this.activeTerm.term, this.activeTerm.definition);
-    this.makeSpeakable(this.promptText, this.activeTerm.term);
+      // NOTE: speakPrompt is called in spawnTargetsAndEnemies() and advanceRound()
+      // when the term CHANGES — NOT here (onTick runs 60x/sec)
       // Update compass to point toward active target
       this.updateCompass();
     }
@@ -321,8 +321,7 @@ export default class MazeChaseScene extends BaseEngine {
     // First term is the active correct answer; others are decoys
     this.activeTerm = roundTerms[0];
     this.promptText.setText(`Find: ${this.activeTerm.term}`);
-    this.speakPrompt(this.activeTerm.term, this.activeTerm.definition);
-    this.makeSpeakable(this.promptText, this.activeTerm.term);
+    // TTS only on user tap — no automatic speech on game start
 
     // Available cells (exclude player start at 0,0)
     const interiorCells: { x: number; y: number }[] = [];
@@ -603,8 +602,7 @@ export default class MazeChaseScene extends BaseEngine {
     }
     this.activeTerm = Phaser.Utils.Array.GetRandom(remaining);
     this.promptText.setText(`Find: ${this.activeTerm.term}`);
-    this.speakPrompt(this.activeTerm.term, this.activeTerm.definition);
-    this.makeSpeakable(this.promptText, this.activeTerm.term);
+    // TTS only on user tap
   }
 
   // ===========================================================================

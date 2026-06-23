@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { BaseEngine } from '../BaseEngine';
 import type { TermItem } from '../../lib/types';
 import { audioBus } from '../../lib/audio';
@@ -449,8 +449,8 @@ export default class CrosswordScene extends BaseEngine {
     const dirLabel = this.activeEntry.dir === 'across' ? 'Across' : 'Down';
     this.clueText.setText(`${this.activeEntry.number} ${dirLabel}: ${this.activeEntry.clue}`);
     // ESL: speak the clue aloud
-    this.speakPrompt(this.activeEntry.word, this.activeEntry.clue);
-    this.makeSpeakable(this.clueText, `${this.activeEntry.clue}. The answer is ${this.activeEntry.word}`);
+
+
   }
 
   private handleKey(e: KeyboardEvent) {
@@ -541,7 +541,7 @@ export default class CrosswordScene extends BaseEngine {
       this.juice.scorePopup(centerX, centerY - 20, entry.word, this.theme.success);
       audioBus.play('correct');
       // ESL: speak the completed word
-      this.speakPrompt(entry.word);
+  
       this.checkWin();
     }
   }

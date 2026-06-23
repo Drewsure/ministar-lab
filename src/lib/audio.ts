@@ -195,12 +195,15 @@ class AudioBus {
       utter.onend = () => { this.currentUtterance = null; };
       utter.onerror = () => { this.currentUtterance = null; };
 
-      // Speak with small delay to ensure cancel completes
-      setTimeout(() => {
-        try {
-          window.speechSynthesis.speak(utter);
-        } catch {}
-      }, 50);
+      // AAAA — iOS Safari requires speech to be triggered synchronously from
+      // the user gesture. setTimeout breaks this on iOS. We call .speak()
+      // directly here; the caller is responsible for ensuring this is invoked
+      // from a pointer/keyboard handler. (For programmatic speech like level-up
+      // announcements, iOS may still skip the first utterance — that's an iOS
+      // limitation, not a bug.)
+      try {
+        window.speechSynthesis.speak(utter);
+      } catch {}
     } catch {
       // TTS not available — fail silently
     }
@@ -300,11 +303,16 @@ if (typeof window !== 'undefined') {
   const handler = () => {
     audioBus.init();
     audioBus.initTTS(); // Initialize TTS voices on first gesture
-    // Trigger a dummy speak to unlock audio on mobile
+    // AAAA — iOS Safari unlock: speak a near-silent utterance synchronously
+    // from the user gesture. This unlocks the speech engine for ALL future
+    // programmatic calls. Without this, iOS blocks TTS that isn't triggered
+    // directly from a user tap.
     try {
       if ('speechSynthesis' in window) {
-        const u = new SpeechSynthesisUtterance('');
-        window.speechSynthesis.speak(u);
+        const unlock = new SpeechSynthesisUtterance(' ');
+        unlock.volume = 0;
+        unlock.rate = 1;
+        window.speechSynthesis.speak(unlock);
       }
     } catch {}
     window.removeEventListener('pointerdown', handler);

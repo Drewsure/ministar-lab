@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { BaseEngine } from '../BaseEngine';
 import type { TermItem } from '../../lib/types';
 import { audioBus } from '../../lib/audio';
@@ -197,8 +197,8 @@ export default class BridgeBuilderScene extends BaseEngine {
     // Hint
     const hintText = term.definition ? `Hint: ${term.emoji ?? ''} ${term.definition}` : (term.emoji ? `Hint: ${term.emoji}` : '');
     this.hintText.setText(hintText);
-    this.speakPrompt(term.term, term.definition);
-    this.makeSpeakable(this.hintText, `${term.term}. ${term.definition ?? ''}`);
+
+
 
     // Render letter keyboard
     this.letterButtons.forEach(b => b.destroy());
@@ -353,7 +353,7 @@ export default class BridgeBuilderScene extends BaseEngine {
     if (this.revealed.every(Boolean)) {
       this.canInteract = false;
       this.solvedRounds++;
-      this.speakPrompt(this.rounds[this.round].term, this.rounds[this.round].definition);
+  
       this.juice.burst(this.scale.width / 2, 200, 'win');
       this.hud.celebrate();
       // Rocket launches off-screen with confetti

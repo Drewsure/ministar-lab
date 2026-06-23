@@ -1,9 +1,10 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import type { ThemeManifest, TermItem, GameLaunchConfig, XapiEvent } from '../lib/types';
 import { ThemeAtlas, Juice, Hud } from './Juice';
 import { audioBus } from '../lib/audio';
 import { getLod } from '../lib/lod';
 import { makeAnsweredEvent, makeCompletedEvent, pushEvent, getActor, verifyTelemetry } from '../lib/telemetry';
+import { loadProfile, recordAnswer as recordAdaptive, recordGameCompletion, isBossLevel, createBossBattle, getStoryBeat, type StudentProfile, type BossBattle } from '../lib/adaptive';
 
 // ============================================================================
 // BaseEngine — every game scene extends this.
@@ -40,6 +41,15 @@ export abstract class BaseEngine extends Phaser.Scene {
   protected levelBg?: Phaser.GameObjects.Rectangle;
   protected termsPerLevel = 3; // every 3 correct answers = level up
 
+  // AAAA — Adaptive difficulty + Story mode
+  protected profile: StudentProfile;
+  protected bossBattle?: BossBattle;
+  protected bossHealthBar?: Phaser.GameObjects.Rectangle;
+  protected bossHealthBg?: Phaser.GameObjects.Rectangle;
+  protected bossEmoji?: Phaser.GameObjects.Text;
+  protected bossName?: Phaser.GameObjects.Text;
+  protected storyOverlay?: Phaser.GameObjects.Container;
+
   // Subclass contract
   protected abstract buildWorld(): void;
   protected abstract onTick(_remainingMs: number): void;
@@ -66,18 +76,28 @@ export abstract class BaseEngine extends Phaser.Scene {
     this.isFinished = false;
     this.answeredEvents = [];
     this.maxScore = this.maxQuestions();
+    // AAAA — Load adaptive profile
+    this.profile = loadProfile();
   }
 
   create() {
     // Build the theme atlas (procedural texture pack)
     ThemeAtlas.build(this, this.theme);
 
-    // Paint background
+    // Paint background — use camera background color (more reliable than generated texture)
+    this.cameras.main.setBackgroundColor(this.theme.bg);
+
+    // AAAA — Cinematic camera fade-in on scene start (300ms from black)
+    try {
+      this.cameras.main.fadeIn(300, 0, 0, 0);
+    } catch {}
+
+    // Try to add the illustrated background image (may not render in Phaser 4 WebGL)
     const bgKey = 'bg-' + this.theme.id;
     if (this.textures.exists(bgKey)) {
-      this.add.image(0, 0, bgKey).setOrigin(0).setDisplaySize(this.scale.width, this.scale.height);
-    } else {
-      this.cameras.main.setBackgroundColor(this.theme.bg);
+      try {
+        this.add.image(0, 0, bgKey).setOrigin(0).setDisplaySize(this.scale.width, this.scale.height).setDepth(-10);
+      } catch { /* ignore texture errors */ }
     }
 
     // Parallax starfield (skipped on low LOD)
@@ -130,17 +150,21 @@ export abstract class BaseEngine extends Phaser.Scene {
     // Subclass builds the actual game world
     this.buildWorld();
 
-    // AAA 2029 — Speak game welcome + instructions when game starts (ESL critical)
-    this.time.delayedCall(500, () => {
-      this.speakGameWelcome();
-    });
+    // NOTE: Welcome speech removed — it was causing issues with TTS overlap.
+    // TTS now only speaks when the user taps an interactive element.
 
     // HUD loop
     this.events.on('update', () => {
       if (this.isFinished) return;
-      const { remainingMs } = this.hud.tick(this.score, this.streak, this.maxScore);
-      this.onTick(remainingMs);
-      if (remainingMs <= 0) this.finishGame(false);
+      try {
+        const { remainingMs } = this.hud.tick(this.score, this.streak, this.maxScore);
+        this.onTick(remainingMs);
+        if (remainingMs <= 0) this.finishGame(false);
+      } catch (e) {
+        // AAAA — Never let an exception in the update loop kill the game.
+        // Log it but keep the loop alive so the player can still finish.
+        console.error('[MiniStar] Update loop error (suppressed):', e);
+      }
     });
   }
 
@@ -203,9 +227,46 @@ export abstract class BaseEngine extends Phaser.Scene {
     this.answeredEvents.push(ev);
     pushEvent(ev);
 
+    // AAAA — Adaptive: record this answer to the student profile
+    const reactionMs = Date.now() - this.startTime - (this.score * 2000); // rough estimate
+    try {
+      this.profile = recordAdaptive(this.profile, opts.term, opts.success, Math.max(500, reactionMs));
+    } catch {}
+
+    // ===== MULTIPLAYER: push to live leaderboard if active =====
+    const mp = (this.registry.get('launchConfig') as any)?.multiplayer;
+    if (mp && typeof mp.submitAnswer === 'function') {
+      try {
+        mp.submitAnswer(opts.success, opts.term, opts.response);
+      } catch {}
+    }
+
+    // AAAA — Boss battle: damage boss on correct, take damage on wrong
+    if (this.bossBattle && !this.isFinished) {
+      if (opts.success) {
+        this.bossBattle.currentHealth = Math.max(0, this.bossBattle.currentHealth - this.bossBattle.damagePerCorrect);
+        this.updateBossHealthBar();
+        if (this.bossBattle.currentHealth <= 0) {
+          // Boss defeated!
+          audioBus.play('win');
+          this.juice.confettiRain(2000);
+          this.juice.zoomPunch(1.06, 400);
+          this.showBossDefeated();
+        }
+      } else {
+        // Wrong answer = boss attacks (visual feedback only, no game over)
+        this.juice.shake('heavy');
+        this.juice.flash(this.theme.danger, 0.3, 200);
+      }
+    }
+
     if (opts.success) {
       this.score++;
       this.streak++;
+      // AAAA — Mobile haptic feedback (subtle on correct, stronger on streak)
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        try { navigator.vibrate(this.streak >= 3 ? [15, 30, 30] : 12); } catch {}
+      }
       // Stability: wrap juice calls in try-catch to prevent freezes
       try {
         this.juice.burst(opts.coordinate?.x ?? 400, opts.coordinate?.y ?? 300, this.streak >= 3 ? 'streak' : 'correct');
@@ -228,6 +289,7 @@ export abstract class BaseEngine extends Phaser.Scene {
         }
       } catch (e) { /* ignore juice errors */ }
       // ESL: speak the correct term aloud when answered correctly
+      // (user explicitly tapped — this is user-initiated, not automatic)
       audioBus.speak(opts.term);
       // Pitch-rising streak audio: each correct in a row goes up a semitone
       const baseFreq = 660;
@@ -237,18 +299,14 @@ export abstract class BaseEngine extends Phaser.Scene {
       if (this.streak >= 3) {
         try { this.juice.hitStop(60); } catch {}
       }
-      // AAA 2029 — Encouraging voice feedback (engagement driver for kids)
-      if (this.streak >= 5) {
-        this.time.delayedCall(800, () => audioBus.speak(this.streak >= 7 ? 'Amazing!' : 'Excellent!'));
-      } else if (this.streak >= 3) {
-        this.time.delayedCall(800, () => audioBus.speak('Great job!'));
-      } else if (this.score === 1) {
-        this.time.delayedCall(800, () => audioBus.speak('Nice!'));
-      }
       // Check for level up
       this.checkLevelUp();
     } else {
       this.streak = 0;
+      // AAAA — Mobile haptic feedback (long buzz on wrong answer)
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        try { navigator.vibrate([30, 50, 60]); } catch {}
+      }
       try {
         this.juice.burst(opts.coordinate?.x ?? 400, opts.coordinate?.y ?? 300, 'incorrect');
         this.juice.shake('medium');
@@ -272,7 +330,17 @@ export abstract class BaseEngine extends Phaser.Scene {
     if (this.isFinished) return;
     this.isFinished = true;
 
+    // AAAA — Cinematic camera flash on game end (safe — wrapped in try/catch
+    // and doesn't conflict with zoomPunch because finishGame only fires once)
+    try {
+      this.cameras.main.flash(400, this.theme.success, this.theme.success, this.theme.success, true);
+    } catch {}
+
     const durationMs = Date.now() - this.startTime;
+    // AAAA — Record game completion in adaptive profile
+    try {
+      this.profile = recordGameCompletion(this.profile, won);
+    } catch {}
     const actor = getActor();
     const completed = makeCompletedEvent({
       actor,
@@ -504,14 +572,96 @@ export abstract class BaseEngine extends Phaser.Scene {
   // ===========================================================================
   // GLOBAL POINTER HANDLER — sets up a reliable pointerdown listener
   // that works even when Phaser's per-object input fails.
-  // Also cancels any in-progress TTS on user activity.
+  // ALSO implements universal tap-to-speak: ANY text object that has been
+  // registered via makeSpeakable() will be read aloud when tapped, BEFORE
+  // the scene-specific handler runs. This means students can tap the
+  // question prompt, any label, any option text, etc. to hear it.
   // ===========================================================================
   protected setupGlobalPointer(handler: (x: number, y: number) => void) {
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
       // Cancel any in-progress speech on user activity (prevents overlap)
       audioBus.stopSpeaking();
+
+      // UNIVERSAL TAP-TO-SPEAK: check all children for speakText data
+      const speakText = this.findSpeakableAt(p.x, p.y);
+      if (speakText) {
+        // Tap-to-speak: speak the text and don't also fire game logic
+        // (prevents accidental answers when student just wanted to hear text)
+        audioBus.speak(speakText, { isQuestion: speakText.includes('?') });
+        // Small haptic feedback on mobile
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          try { navigator.vibrate(8); } catch {}
+        }
+        return;
+      }
+
       handler(p.x, p.y);
     });
+  }
+
+  /**
+   * Find any display object at (x, y) that has speakText data.
+   * Searches the entire display list (including container children).
+   * Returns the speakText string if found, null otherwise.
+   */
+  private findSpeakableAt(x: number, y: number): string | null {
+    // Iterate over all display list children (top-most first by depth)
+    const all: Phaser.GameObjects.GameObject[] = [];
+    this.children.each((child) => { all.push(child); return true; });
+
+    // Sort by depth descending so top-most objects are hit-tested first
+    all.sort((a: any, b: any) => (b.depth ?? 0) - (a.depth ?? 0));
+
+    for (const child of all as any[]) {
+      const speakText = child.getData && child.getData('speakText');
+      if (!speakText) continue;
+
+      // Recursively check container children too
+      const found = this.checkSpeakableBounds(child, x, y, speakText);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  private checkSpeakableBounds(obj: any, x: number, y: number, speakText: string): string | null {
+    // Direct hit test on this object
+    if (this.pointInBounds(obj, x, y)) return speakText;
+
+    // If it's a container, also check its children for speakable text
+    if (obj.list && Array.isArray(obj.list)) {
+      for (const child of obj.list) {
+        const childSpeak = child.getData && child.getData('speakText');
+        if (childSpeak && this.pointInBounds(child, x, y)) {
+          return childSpeak;
+        }
+      }
+    }
+    return null;
+  }
+
+  private pointInBounds(obj: any, x: number, y: number): boolean {
+    if (!obj || obj.visible === false || obj.alpha === 0) return false;
+    // Get object's world bounds if available
+    if (typeof obj.getBounds === 'function') {
+      try {
+        const bounds = obj.getBounds();
+        if (x >= bounds.x && x <= bounds.x + bounds.width &&
+            y >= bounds.y && y <= bounds.y + bounds.height) {
+          return true;
+        }
+        return false;
+      } catch {}
+    }
+    // Fallback: use x/y/width/height with origin
+    const w = obj.width ?? 100;
+    const h = obj.height ?? 30;
+    const ox = obj.originX ?? 0.5;
+    const oy = obj.originY ?? 0.5;
+    const left = obj.x - w * ox;
+    const right = obj.x + w * (1 - ox);
+    const top = obj.y - h * oy;
+    const bottom = obj.y + h * (1 - oy);
+    return x >= left && x <= right && y >= top && y <= bottom;
   }
 
   // ===========================================================================
@@ -532,22 +682,179 @@ export abstract class BaseEngine extends Phaser.Scene {
     this.levelBadge.setText(`LEVEL ${this.level}`);
     // ESC: speak the level up
     audioBus.speak(`Level ${this.level}!`);
-    // Big celebration: zoom punch + glow ring + confetti + scale pulse
-    this.juice.zoomPunch(1.08, 400);
-    this.juice.glowRing(this.scale.width / 2, this.scale.height / 2, this.theme.warning, 200);
-    this.juice.confettiRain(1500);
-    this.juice.scorePopup(
-      this.scale.width / 2,
-      this.scale.height / 2 - 50,
-      `LEVEL ${this.level}!`,
-      this.theme.warning
-    );
+    // AAAA — Throttled celebration.
+    try {
+      this.juice.confettiRain(1200);
+      this.juice.scorePopup(
+        this.scale.width / 2,
+        this.scale.height / 2 - 50,
+        `LEVEL ${this.level}!`,
+        this.theme.warning
+      );
+    } catch {}
     // Pulse the badge
     this.tweens.add({
       targets: [this.levelBadge, this.levelBg],
       scale: { from: 1, to: 1.3 },
       duration: 200, yoyo: true, repeat: 2, ease: 'Back.out',
     });
+
+    // AAAA — Story beat on chapter change (every 5 levels)
+    const beat = getStoryBeat(Math.ceil(this.level / 5));
+    if (beat && this.level % 5 === 1 && this.level > 1) {
+      this.showStoryBeat(beat);
+    }
+
+    // AAAA — Boss battle every 5 levels
+    if (isBossLevel(this.level)) {
+      this.startBossBattle();
+    }
+  }
+
+  // ===========================================================================
+  // AAAA — STORY BEAT OVERLAY (narrative moment)
+  // ===========================================================================
+  private showStoryBeat(beat: { emoji: string; title: string; text: string }) {
+    try {
+      const overlay = this.add.rectangle(
+        this.scale.width / 2, this.scale.height / 2,
+        this.scale.width, this.scale.height,
+        0x000000, 0.85
+      ).setDepth(800).setAlpha(0);
+
+      const emoji = this.add.text(
+        this.scale.width / 2, this.scale.height / 2 - 100,
+        beat.emoji, { fontSize: '64px' }
+      ).setOrigin(0.5).setDepth(801).setAlpha(0);
+
+      const title = this.add.text(
+        this.scale.width / 2, this.scale.height / 2 - 30,
+        beat.title, {
+          fontFamily: 'Inter, sans-serif',
+          fontSize: '28px', color: '#' + this.theme.warning.toString(16).padStart(6, '0'),
+          fontStyle: 'bold',
+        }
+      ).setOrigin(0.5).setDepth(801).setAlpha(0);
+
+      const text = this.add.text(
+        this.scale.width / 2, this.scale.height / 2 + 30,
+        beat.text, {
+          fontFamily: 'Inter, sans-serif',
+          fontSize: '16px', color: '#ffffff',
+          align: 'center', wordWrap: { width: 600 },
+        }
+      ).setOrigin(0.5).setDepth(801).setAlpha(0);
+
+      const hint = this.add.text(
+        this.scale.width / 2, this.scale.height / 2 + 130,
+        'Tap to continue', {
+          fontFamily: 'Inter, sans-serif',
+          fontSize: '14px', color: '#ffffff',
+        }
+      ).setOrigin(0.5).setDepth(801).setAlpha(0);
+
+      this.tweens.add({
+        targets: [overlay, emoji, title, text, hint],
+        alpha: { from: 0, to: 1 },
+        duration: 600, ease: 'Cubic.out',
+      });
+
+      // Tap to dismiss
+      const dismiss = () => {
+        this.tweens.add({
+          targets: [overlay, emoji, title, text, hint],
+          alpha: 0, duration: 400, ease: 'Cubic.in',
+          onComplete: () => {
+            overlay.destroy(); emoji.destroy(); title.destroy();
+            text.destroy(); hint.destroy();
+          },
+        });
+        this.input.off('pointerdown', dismiss);
+      };
+      this.time.delayedCall(1500, () => {
+        this.input.on('pointerdown', dismiss);
+      });
+
+      audioBus.speak(beat.text.slice(0, 200));
+    } catch {}
+  }
+
+  // ===========================================================================
+  // AAAA — BOSS BATTLE (every 5 levels)
+  // ===========================================================================
+  private startBossBattle() {
+    try {
+      this.bossBattle = createBossBattle(this.level);
+      // Boss UI at top of screen
+      const bossY = 100;
+      this.bossEmoji = this.add.text(
+        this.scale.width / 2, bossY, this.bossBattle.emoji, { fontSize: '48px' }
+      ).setOrigin(0.5).setDepth(300).setScale(0);
+
+      this.bossName = this.add.text(
+        this.scale.width / 2, bossY + 35,
+        this.bossBattle.name, {
+          fontFamily: 'Inter, sans-serif',
+          fontSize: '18px', color: '#' + this.theme.danger.toString(16).padStart(6, '0'),
+          fontStyle: 'bold',
+        }
+      ).setOrigin(0.5).setDepth(301).setScale(0);
+
+      // Health bar
+      const barW = 300, barH = 16;
+      this.bossHealthBg = this.add.rectangle(
+        this.scale.width / 2, bossY + 60, barW + 4, barH + 4,
+        0x000000, 0.7
+      ).setStrokeStyle(2, this.theme.danger, 0.8).setDepth(301).setScale(0);
+      this.bossHealthBar = this.add.rectangle(
+        this.scale.width / 2 - barW / 2, bossY + 60, barW, barH,
+        this.theme.danger, 1
+      ).setOrigin(0, 0.5).setDepth(302).setScale(0);
+
+      // Animate boss entrance
+      this.tweens.add({
+        targets: [this.bossEmoji, this.bossName, this.bossHealthBg, this.bossHealthBar],
+        scale: 1, duration: 600, ease: 'Back.out',
+      });
+
+      audioBus.speak(`Boss battle! ${this.bossBattle.name}!`);
+      audioBus.play('launch');
+      this.juice.shake('heavy');
+      this.juice.flash(this.theme.danger, 0.3, 300);
+    } catch {}
+  }
+
+  private updateBossHealthBar() {
+    if (!this.bossBattle || !this.bossHealthBar) return;
+    const pct = this.bossBattle.currentHealth / this.bossBattle.maxHealth;
+    this.tweens.add({
+      targets: this.bossHealthBar,
+      width: 300 * pct,
+      duration: 300, ease: 'Cubic.out',
+    });
+  }
+
+  private showBossDefeated() {
+    if (!this.bossEmoji) return;
+    // Boss fades out with explosion
+    this.juice.burst(this.bossEmoji.x, this.bossEmoji.y, 'win');
+    this.tweens.add({
+      targets: [this.bossEmoji, this.bossName, this.bossHealthBg, this.bossHealthBar],
+      alpha: 0, scale: 0,
+      duration: 600, ease: 'Cubic.in',
+      onComplete: () => {
+        this.bossEmoji?.destroy();
+        this.bossName?.destroy();
+        this.bossHealthBg?.destroy();
+        this.bossHealthBar?.destroy();
+        this.bossBattle = undefined;
+      },
+    });
+    audioBus.speak('Boss defeated! Great job!');
+    this.juice.scorePopup(
+      this.scale.width / 2, this.scale.height / 2 - 80,
+      'BOSS DEFEATED!', this.theme.success
+    );
   }
 
   // ===========================================================================
@@ -559,12 +866,34 @@ export abstract class BaseEngine extends Phaser.Scene {
     audioBus.speakTerm(term, definition);
   }
 
-  /** Make a text object speak its content when tapped (ESL tap-to-hear)
-   *  NOTE: Phaser 4 per-object input is unreliable. The global pointer handler
-   *  in each scene's setupGlobalPointer handles tap-to-speak.
-   *  This method stores the speak text for reference but does NOT register
-   *  its own pointerdown listener (which caused duplicate/repeated speech). */
+  /** Make a text object speak its content when tapped (ESL tap-to-hear).
+   *  The global pointer handler in setupGlobalPointer automatically detects
+   *  any object with `speakText` data and reads it aloud — students can
+   *  tap ANY text (questions, options, labels) to hear it spoken.
+   *
+   *  This method also adds a small 🔊 speaker icon next to the text as a
+   *  visual hint that the text is tappable for audio. */
   protected makeSpeakable(text: Phaser.GameObjects.Text, speechText?: string) {
     text.setData('speakText', speechText ?? text.text);
+    // Visual hint: subtle 🔊 icon offset to the right of the text
+    // (only if not already added)
+    if (!text.getData('speakHintAdded')) {
+      text.setData('speakHintAdded', true);
+      try {
+        const hint = this.add.text(
+          (text.x + (text.width ?? 0) / 2 + 14),
+          text.y,
+          '🔊',
+          { fontFamily: 'Inter, sans-serif', fontSize: '14px' }
+        ).setOrigin(0.5).setDepth((text.depth ?? 0) + 1).setAlpha(0.55);
+        text.setData('speakHint', hint);
+        // Pulse the hint subtly to draw attention
+        this.tweens.add({
+          targets: hint,
+          alpha: { from: 0.4, to: 0.75 },
+          duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.inOut',
+        });
+      } catch {}
+    }
   }
 }

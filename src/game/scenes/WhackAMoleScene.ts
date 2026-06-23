@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { BaseEngine } from '../BaseEngine';
 import type { TermItem } from '../../lib/types';
 import { audioBus } from '../../lib/audio';
@@ -174,8 +174,8 @@ export default class WhackAMoleScene extends BaseEngine {
       return;
     }
     this.promptText.setText(`Whack: ${this.activePrompt.emoji ?? ''} ${this.activePrompt.term}`);
-    this.speakPrompt(this.activePrompt.term, this.activePrompt.definition);
-    this.makeSpeakable(this.promptText, this.activePrompt.term);
+
+
   }
 
   private spawnMole() {
