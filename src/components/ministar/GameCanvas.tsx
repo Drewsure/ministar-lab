@@ -192,6 +192,26 @@ export default function GameCanvas({ config, onExit, onSwitchGame, onPrint }: Ga
       game.events.on('error', (err: any) => {
         console.error('[MiniStar] Phaser game error:', err);
       });
+
+      // AAAA — Capture final score when game ends, report to React for leaderboard
+      game.events.on('ready', () => {
+        const checkSceneEnd = setInterval(() => {
+          try {
+            const scene = game.scene.scenes[0];
+            if (scene && (scene as any).isFinished) {
+              const score = (scene as any).score ?? 0;
+              const maxScore = (scene as any).maxScore ?? 0;
+              const startTime = (scene as any).startTime ?? Date.now();
+              const durationMs = Date.now() - startTime;
+              // Dispatch event for React to pick up
+              window.dispatchEvent(new CustomEvent('ministar-game-ended', {
+                detail: { score, maxScore, durationMs }
+              }));
+              clearInterval(checkSceneEnd);
+            }
+          } catch {}
+        }, 500);
+      });
     })();
 
     return () => {

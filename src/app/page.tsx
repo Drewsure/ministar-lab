@@ -8,6 +8,7 @@ import GameCanvas from '@/components/ministar/GameCanvas';
 import LiveMultiplayer from '@/components/ministar/LiveMultiplayer';
 import LiveArena from '@/components/ministar/LiveArena';
 import AIAuthStudio from '@/components/ministar/AIAuthStudio';
+import ActivityOptions from '@/components/ministar/ActivityOptions';
 import { useBrand } from '@/components/ministar/useBrand';
 import { THEMES } from '@/lib/themes';
 import { GAME_MODE_MAP } from '@/lib/gameModes';
@@ -104,6 +105,9 @@ export default function Home() {
   const [liveMode, setLiveMode] = useState<{ mode: GameModeId; theme: ThemeId } | null>(null);
   const [arenaMode, setArenaMode] = useState<{ mode: GameModeId; theme: ThemeId } | null>(null);
   const [aiStudio, setAiStudio] = useState<boolean>(false);
+  const [showOptions, setShowOptions] = useState<boolean>(false);
+  const [lastScore, setLastScore] = useState<number>(0);
+  const [lastDurationMs, setLastDurationMs] = useState<number>(0);
   const [lastBrand, setLastBrand] = useState(brand.subdomain);
   const [stats, setStats] = useState<StudentStats>(() => loadStats());
 
@@ -194,6 +198,17 @@ export default function Home() {
   const exitGame = () => {
     setLaunch(null);
   };
+
+  // AAAA — Listen for game-ended events to capture score for leaderboard
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      setLastScore(detail.score ?? 0);
+      setLastDurationMs(detail.durationMs ?? 0);
+    };
+    window.addEventListener('ministar-game-ended', handler);
+    return () => window.removeEventListener('ministar-game-ended', handler);
+  }, []);
 
   return (
     <div
@@ -344,6 +359,18 @@ export default function Home() {
               </div>
               <div className="flex items-center gap-2">
                 <button
+                  onClick={() => { setShowOptions(true); audioBus.play('tap'); }}
+                  className="rounded-xl px-3 py-2 text-xs font-semibold"
+                  style={{
+                    background: 'color-mix(in oklab, var(--brand-accent) 25%, transparent)',
+                    color: 'var(--brand-text)',
+                    border: '1px solid color-mix(in oklab, var(--brand-accent) 50%, transparent)',
+                  }}
+                  title="Activity options: edit, print, embed, assign, style, timer, leaderboard"
+                >
+                  ⚙️ Options
+                </button>
+                <button
                   onClick={() => {
                     // Restart the game by toggling launch
                     const cfg = launch;
@@ -430,6 +457,40 @@ export default function Home() {
             <div className="text-center mt-4 text-xs opacity-60" style={{ color: 'var(--brand-text)' }}>
               Tap to play · Tap any text to hear it · Press P to pause
             </div>
+
+            {/* AAAA — Activity Options Modal (Wordwall-style) */}
+            <ActivityOptions
+              open={showOptions}
+              onClose={() => setShowOptions(false)}
+              mode={launch.mode}
+              theme={launch.theme}
+              terms={launch.terms}
+              unit={launch.unit}
+              tenantId={launch.tenantId}
+              lastScore={lastScore}
+              lastDurationMs={lastDurationMs}
+              onEditTerms={(newTerms) => {
+                setLaunch({ ...launch, terms: newTerms });
+                setTerms(newTerms);
+              }}
+              onChangeTheme={(newTheme) => {
+                setLaunch({ ...launch, theme: newTheme });
+                setTheme(newTheme);
+              }}
+              onChangeTimer={(ms) => {
+                // Timer change applies to next game launch
+                localStorage.setItem('ministar_timer_override', String(ms));
+              }}
+              onPrint={() => {
+                const params = new URLSearchParams({
+                  mode: launch.mode,
+                  theme: launch.theme,
+                });
+                const termsJson = JSON.stringify(launch.terms);
+                const termsB64 = btoa(unescape(encodeURIComponent(termsJson))).replace(/\+/g, '-').replace(/\//g, '_');
+                window.open(`/api/print?${params.toString()}&terms=${termsB64}`, '_blank');
+              }}
+            />
           </div>
         ) : view === 'teacher' ? (
           // -----------------------------------------------------------------
