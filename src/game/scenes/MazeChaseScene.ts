@@ -265,6 +265,10 @@ export default class MazeChaseScene extends BaseEngine {
   private addWall(x: number, y: number, w: number, h: number, color: number) {
     const wall = this.add.rectangle(x, y, w, h, color, 0.92)
       .setStrokeStyle(1.5, this.theme.accent, 0.55);
+    // AAAA — Explicitly create a STATIC physics body.
+    // physics.add.existing with static=true automatically sizes the body
+    // to match the rectangle. No manual offset needed.
+    this.physics.add.existing(wall, true);
     this.wallsGroup.add(wall);
   }
 
@@ -417,14 +421,15 @@ export default class MazeChaseScene extends BaseEngine {
     const px = this.mazeOffsetX + cell.x * CELL + CELL / 2;
     const py = this.mazeOffsetY + cell.y * CELL + CELL / 2;
 
-    const enemyKey = 'particle-' + this.theme.id;
-    const enemy = this.add.image(px, py, enemyKey);
-    enemy.setTint(this.theme.danger);
-    enemy.setDisplaySize(34, 34);
-    enemy.setDepth(15);
+    // AAAA — Pac-Man style ghost: emoji with eyes that track the player
+    const ghostEmojis = ['👻', '👹', '👺', '💀'];
+    const ghostEmoji = ghostEmojis[Math.floor(Math.random() * ghostEmojis.length)];
+    const enemy = this.add.text(px, py, ghostEmoji, { fontSize: '32px' })
+      .setOrigin(0.5).setDepth(15);
+    enemy.setData('emoji', ghostEmoji);
 
-    // Pulsing red glow
-    const aura = this.add.circle(px, py, 20, this.theme.danger, 0.22)
+    // Pulsing red aura
+    const aura = this.add.circle(px, py, 22, this.theme.danger, 0.22)
       .setDepth(14);
     this.tweens.add({
       targets: aura,
@@ -434,9 +439,16 @@ export default class MazeChaseScene extends BaseEngine {
     });
     enemy.setData('aura', aura);
 
+    // AAAA — Ghost personality: 0=chaser (red, direct pursuit), 1=ambusher (pink, targets ahead of player),
+    // 2=patrol (cyan, random), 3=scared (orange, runs away when player has boost)
+    const personality = Math.floor(Math.random() * 4);
+    enemy.setData('personality', personality);
+    enemy.setData('lastAIUpdate', 0);
+
     this.physics.add.existing(enemy);
     const body = enemy.body as Phaser.Physics.Arcade.Body;
-    body.setCircle(17, 0, 0)
+    // AAAA — Simple circle collider (primitive, not exact shape — best practice)
+    body.setCircle(16, 0, 0)
         .setAllowGravity(false)
         .setCollideWorldBounds(true);
     body.setBoundsRectangle(
@@ -445,43 +457,79 @@ export default class MazeChaseScene extends BaseEngine {
       )
     );
 
-    // Patrol AI: change direction every 1.4s, or chase player if in LOS
+    // AAAA — Ghost AI: A* pathfinding toward player (like Pac-Man)
+    // Updates every 800ms — not every frame (performance: sleeping logic)
     this.time.addEvent({
-      delay: 1400, loop: true,
-      callback: () => this.updateEnemyAI(enemy),
+      delay: 800, loop: true,
+      callback: () => this.updateGhostAI(enemy),
     });
-    // Initial impulse
-    this.updateEnemyAI(enemy);
+    this.updateGhostAI(enemy);
 
+    // AAAA — Collision with walls (physics layer filtering)
     this.physics.add.collider(enemy, this.wallsGroup);
     this.enemiesGroup.add(enemy);
   }
 
-  private updateEnemyAI(enemy: Phaser.GameObjects.Image) {
+  // ===========================================================================
+  // AAAA — GHOST AI: Pac-Man style pathfinding with personalities
+  // ===========================================================================
+  private updateGhostAI(enemy: Phaser.GameObjects.Text) {
     if (!enemy.active || this.isFinished) return;
     const body = enemy.body as Phaser.Physics.Arcade.Body;
     if (!body) return;
 
-    // Check line-of-sight to player (same row or column with no wall)
-    if (this.hasLineOfSight(enemy.x, enemy.y, this.player.x, this.player.y)) {
-      // Chase the player
-      const dx = this.player.x - enemy.x;
-      const dy = this.player.y - enemy.y;
-      const dist = Math.hypot(dx, dy);
-      const chaseSpeed = this.lod.isMobile ? 110 : 150;
-      if (dist > 1) {
-        body.setVelocity((dx / dist) * chaseSpeed, (dy / dist) * chaseSpeed);
-      }
-      return;
+    const personality = enemy.getData('personality') as number;
+    const ghostCell = this.pixelToCell(enemy.x, enemy.y);
+    const playerCell = this.pixelToCell(this.player.x, this.player.y);
+    if (!ghostCell || !playerCell) return;
+
+    // Target cell depends on personality (like Pac-Man ghosts)
+    let targetCell = playerCell;
+    switch (personality) {
+      case 0: // Chaser (red) — direct pursuit
+        targetCell = playerCell;
+        break;
+      case 1: // Ambusher (pink) — target 2 cells ahead of player direction
+        const dirOffset = { up: {x:0,y:-2}, down: {x:0,y:2}, left: {x:-2,y:0}, right: {x:2,y:0} };
+        const offset = dirOffset[this.playerDir];
+        targetCell = {
+          x: Phaser.Math.Clamp(playerCell.x + offset.x, 0, COLS - 1),
+          y: Phaser.Math.Clamp(playerCell.y + offset.y, 0, ROWS - 1),
+        };
+        break;
+      case 2: // Patrol (cyan) — random target
+        targetCell = { x: Math.floor(Math.random() * COLS), y: Math.floor(Math.random() * ROWS) };
+        break;
+      case 3: // Scared (orange) — runs away when player has speed boost
+        if (Date.now() < this.speedBoostUntil) {
+          targetCell = { x: 0, y: 0 }; // flee to corner
+        } else {
+          targetCell = playerCell;
+        }
+        break;
     }
 
-    // Patrol: random cardinal direction (so it stays on corridors)
-    const dirs = [
-      { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 },
-    ];
-    const d = Phaser.Utils.Array.GetRandom(dirs);
-    const speed = this.lod.isMobile ? 70 : 100;
-    body.setVelocity(d.x * speed, d.y * speed);
+    // A* pathfind to target cell
+    const path = this.findPath(ghostCell, targetCell);
+    if (path.length > 0) {
+      // Move toward first cell in path
+      const nextCell = path[0];
+      const nextPx = this.mazeOffsetX + nextCell.x * CELL + CELL / 2;
+      const nextPy = this.mazeOffsetY + nextCell.y * CELL + CELL / 2;
+      const dx = nextPx - enemy.x;
+      const dy = nextPy - enemy.y;
+      const dist = Math.hypot(dx, dy);
+      const speed = this.lod.isMobile ? 100 : 140;
+      if (dist > 1) {
+        body.setVelocity((dx / dist) * speed, (dy / dist) * speed);
+      }
+    } else {
+      // No path — random direction
+      const dirs = [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
+      const d = Phaser.Utils.Array.GetRandom(dirs);
+      const speed = this.lod.isMobile ? 70 : 100;
+      body.setVelocity(d.x * speed, d.y * speed);
+    }
   }
 
   private hasLineOfSight(x1: number, y1: number, x2: number, y2: number): boolean {
@@ -571,11 +619,13 @@ export default class MazeChaseScene extends BaseEngine {
       term: 'enemy',
       response: 'enemy-collision',
       success: false,
-      coordinate: { x: (enemy as Phaser.GameObjects.Image).x, y: (enemy as Phaser.GameObjects.Image).y, t: this.time.now },
+      coordinate: { x: (enemy as Phaser.GameObjects.Text).x, y: (enemy as Phaser.GameObjects.Text).y, t: this.time.now },
     });
 
-    // Hit-stop: brief physics freeze for impact
+    // AAAA — Dramatic hit: hit-stop + heavy shake + flash
     this.juice.hitStop(100);
+    this.juice.shake('heavy');
+    this.juice.flash(this.theme.danger, 0.3, 200);
     this.bouncePlayerBack();
     this.time.delayedCall(900, () => this.targetHits.delete(enemy));
   }
@@ -696,7 +746,7 @@ export default class MazeChaseScene extends BaseEngine {
   }
 
   // ===========================================================================
-  // PER-FRAME UPDATE — uses direct position movement (more reliable than physics velocity)
+  // PER-FRAME UPDATE — uses physics velocity (respects wall colliders)
   // ===========================================================================
   update(_time: number, delta: number) {
     if (this.isFinished || !this.player) return;
@@ -705,10 +755,8 @@ export default class MazeChaseScene extends BaseEngine {
     const boosted = now < this.speedBoostUntil;
     const baseSpeed = this.lod.isMobile ? 220 : 280;
     const speed = boosted ? baseSpeed * 1.55 : baseSpeed;
-    // Pixels per frame (assuming ~60fps, delta ~16.67ms)
-    const moveAmount = speed * (delta / 1000);
 
-    // ---- Keyboard input (objects already created in create()) ----
+    // ---- Keyboard input ----
     let vx = 0, vy = 0;
     if (this.cursors?.left.isDown  || this.wasd?.A.isDown) vx -= 1;
     if (this.cursors?.right.isDown || this.wasd?.D.isDown) vx += 1;
@@ -720,36 +768,30 @@ export default class MazeChaseScene extends BaseEngine {
       this.path = [];
       this.pathIdx = 0;
       const mag = Math.hypot(vx, vy);
-      // Direct position update (bypass physics velocity which is unreliable in Phaser 4)
-      this.player.x += (vx / mag) * moveAmount;
-      this.player.y += (vy / mag) * moveAmount;
+      // AAAA — Use physics velocity (respects wall colliders!)
+      // Previous code used direct position updates which walked through walls.
+      this.player.setVelocity((vx / mag) * speed, (vy / mag) * speed);
       this.playerDir = vy < 0 ? 'up' : vy > 0 ? 'down' : vx < 0 ? 'left' : 'right';
     } else if (this.path.length > 0 && this.pathIdx < this.path.length) {
-      // Follow A* path — direct position movement
+      // Follow A* path — use physics velocity toward target
       const target = this.path[this.pathIdx];
       const dx = target.x - this.player.x;
       const dy = target.y - this.player.y;
       const dist = Math.hypot(dx, dy);
-      if (dist < 6) {
+      if (dist < 8) {
         this.pathIdx++;
-        if (this.pathIdx >= this.path.length) {
-          // Reached destination
-        }
+        this.player.setVelocity(0, 0);
       } else {
-        // Move directly toward target
-        const moveX = (dx / dist) * Math.min(moveAmount, dist);
-        const moveY = (dy / dist) * Math.min(moveAmount, dist);
-        this.player.x += moveX;
-        this.player.y += moveY;
+        // Move toward target using physics velocity
+        this.player.setVelocity((dx / dist) * speed, (dy / dist) * speed);
         this.playerDir = Math.abs(dx) > Math.abs(dy)
           ? (dx < 0 ? 'left' : 'right')
           : (dy < 0 ? 'up' : 'down');
       }
+    } else {
+      // No input — stop
+      this.player.setVelocity(0, 0);
     }
-
-    // Keep player in bounds
-    this.player.x = Phaser.Math.Clamp(this.player.x, this.mazeOffsetX + 20, this.mazeOffsetX + COLS * CELL - 20);
-    this.player.y = Phaser.Math.Clamp(this.player.y, this.mazeOffsetY + 20, this.mazeOffsetY + ROWS * CELL - 20);
 
     // Update directional indicator
     const rotMap: Record<Dir, number> = {
@@ -762,7 +804,8 @@ export default class MazeChaseScene extends BaseEngine {
     // Trail emitter follows the player
     if (this.trailEmitter) {
       this.trailEmitter.setPosition(this.player.x, this.player.y);
-      const moving = Math.abs(this.player.body?.velocity.x ?? 0) + Math.abs(this.player.body?.velocity.y ?? 0) > 50;
+      const vel = this.player.body?.velocity;
+      const moving = vel && (Math.abs(vel.x) + Math.abs(vel.y) > 50);
       if (moving) {
         this.trailEmitter.emitting = true;
         this.trailEmitter.setTint(boosted ? this.theme.warning : this.theme.accent);
