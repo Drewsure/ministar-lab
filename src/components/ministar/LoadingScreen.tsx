@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { audioBus } from '@/lib/audio';
 
 // ============================================================================
@@ -30,24 +30,26 @@ export default function LoadingScreen({ gameName, gameEmoji, themeName, themeEmo
   const [progress, setProgress] = useState(0);
   const [taglineIdx, setTaglineIdx] = useState(0);
   const [mascotY, setMascotY] = useState(0);
+  const onReadyRef = useRef(onReady);
+  onReadyRef.current = onReady;
 
   useEffect(() => {
-    audioBus.init();
-    audioBus.startMusic();
+    try { audioBus.init(); audioBus.startMusic(); } catch {}
 
     const start = Date.now();
     const duration = 1600;
 
     const tick = () => {
       const elapsed = Date.now() - start;
-      // AAA easing — expo out (fast start, slow settle)
       const t = Math.min(1, elapsed / duration);
+      // AAA easing — expo out (fast start, slow settle)
       const eased = 1 - Math.pow(2, -10 * t);
       setProgress(eased * 100);
-      if (eased < 1) {
+      if (t < 1) {
         requestAnimationFrame(tick);
       } else {
-        setTimeout(onReady, 300);
+        setProgress(100);
+        setTimeout(() => onReadyRef.current(), 300);
       }
     };
     requestAnimationFrame(tick);
@@ -68,7 +70,7 @@ export default function LoadingScreen({ gameName, gameEmoji, themeName, themeEmo
       clearInterval(tagInterval);
       clearInterval(mascotInterval);
     };
-  }, [onReady]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div
