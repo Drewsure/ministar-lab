@@ -118,7 +118,16 @@ export default function Home() {
   const [lastScore, setLastScore] = useState<number>(0);
   const [lastDurationMs, setLastDurationMs] = useState<number>(0);
   const [lastBrand, setLastBrand] = useState(brand.subdomain);
-  const [stats, setStats] = useState<StudentStats>(() => loadStats());
+  const [stats, setStats] = useState<StudentStats>(() => ({
+    xp: 0, level: 1, streak: 0, lastPlayed: '', gamesPlayed: 0, bestStreak: 0, streakFreezes: 1, tokens: 0, mysteryBoxesOpened: 0,
+  }));
+  const [hydrated, setHydrated] = useState(false);
+
+  // AAAA — Load stats from localStorage AFTER hydration (prevents React #418)
+  useEffect(() => {
+    setStats(loadStats());
+    setHydrated(true);
+  }, []);
 
   // Sync theme when brand changes
   if (brand.subdomain !== lastBrand) {
@@ -323,8 +332,8 @@ export default function Home() {
               Play amazing games, learn new words, and level up! Every game speaks to you — tap anything to hear it.
             </p>
 
-            {/* AAA 2029 — Student Stats Bar */}
-            {!launch && stats.gamesPlayed > 0 && (
+            {/* AAA 2029 — Student Stats Bar (only after hydration to prevent #418) */}
+            {!launch && hydrated && stats.gamesPlayed > 0 && (
               <div className="flex items-center justify-center gap-3 mt-4 flex-wrap">
                 <div className="rounded-xl px-4 py-2 text-sm font-semibold"
                   style={{
@@ -381,10 +390,10 @@ export default function Home() {
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <div>
                 <div className="text-xs uppercase tracking-widest opacity-60" style={{ color: 'var(--brand-text)' }}>
-                  Now playing · {THEMES[launch.theme].name}
+                  Now playing · {THEMES[launch.theme]?.name ?? 'World'}
                 </div>
                 <div className="font-bold text-lg" style={{ color: 'var(--brand-text)' }}>
-                  {GAME_MODE_MAP[launch.mode].emoji} {GAME_MODE_MAP[launch.mode].name}
+                  {GAME_MODE_MAP[launch.mode]?.emoji ?? '🎮'} {GAME_MODE_MAP[launch.mode]?.name ?? 'Game'}
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -770,7 +779,7 @@ export default function Home() {
             </div>
 
             {/* Achievement Badges — Blooket-grade engagement */}
-            {stats.gamesPlayed > 0 && (
+            {hydrated && stats.gamesPlayed > 0 && (
               <div className="rounded-2xl mb-6 p-4"
                 style={{
                   background: 'color-mix(in oklab, var(--brand-card) 50%, transparent)',

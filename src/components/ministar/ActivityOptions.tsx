@@ -142,10 +142,10 @@ export default function ActivityOptions(props: Props) {
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
           <div className="flex items-center gap-3">
-            <span className="text-2xl">{GAME_MODE_MAP[mode]?.emoji}</span>
+            <span className="text-2xl">{GAME_MODE_MAP[mode]?.emoji ?? '🎮'}</span>
             <div>
               <div className="font-bold text-sm">Activity Options</div>
-              <div className="text-xs opacity-60">{GAME_MODE_MAP[mode]?.name} · {terms.length} terms</div>
+              <div className="text-xs opacity-60">{GAME_MODE_MAP[mode]?.name ?? 'Game'} · {terms.length} terms</div>
             </div>
           </div>
           <button onClick={onClose} className="rounded-lg p-2 text-sm opacity-70 hover:opacity-100" style={{ background: 'rgba(255,255,255,0.1)' }}>✕</button>
@@ -295,7 +295,7 @@ export default function ActivityOptions(props: Props) {
                       color: theme === t ? '#000' : '#fff',
                     }}
                   >
-                    <div className="text-xs font-bold">{THEMES[t].name}</div>
+                    <div className="text-xs font-bold">{THEMES[t]?.name ?? 'World'}</div>
                   </button>
                 ))}
               </div>

@@ -200,7 +200,7 @@ export default function LiveMultiplayer({ mode, theme, terms, unit, tenantId, on
           <div className="text-center mb-6">
             <div className="text-5xl mb-2">🎮</div>
             <h1 className="text-2xl font-black mb-1">Live Multiplayer</h1>
-            <p className="text-sm opacity-70">{GAME_MODE_MAP[mode].emoji} {GAME_MODE_MAP[mode].name}</p>
+            <p className="text-sm opacity-70">{GAME_MODE_MAP[mode]?.emoji ?? '🎮'} {GAME_MODE_MAP[mode]?.name ?? 'Game'}</p>
           </div>
           <button
             onClick={() => { setRole('teacher'); audioBus.init(); audioBus.play('tap'); }}
