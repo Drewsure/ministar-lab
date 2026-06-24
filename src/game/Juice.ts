@@ -1015,33 +1015,37 @@ export class Juice {
 
   /**
    * Camera zoom punch — quick zoom in/out for impact.
-   * Used on big wins and game-over.
+   * AAAA — Completely rewritten to NOT use cam.zoomTo() which creates
+   * internal tweens that corrupt camera state when called multiple times.
+   * Instead, we tween a dummy object and manually set cam.zoom.
    */
   zoomPunch(zoomIn = 1.08, duration = 200) {
-    const cam = this.scene.cameras.main;
-    // AAAA — Cancel any existing zoom effect/tween before starting a new one.
-    // Phaser's cam.zoomTo creates an internal tween; calling it twice in
-    // quick succession (e.g. streak effect + level-up effect) corrupts the
-    // camera's tween state and throws "this.ease is not a function" inside
-    // the game loop, freezing the entire game.
     try {
-      // Remove any existing zoom tweens from this scene's tween manager
-      const tweens = this.scene.tweens.getTweens();
-      for (const t of tweens) {
-        const targets = t.targets ? (t.targets() || []) : [];
-        if (targets.includes(cam)) {
-          t.remove();
-        }
-      }
-    } catch {}
-    // Reset the camera zoom to 1 before starting (in case a previous tween
-    // left it stuck at zoom != 1)
-    try { cam.setZoom(1); } catch {}
-    // Now start the new zoom punch
-    try {
-      cam.zoomTo(zoomIn, duration * 0.4, 'Quad.out');
-      this.scene.time.delayedCall(duration * 0.4, () => {
-        try { cam.zoomTo(1, duration * 0.6, 'Quad.in'); } catch {}
+      const cam = this.scene.cameras.main;
+      // Cancel any existing zoom by resetting to 1 immediately
+      cam.setZoom(1);
+
+      // Use a dummy object for the tween (not the camera itself)
+      const dummy = { zoom: 1 };
+      this.scene.tweens.add({
+        targets: dummy,
+        zoom: zoomIn,
+        duration: duration * 0.4,
+        ease: 'Quad.out',
+        onUpdate: () => {
+          try { cam.setZoom(dummy.zoom); } catch {}
+        },
+        onComplete: () => {
+          this.scene.tweens.add({
+            targets: dummy,
+            zoom: 1,
+            duration: duration * 0.6,
+            ease: 'Quad.in',
+            onUpdate: () => {
+              try { cam.setZoom(dummy.zoom); } catch {}
+            },
+          });
+        },
       });
     } catch {}
   }

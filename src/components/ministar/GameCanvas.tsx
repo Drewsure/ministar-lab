@@ -257,8 +257,8 @@ export default function GameCanvas({ config, onExit, onSwitchGame, onPrint }: Ga
   // RENDER
   // ===========================================================================
   if (!config) return null;
-  const theme = THEMES[config.theme];
-  const gameMeta = GAME_MODE_MAP[config.mode];
+  const theme = THEMES[config.theme] ?? THEMES.space;
+  const gameMeta = GAME_MODE_MAP[config.mode] ?? { name: 'Game', emoji: '🎮' };
 
   return (
     <div
@@ -277,10 +277,10 @@ export default function GameCanvas({ config, onExit, onSwitchGame, onPrint }: Ga
       {loading && (
         <div className="absolute inset-0 z-50">
           <LoadingScreen
-            gameName={gameMeta.name}
-            gameEmoji={gameMeta.emoji}
-            themeName={theme.name}
-            themeEmoji={theme.emoji ?? '🌟'}
+            gameName={gameMeta?.name ?? 'Game'}
+            gameEmoji={gameMeta?.emoji ?? '🎮'}
+            themeName={theme?.name ?? 'World'}
+            themeEmoji={(theme as any)?.emoji ?? '🌟'}
             onReady={handleLoadingComplete}
           />
         </div>

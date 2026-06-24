@@ -803,14 +803,20 @@ export default class MazeChaseScene extends BaseEngine {
 
     // Trail emitter follows the player
     if (this.trailEmitter) {
-      this.trailEmitter.setPosition(this.player.x, this.player.y);
+      try { this.trailEmitter.setPosition(this.player.x, this.player.y); } catch {}
       const vel = this.player.body?.velocity;
       const moving = vel && (Math.abs(vel.x) + Math.abs(vel.y) > 50);
       if (moving) {
-        this.trailEmitter.emitting = true;
-        this.trailEmitter.setTint(boosted ? this.theme.warning : this.theme.accent);
+        try {
+          this.trailEmitter.emitting = true;
+          // AAAA — setTint doesn't exist on ParticleEmitter in Phaser 3.80,
+          // use setTint on the particle config instead (or just skip)
+          if (typeof (this.trailEmitter as any).setTint === 'function') {
+            (this.trailEmitter as any).setTint(boosted ? this.theme.warning : this.theme.accent);
+          }
+        } catch {}
       } else {
-        this.trailEmitter.emitting = false;
+        try { this.trailEmitter.emitting = false; } catch {}
       }
     }
   }
