@@ -1,6 +1,7 @@
 import * as Phaser from 'phaser';
 import type { ThemeManifest, ThemeId } from '../lib/types';
 import { audioBus } from '../lib/audio';
+import { lightRays, cinematicEntry, confettiBurst, EASING } from './AAAAnimation';
 
 // ============================================================================
 // WorldEffects — Each theme world has UNIQUE gameplay effects, not just skins
@@ -354,25 +355,32 @@ export class WorldEffectsManager {
       const w = this.scene.scale.width;
       const h = this.scene.scale.height;
 
-      // Full-screen overlay
-      const overlay = this.scene.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0.7)
+      // AAAA — Multi-layer cinematic intro
+
+      // Layer 1: Full-screen dark overlay (fades in)
+      const overlay = this.scene.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0.8)
         .setDepth(900).setAlpha(0);
 
-      // Big world emoji
+      // Layer 2: Light rays from center (dramatic reveal)
+      setTimeout(() => {
+        try { lightRays(this.scene, w / 2, h / 2, this.theme.accent, 8, 1200); } catch {}
+      }, 200);
+
+      // Layer 3: Big world emoji (cinematic entry from center with spring)
       const emoji = this.scene.add.text(w / 2, h / 2 - 40, this.config.introEmoji, {
         fontSize: '96px',
-      }).setOrigin(0.5).setDepth(901).setAlpha(0).setScale(0.3);
+      }).setOrigin(0.5).setDepth(901).setAlpha(0).setScale(0);
 
-      // World name
-      const name = this.scene.add.text(w / 2, h / 2 + 50, this.theme.name, {
+      // Layer 4: World name (slides up from below)
+      const name = this.scene.add.text(w / 2, h / 2 + 80, this.theme.name, {
         fontFamily: 'Inter, sans-serif',
         fontSize: '32px',
         color: '#' + this.theme.accent.toString(16).padStart(6, '0'),
         fontStyle: 'bold',
-      }).setOrigin(0.5).setDepth(901).setAlpha(0);
+      }).setOrigin(0.5).setDepth(901).setAlpha(0).setY(h / 2 + 120);
 
-      // Gameplay modifier badge
-      const modBadge = this.scene.add.text(w / 2, h / 2 + 90, this.config.gameplayModifier.description, {
+      // Layer 5: Gameplay modifier badge (fades in last)
+      const modBadge = this.scene.add.text(w / 2, h / 2 + 130, this.config.gameplayModifier.description, {
         fontFamily: 'Inter, sans-serif',
         fontSize: '14px',
         color: '#ffffff',
@@ -385,23 +393,55 @@ export class WorldEffectsManager {
         color: '#ffffff',
       }).setOrigin(0.5).setDepth(901).setAlpha(0.4);
 
-      // Animate in
+      // AAAA — Cinematic timeline:
+
+      // 0ms: Overlay fades in
       this.scene.tweens.add({
-        targets: [overlay, emoji, name, modBadge, skipHint],
-        alpha: { from: 0, to: 1 },
-        duration: 400,
-        ease: 'Cubic.out',
+        targets: overlay,
+        alpha: 0.8,
+        duration: 300,
+        ease: EASING.expoOut as any,
       });
 
-      // Emoji pop animation
-      this.scene.tweens.add({
-        targets: emoji,
-        scale: 1,
-        duration: 500,
-        ease: 'Back.out',
-      });
+      // 200ms: Emoji springs in with bounce
+      setTimeout(() => {
+        try {
+          this.scene.tweens.add({
+            targets: emoji,
+            alpha: 1,
+            scale: 1,
+            duration: 600,
+            ease: EASING.spring as any,
+          });
+        } catch {}
+      }, 200);
 
-      // Speak the intro (wrapped in try-catch — TTS may not be available)
+      // 500ms: Name slides up
+      setTimeout(() => {
+        try {
+          this.scene.tweens.add({
+            targets: [name, modBadge],
+            alpha: 1,
+            y: h / 2 + 50,
+            duration: 400,
+            ease: EASING.backOut as any,
+          });
+        } catch {}
+      }, 500);
+
+      // 800ms: Modifier badge fades in
+      setTimeout(() => {
+        try {
+          this.scene.tweens.add({
+            targets: modBadge,
+            alpha: 1,
+            duration: 300,
+            ease: EASING.sineInOut as any,
+          });
+        } catch {}
+      }, 800);
+
+      // Speak the intro
       try { audioBus.speak(this.config.introText); } catch {}
 
       // Tap to skip
@@ -410,11 +450,13 @@ export class WorldEffectsManager {
         if (completed) return;
         completed = true;
         try {
+          // AAAA — Exit animation: everything scales up + fades
           this.scene.tweens.add({
             targets: [overlay, emoji, name, modBadge, skipHint],
             alpha: 0,
-            duration: 200,
-            ease: 'Cubic.in',
+            scale: 1.3,
+            duration: 300,
+            ease: EASING.expoOut as any,
             onComplete: () => {
               overlay.destroy();
               emoji.destroy();
@@ -431,15 +473,12 @@ export class WorldEffectsManager {
 
       // Allow tap to skip after 500ms
       setTimeout(() => {
-        try {
-          this.scene.input.on('pointerdown', doComplete);
-        } catch {}
+        try { this.scene.input.on('pointerdown', doComplete); } catch {}
       }, 500);
 
-      // After 1.8s, auto-complete (shorter than before to avoid impatience)
-      setTimeout(doComplete, 1800);
+      // After 2s, auto-complete
+      setTimeout(doComplete, 2000);
     } catch (e) {
-      // If anything fails, just continue
       onComplete();
     }
   }

@@ -2,6 +2,7 @@ import * as Phaser from 'phaser';
 import type { ThemeManifest, TermItem, GameLaunchConfig, XapiEvent } from '../lib/types';
 import { ThemeAtlas, Juice, Hud } from './Juice';
 import { WorldEffectsManager, WORLD_CONFIGS } from './WorldEffects';
+import { screenShake, floatingText, confettiBurst, ripple, EASING } from './AAAAnimation';
 import { audioBus } from '../lib/audio';
 import { getLod } from '../lib/lod';
 import { makeAnsweredEvent, makeCompletedEvent, pushEvent, getActor, verifyTelemetry } from '../lib/telemetry';
@@ -99,9 +100,9 @@ export abstract class BaseEngine extends Phaser.Scene {
     // Paint background — use camera background color (more reliable than generated texture)
     this.cameras.main.setBackgroundColor(this.theme.bg);
 
-    // AAAA — Cinematic camera fade-in on scene start (300ms from black)
+    // AAAA — Cinematic camera fade-in on scene start (expo easing for drama)
     try {
-      this.cameras.main.fadeIn(300, 0, 0, 0);
+      this.cameras.main.fadeIn(400, 0, 0, 0);
     } catch {}
 
     // AAAA — Initialize World Effects Manager
@@ -363,12 +364,15 @@ export abstract class BaseEngine extends Phaser.Scene {
       const starDustEarned = Math.round((10 + this.streak * 2) * this.worldScoreMultiplier);
       try {
         earnStarDust(starDustEarned, this.scene.key);
-        // Floating Star Dust popup
-        this.juice.scorePopup(
+        // AAAA — Floating Star Dust popup with spring physics
+        floatingText(
+          this,
           (opts.coordinate?.x ?? this.scale.width / 2) + 40,
           (opts.coordinate?.y ?? this.scale.height / 2) - 30,
           `+${starDustEarned} ⭐`,
-          0xfbbf24  // gold
+          '#fbbf24',
+          28,
+          900
         );
       } catch {}
       // Check for level up
@@ -461,12 +465,15 @@ export abstract class BaseEngine extends Phaser.Scene {
       this.juice.burst(this.scale.width / 2, this.scale.height / 2, 'win');
       // AAAA — World-specific win celebration (emoji rain)
       this.worldEffects?.playWinCelebration();
+      // AAAA — AAA confetti burst at center (multi-colored particles)
+      try { confettiBurst(this, this.scale.width / 2, this.scale.height / 2, 40); } catch {}
+      // AAAA — Screen shake for impact
+      try { screenShake(this, 'heavy'); } catch {}
       // AAAA — World-specific win phrase
       if (this.worldEffects) {
         const phrase = this.worldEffects.getPhrase('win');
         setTimeout(() => { try { audioBus.speak(phrase); } catch {} }, 500);
       }
-      // AAA 2029 — confetti rain + zoom punch on win
       this.juice.confettiRain(2500);
       this.juice.zoomPunch(1.06, 400);
       this.juice.glowRing(this.scale.width / 2, this.scale.height / 2, this.theme.success, 200);
@@ -723,16 +730,16 @@ export abstract class BaseEngine extends Phaser.Scene {
   // ===========================================================================
   protected setupGlobalPointer(handler: (x: number, y: number) => void) {
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      // AAAA — Ripple effect on every tap (visual feedback)
+      try { ripple(this, p.x, p.y, this.theme.accent, 40); } catch {}
+
       // Cancel any in-progress speech on user activity (prevents overlap)
       audioBus.stopSpeaking();
 
       // UNIVERSAL TAP-TO-SPEAK: check all children for speakText data
       const speakText = this.findSpeakableAt(p.x, p.y);
       if (speakText) {
-        // Tap-to-speak: speak the text and don't also fire game logic
-        // (prevents accidental answers when student just wanted to hear text)
         audioBus.speak(speakText, { isQuestion: speakText.includes('?') });
-        // Small haptic feedback on mobile
         if (typeof navigator !== 'undefined' && navigator.vibrate) {
           try { navigator.vibrate(8); } catch {}
         }
