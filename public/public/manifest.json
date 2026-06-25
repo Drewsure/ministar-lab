@@ -1,0 +1,39 @@
+{
+  "name": "MiniStar English Global Lab — Living Textbook",
+  "short_name": "MiniStar Lab",
+  "description": "AAA 2029 white-label PWA learning portal with 11 physics-driven vocabulary games.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#05030f",
+  "theme_color": "#7c3aed",
+  "categories": ["education", "kids", "games"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Maze Chase",
+      "short_name": "Maze",
+      "url": "/?game=maze-chase",
+      "icons": [{ "src": "/icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Memory Match",
+      "short_name": "Memory",
+      "url": "/?game=memory-match",
+      "icons": [{ "src": "/icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Bridge Builder",
+      "short_name": "Bridge",
+      "url": "/?game=bridge-builder",
+      "icons": [{ "src": "/icon.svg", "sizes": "any" }]
+    }
+  ]
+}

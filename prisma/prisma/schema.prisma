@@ -1,0 +1,102 @@
+// MiniStar English Global Lab — Living Textbook
+// Multi-tenant PWA schema for B2B white-label deployments.
+// Each Tenant = one purchaser school. Branches are conceptual (Neon in production).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id            String   @id @default(cuid())
+  subdomain     String   @unique
+  displayName   String
+  logoSvgUrl    String?
+  primaryColor  String   @default("#6366f1")
+  accentColor   String   @default("#22d3ee")
+  bgTone        String   @default("#0b1020")
+  radius        Int      @default(16)
+  fontDisplay   String   @default("Inter")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  contentBlocks ContentBlock[]
+  qrRoutes      QrRoute[]
+  telemetry     TelemetryEvent[]
+  students      Student[]
+}
+
+model ContentBlock {
+  id                String   @id @default(cuid())
+  tenantId          String
+  unit              String   @default("unit-1")
+  term              String
+  definition        String?
+  emoji             String?
+  termAudioUrl      String?
+  definitionAudioUrl String?
+  verified          Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, unit])
+}
+
+model QrRoute {
+  id          String   @id @default(cuid())
+  tenantId    String
+  slug        String   @unique
+  unit        String
+  gameMode    String
+  themeId     String   @default("space")
+  bakeIn      Boolean  @default(false)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, slug])
+}
+
+model Student {
+  id          String   @id @default(cuid())
+  tenantId    String
+  displayName String
+  grade       String?
+  createdAt   DateTime @default(now())
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  telemetry   TelemetryEvent[]
+
+  @@index([tenantId])
+}
+
+model TelemetryEvent {
+  id          String   @id @default(cuid())
+  tenantId    String
+  studentId   String?
+  qrRouteId   String?
+  gameMode    String
+  unit        String
+  // xAPI-compatible payload (serialized JSON)
+  payload     String
+  score       Int?
+  durationMs  Int?
+  // Anti-cheat verification
+  status      String   @default("ok") // ok | quarantine | review
+  anomalyReason String?
+  createdAt   DateTime @default(now())
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student     Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([status])
+}
