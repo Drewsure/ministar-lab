@@ -1,11 +1,13 @@
-import type { NextConfig } from "next";
+﻿import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // No `output: "standalone"` — Vercel handles Next.js deployment natively
   typescript: {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
+  experimental: {
+    serverComponentsExternalPackages: ["phaser"],
+  },
 };
 
 export default nextConfig;
