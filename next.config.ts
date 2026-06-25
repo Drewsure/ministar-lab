@@ -5,9 +5,7 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
-  experimental: {
-    serverComponentsExternalPackages: ["phaser"],
-  },
+  serverExternalPackages: ["phaser"],
 };
 
 export default nextConfig;
