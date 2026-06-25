@@ -27,14 +27,13 @@ const SCENE_IMPORTS: Record<string, () => Promise<{ default: any }>> = {
   'group-sort':      () => import('@/game/scenes/GroupSortScene'),
   'type-answer':     () => import('@/game/scenes/TypeAnswerScene'),
   'spot-it':         () => import('@/game/scenes/SpotItScene'),
-  // Arcade games — files need to be recreated (lost during zip extraction)
-  // 'label-it':        () => import('@/game/scenes/LabelItScene'),
-  // 'speak-it':        () => import('@/game/scenes/SpeakItScene'),
-  // 'endless-runner':  () => import('@/game/scenes/EndlessRunnerScene'),
-  // 'physics-puzzler': () => import('@/game/scenes/PhysicsPuzzlerScene'),
-  // 'snaking':         () => import('@/game/scenes/SnakingScene'),
-  // 'training-academy':() => import('@/game/scenes/TrainingAcademyScene'),
-  // 'rescue-quest':    () => import('@/game/scenes/RescueQuestScene'),
+  'label-it':        () => import('@/game/scenes/LabelItScene'),
+  'speak-it':        () => import('@/game/scenes/SpeakItScene'),
+  'endless-runner':  () => import('@/game/scenes/EndlessRunnerScene'),
+  'physics-puzzler': () => import('@/game/scenes/PhysicsPuzzlerScene'),
+  'snaking':         () => import('@/game/scenes/SnakingScene'),
+  'training-academy':() => import('@/game/scenes/TrainingAcademyScene'),
+  'rescue-quest':    () => import('@/game/scenes/RescueQuestScene'),
 };
 
 const SCENE_KEY_BY_MODE: Record<string, string> = {

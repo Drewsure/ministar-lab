@@ -485,7 +485,8 @@ export default class MazeChaseScene extends BaseEngine {
       const dx = this.player.x - enemy.x;
       const dy = this.player.y - enemy.y;
       const dist = Math.hypot(dx, dy);
-      const chaseSpeed = this.lod.isMobile ? 110 : 150;
+      // AAAA — Ghosts slower at start, ramp with level
+      const chaseSpeed = (this.lod.isMobile ? 60 : 80) + (this.level - 1) * 10;
       if (dist > 1) {
         body.setVelocity((dx / dist) * chaseSpeed, (dy / dist) * chaseSpeed);
       }
@@ -497,8 +498,9 @@ export default class MazeChaseScene extends BaseEngine {
       { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 },
     ];
     const d = Phaser.Utils.Array.GetRandom(dirs);
-    const speed = this.lod.isMobile ? 70 : 100;
-    body.setVelocity(d.x * speed, d.y * speed);
+    // AAAA — Patrol speed also ramps with level
+    const patrolSpeed = (this.lod.isMobile ? 40 : 55) + (this.level - 1) * 8;
+    body.setVelocity(d.x * patrolSpeed, d.y * patrolSpeed);
   }
 
   private hasLineOfSight(x1: number, y1: number, x2: number, y2: number): boolean {
@@ -735,8 +737,11 @@ export default class MazeChaseScene extends BaseEngine {
 
     const now = Date.now();
     const boosted = now < this.speedBoostUntil;
-    const baseSpeed = this.lod.isMobile ? 220 : 280;
-    const speed = boosted ? baseSpeed * 1.55 : baseSpeed;
+    // AAAA — SLOWER START: Level 1 = 140px/s (was 280). Ramps up 20px/s per level.
+    // Level 1=140, Level 2=160, Level 3=180, Level 4=200, Level 5=220, Level 6=240
+    const baseSpeed = this.lod.isMobile ? 110 : 140;
+    const levelSpeed = baseSpeed + (this.level - 1) * 20;
+    const speed = boosted ? levelSpeed * 1.55 : levelSpeed;
 
     // ---- Keyboard input ----
     let vx = 0, vy = 0;

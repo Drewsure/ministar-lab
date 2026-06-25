@@ -387,11 +387,13 @@ export default class BalloonPopScene extends BaseEngine {
       duration: 300, ease: 'Back.out',
     });
 
-    // Float up
+    // AAAA — Balloon rise speed: SLOWER at start (12s), gets faster per level
+    // Level 1=12s, Level 2=10s, Level 3=8s, Level 4=6s, Level 5=5s
+    const riseDuration = Math.max(5000, 12000 - (this.level - 1) * 2000) + Math.random() * 1000;
     this.tweens.add({
       targets: container,
       y: -80,
-      duration: 8000 + Math.random() * 2000,
+      duration: riseDuration,
       ease: 'Sine.inOut',
       onComplete: () => {
         if (container.active) {
