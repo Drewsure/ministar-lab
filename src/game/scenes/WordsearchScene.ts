@@ -133,8 +133,8 @@ export default class WordsearchScene extends BaseEngine {
       for (let c = 0; c < this.gridCols; c++) {
         const x = startX + c * this.cellSize + this.cellSize / 2;
         const y = startY + r * this.cellSize + this.cellSize / 2;
-        const rect = this.add.rectangle(x, y, this.cellSize - 2, this.cellSize - 2, this.theme.card, 0.5)
-          .setStrokeStyle(1, this.theme.accent, 0.4);
+        const rect = this.add.rectangle(x, y, this.cellSize - 2, this.cellSize - 2, this.theme.card, 0.3)
+          .setStrokeStyle(1, this.theme.accent, 0.2);
         const txt = this.add.text(x, y, this.grid[r][c], {
           fontFamily: 'Inter, sans-serif',
           fontSize: '25px',
@@ -290,7 +290,7 @@ export default class WordsearchScene extends BaseEngine {
           pw.cells.some(cell => cell.r === r && cell.c === c) && this.foundWords.has(pw.word)
         );
         if (!isFound) {
-          this.cellRects[r][c].setFillStyle(this.theme.card, 0.5);
+          this.cellRects[r][c].setFillStyle(this.theme.card, 0.3);
         }
       }
     }

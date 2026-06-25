@@ -365,7 +365,7 @@ export default class BalloonPopScene extends BaseEngine {
     // Term name below emoji (smaller, for ESL reading)
     const nameTxt = this.add.text(0, 12, term.term.slice(0, 8), {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '18px',
+      fontSize: '12px',
       color: '#ffffff',
       fontStyle: 'bold',
     }).setOrigin(0.5);
@@ -387,13 +387,11 @@ export default class BalloonPopScene extends BaseEngine {
       duration: 300, ease: 'Back.out',
     });
 
-    // AAAA — Balloon rise speed: SLOWER at start (12s), gets faster per level
-    // Level 1=12s, Level 2=10s, Level 3=8s, Level 4=6s, Level 5=5s
-    const riseDuration = Math.max(5000, 12000 - (this.level - 1) * 2000) + Math.random() * 1000;
+    // Float up
     this.tweens.add({
       targets: container,
       y: -80,
-      duration: riseDuration,
+      duration: 8000 + Math.random() * 2000,
       ease: 'Sine.inOut',
       onComplete: () => {
         if (container.active) {

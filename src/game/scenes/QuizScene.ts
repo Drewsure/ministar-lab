@@ -83,7 +83,7 @@ export default class QuizScene extends BaseEngine {
     // ---- Timer ring (right side) ----
     this.timerRing = this.add.arc(
       this.scale.width - 60, 200, 28, 0, 360, false,
-      this.theme.warning, 0.4
+      this.theme.warning, 0.2
     ).setStrokeStyle(4, this.theme.warning, 0.8).setDepth(45);
     this.timerText = this.add.text(
       this.scale.width - 60, 200, '10',
@@ -288,7 +288,7 @@ export default class QuizScene extends BaseEngine {
     this.questionTimer = 10;
     this.timerText.setText('10');
     this.timerText.setColor(this.hex(this.theme.text));
-    this.timerRing.setFillStyle(this.theme.warning, 0.4);
+    this.timerRing.setFillStyle(this.theme.warning, 0.2);
 
     if (this.questionTimerEvent) this.questionTimerEvent.remove();
     this.questionTimerEvent = this.time.addEvent({
@@ -299,7 +299,7 @@ export default class QuizScene extends BaseEngine {
         // Color shift as time runs out
         if (this.questionTimer <= 3) {
           this.timerText.setColor(this.hex(this.theme.danger));
-          this.timerRing.setFillStyle(this.theme.danger, 0.5);
+          this.timerRing.setFillStyle(this.theme.danger, 0.3);
           audioBus.play('countdown');
         }
         if (this.questionTimer <= 0) {

@@ -83,7 +83,7 @@ export default class TypeAnswerScene extends BaseEngine {
       this.scale.width / 2, 290, '',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '18px',
+        fontSize: '14px',
         color: this.hex(this.theme.textMuted),
       }
     ).setOrigin(0.5).setDepth(50);
@@ -94,7 +94,7 @@ export default class TypeAnswerScene extends BaseEngine {
     ).setStrokeStyle(2, this.theme.warning, 1).setDepth(50)
       .setInteractive({ useHandCursor: true });
     this.add.text(this.scale.width / 2 - 100, 340, '💡 Hint (-streak)', {
-      fontFamily: 'Inter, sans-serif', fontSize: '18px', color: '#ffffff', fontStyle: 'bold',
+      fontFamily: 'Inter, sans-serif', fontSize: '14px', color: '#ffffff', fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(51);
     hintBtn.on('pointerdown', () => this.useHint());
 
@@ -103,7 +103,7 @@ export default class TypeAnswerScene extends BaseEngine {
     ).setStrokeStyle(2, this.theme.danger, 1).setDepth(50)
       .setInteractive({ useHandCursor: true });
     this.add.text(this.scale.width / 2 + 100, 340, '⏭ Skip', {
-      fontFamily: 'Inter, sans-serif', fontSize: '18px', color: '#ffffff', fontStyle: 'bold',
+      fontFamily: 'Inter, sans-serif', fontSize: '14px', color: '#ffffff', fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(51);
     skipBtn.on('pointerdown', () => this.skip());
 
@@ -217,7 +217,7 @@ export default class TypeAnswerScene extends BaseEngine {
     const submitBg = this.add.rectangle(0, 0, 120, keySize, this.theme.success, 0.8)
       .setStrokeStyle(1, this.theme.success);
     const submitTxt = this.add.text(0, 0, '✓ Submit', {
-      fontFamily: 'Inter, sans-serif', fontSize: '18px', color: '#ffffff', fontStyle: 'bold',
+      fontFamily: 'Inter, sans-serif', fontSize: '14px', color: '#ffffff', fontStyle: 'bold',
     }).setOrigin(0.5);
     const submitBtn = this.add.container(this.scale.width / 2 - 140, btnY, [submitBg, submitTxt])
       .setSize(120, keySize).setInteractive({ useHandCursor: true }).setDepth(40);
@@ -226,7 +226,7 @@ export default class TypeAnswerScene extends BaseEngine {
     const backspaceBg = this.add.rectangle(0, 0, 120, keySize, this.theme.danger, 0.7)
       .setStrokeStyle(1, this.theme.danger);
     const backspaceTxt = this.add.text(0, 0, '⌫ Delete', {
-      fontFamily: 'Inter, sans-serif', fontSize: '18px', color: '#ffffff', fontStyle: 'bold',
+      fontFamily: 'Inter, sans-serif', fontSize: '14px', color: '#ffffff', fontStyle: 'bold',
     }).setOrigin(0.5);
     const backspaceBtn = this.add.container(this.scale.width / 2 + 140, btnY, [backspaceBg, backspaceTxt])
       .setSize(120, keySize).setInteractive({ useHandCursor: true }).setDepth(40);

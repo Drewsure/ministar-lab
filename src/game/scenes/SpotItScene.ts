@@ -71,17 +71,14 @@ export default class SpotItScene extends BaseEngine {
 
     this.promptText = this.add.text(
       this.scale.width / 2, 145,
-      'Find the symbol that appears on BOTH cards!',
+      'Find the matching symbol!',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '16px',
+        fontSize: '18px',
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
-        wordWrap: { width: 480 },
-        align: 'center',
       }
     ).setOrigin(0.5).setDepth(49);
-    this.makeSpeakable(this.promptText, 'Find the symbol that appears on both cards!');
 
     // ---- Speed bonus text ----
     this.speedBonusText = this.add.text(
@@ -105,12 +102,12 @@ export default class SpotItScene extends BaseEngine {
       this.theme.cardAlt, 0.8
     ).setStrokeStyle(4, this.theme.accent2, 0.7).setDepth(20);
 
-    // Card labels
-    this.add.text(this.card1Center.x, this.card1Center.y - this.cardRadius - 25, 'Card 1', {
-      fontFamily: 'Inter, sans-serif', fontSize: '14px', color: this.hex(this.theme.textMuted),
+    // Card labels — clearer
+    this.add.text(this.card1Center.x, this.card1Center.y - this.cardRadius - 25, 'YOUR CARD', {
+      fontFamily: 'Inter, sans-serif', fontSize: '16px', color: this.hex(this.theme.warning), fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(25);
-    this.add.text(this.card2Center.x, this.card2Center.y - this.cardRadius - 25, 'Card 2', {
-      fontFamily: 'Inter, sans-serif', fontSize: '14px', color: this.hex(this.theme.textMuted),
+    this.add.text(this.card2Center.x, this.card2Center.y - this.cardRadius - 25, 'FIND THE MATCH', {
+      fontFamily: 'Inter, sans-serif', fontSize: '16px', color: this.hex(this.theme.warning), fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(25);
 
     // ---- Start first round ----
@@ -147,20 +144,33 @@ export default class SpotItScene extends BaseEngine {
     this.speedBonusText.setText('');
 
     // ---- Generate two cards with exactly ONE matching symbol ----
-    // Blueprint: 8 terms focus. Each card has 8 symbols, exactly 1 shared.
+    // AAAA — FIX: Card 2 must NOT share any terms with Card 1 (except the match).
+    // Previous code only filtered out matchTerm, so both cards had the same terms.
     const pool = [...this.terms];
     Phaser.Utils.Array.Shuffle(pool);
 
     // Pick the matching term (shared between both cards)
     const matchTerm = pool[0];
 
-    // Card 1: match + 7 others (all different from match)
+    // Card 1: match + 7 others
     const card1Terms = pool.slice(1, this.symbolsPerCard); // 7 terms
-    // Card 2: match + 7 others — can reuse terms from card 1 (just not the match again)
-    // Shuffle pool differently for card 2
-    const pool2 = [...this.terms].filter(t => t.id !== matchTerm.id);
-    Phaser.Utils.Array.Shuffle(pool2);
+
+    // Card 2: match + 7 others — MUST be different from card1 terms
+    // Filter out BOTH matchTerm AND all card1 terms
+    const card1Ids = new Set(card1Terms.map(t => t.id));
+    const pool2 = pool.filter(t => t.id !== matchTerm.id && !card1Ids.has(t.id));
+    // If not enough unique terms, duplicate terms are OK (better than all matching)
     const card2Terms = pool2.slice(0, this.symbolsPerCard - 1); // 7 terms
+
+    // If pool2 is too small, pad with random terms from the full pool
+    while (card2Terms.length < this.symbolsPerCard - 1 && pool.length > 1) {
+      const extra = pool[Math.floor(Math.random() * pool.length)];
+      if (extra.id !== matchTerm.id && !card2Terms.find(t => t.id === extra.id)) {
+        card2Terms.push(extra);
+      }
+      // Safety break to avoid infinite loop
+      if (card2Terms.length >= this.symbolsPerCard - 1) break;
+    }
 
     // Combine: card1 = [match, ...card1Terms], card2 = [match, ...card2Terms]
     const card1All = [matchTerm, ...card1Terms];
@@ -202,17 +212,14 @@ export default class SpotItScene extends BaseEngine {
       const circle = this.add.circle(x, y, 28, this.theme.cardAlt, 0.9)
         .setStrokeStyle(2, this.theme.accent, 0.5).setDepth(30);
 
-      // Symbol text — show emoji + word so it's a vocabulary match
-      // (not just picture matching like real Dobble)
-      const displayText = term.emoji ? `${term.emoji}` : term.term.slice(0, 4);
+      // Symbol text (emoji + term)
+      const displayText = term.emoji ?? term.term.slice(0, 4);
       const text = this.add.text(x, y, displayText, {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '28px',
+        fontSize: '24px',
         color: '#ffffff',
         fontStyle: 'bold',
       }).setOrigin(0.5).setDepth(31);
-      // Make each symbol speakable — tap to hear the word
-      text.setData('speakText', term.term);
 
       // Gentle pulse for all symbols
       this.tweens.add({

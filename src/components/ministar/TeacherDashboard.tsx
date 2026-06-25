@@ -4,32 +4,25 @@ import { useState } from 'react';
 import type { TermItem, GameModeId, ThemeId } from '@/lib/types';
 import { GAME_MODES } from '@/lib/gameModes';
 import { THEME_LIST } from '@/lib/themes';
-import { audioBus } from '@/lib/audio';
 
 interface TeacherDashboardProps {
   terms: TermItem[];
   setTerms: (t: TermItem[]) => void;
   onLaunch: (mode: GameModeId, theme: ThemeId) => void;
   tenantId?: string;
-  onLiveMultiplayer?: () => void;
-  onAIStudio?: () => void;
-  onLaunchCard?: () => void;
 }
 
-type Tab = 'author' | 'verify' | 'launch' | 'live' | 'aicards' | 'launchcard' | 'qr' | 'telemetry';
+type Tab = 'author' | 'verify' | 'launch' | 'qr' | 'telemetry';
 
-export function TeacherDashboard({ terms, setTerms, onLaunch, tenantId, onLiveMultiplayer, onAIStudio, onLaunchCard }: TeacherDashboardProps) {
+export function TeacherDashboard({ terms, setTerms, onLaunch, tenantId }: TeacherDashboardProps) {
   const [tab, setTab] = useState<Tab>('author');
 
   const tabs: { id: Tab; label: string; icon: string }[] = [
-    { id: 'author',      label: 'AI Author',      icon: '✨' },
-    { id: 'verify',      label: 'Verify & Audio',  icon: '🎧' },
-    { id: 'launch',      label: 'Launch Game',     icon: '🚀' },
-    { id: 'live',        label: 'Live Classroom',  icon: '🔴' },
-    { id: 'aicards',     label: 'AI Studio',       icon: '🤖' },
-    { id: 'launchcard',  label: 'Launch Card',     icon: '📱' },
-    { id: 'qr',          label: 'QR Routing',      icon: '📷' },
-    { id: 'telemetry',   label: 'Telemetry',       icon: '📊' },
+    { id: 'author',    label: 'AI Author',    icon: '✨' },
+    { id: 'verify',    label: 'Verify & Audio', icon: '🎧' },
+    { id: 'launch',    label: 'Launch Game',  icon: '🚀' },
+    { id: 'qr',        label: 'QR Routing',   icon: '📱' },
+    { id: 'telemetry', label: 'Telemetry',    icon: '📊' },
   ];
 
   return (
@@ -42,8 +35,8 @@ export function TeacherDashboard({ terms, setTerms, onLaunch, tenantId, onLiveMu
         {tabs.map(t => (
           <button
             key={t.id}
-            onClick={() => { setTab(t.id); audioBus.play('tap'); }}
-            className="px-4 py-3 text-sm font-semibold whitespace-nowrap transition-all border-b-2"
+            onClick={() => setTab(t.id)}
+            className="px-5 py-3 text-sm font-semibold whitespace-nowrap transition-all border-b-2"
             style={{
               color: tab === t.id ? 'var(--brand-accent)' : 'var(--brand-text)',
               borderColor: tab === t.id ? 'var(--brand-accent)' : 'transparent',
@@ -56,14 +49,11 @@ export function TeacherDashboard({ terms, setTerms, onLaunch, tenantId, onLiveMu
       </div>
 
       <div className="p-5 sm:p-7">
-        {tab === 'author'      && <AuthorTab terms={terms} setTerms={setTerms} tenantId={tenantId} />}
-        {tab === 'verify'      && <VerifyTab terms={terms} setTerms={setTerms} />}
-        {tab === 'launch'      && <LaunchTab terms={terms} onLaunch={onLaunch} />}
-        {tab === 'live'        && <LiveClassroomTab onLiveMultiplayer={onLiveMultiplayer} />}
-        {tab === 'aicards'     && <AIStudioTab onAIStudio={onAIStudio} />}
-        {tab === 'launchcard'  && <LaunchCardTab onLaunchCard={onLaunchCard} />}
-        {tab === 'qr'          && <QrTab terms={terms} tenantId={tenantId} />}
-        {tab === 'telemetry'   && <TelemetryTab tenantId={tenantId} />}
+        {tab === 'author'    && <AuthorTab terms={terms} setTerms={setTerms} tenantId={tenantId} />}
+        {tab === 'verify'    && <VerifyTab terms={terms} setTerms={setTerms} />}
+        {tab === 'launch'    && <LaunchTab terms={terms} onLaunch={onLaunch} />}
+        {tab === 'qr'        && <QrTab terms={terms} tenantId={tenantId} />}
+        {tab === 'telemetry' && <TelemetryTab tenantId={tenantId} />}
       </div>
     </div>
   );
@@ -554,60 +544,6 @@ function TelemetryTab({ tenantId }: { tenantId?: string }) {
           })}
         </div>
       )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Live Classroom Tab — launches multiplayer mode
-// ---------------------------------------------------------------------------
-function LiveClassroomTab({ onLiveMultiplayer }: { onLiveMultiplayer?: () => void }) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <h3 className="text-lg font-bold mb-1" style={{ color: 'var(--brand-text)' }}>🔴 Live Multiplayer Classroom</h3>
-        <p className="text-sm opacity-70" style={{ color: 'var(--brand-text)' }}>Host a live game. Students join with a 6-digit code. Real-time leaderboard streams as students answer.</p>
-      </div>
-      <div className="rounded-2xl p-4" style={{ background: 'color-mix(in oklab, #ef4444 12%, transparent)', border: '1px solid color-mix(in oklab, #ef4444 30%, transparent)' }}>
-        <div className="flex items-center gap-3 mb-3"><div className="text-3xl">👨‍🏫</div><div><div className="font-bold text-sm">Teacher View</div><div className="text-xs opacity-70">Create a room → get code → students join → start game → watch live leaderboard</div></div></div>
-        <button onClick={() => { if (onLiveMultiplayer) onLiveMultiplayer(); else alert('Multiplayer coming soon!'); }} className="rounded-xl px-5 py-3 text-sm font-bold" style={{ background: 'linear-gradient(135deg, #ef4444, #f59e0b)', color: '#fff', border: 'none' }}>▶ Host Live Game</button>
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// AI Studio Tab — launches AI authoring studio
-// ---------------------------------------------------------------------------
-function AIStudioTab({ onAIStudio }: { onAIStudio?: () => void }) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <h3 className="text-lg font-bold mb-1" style={{ color: 'var(--brand-text)' }}>🤖 AI Authoring Studio</h3>
-        <p className="text-sm opacity-70" style={{ color: 'var(--brand-text)' }}>Type a topic → AI generates 12 ready-to-play terms in 30 seconds. Pick a level, generate, verify, publish.</p>
-      </div>
-      <div className="rounded-2xl p-4" style={{ background: 'color-mix(in oklab, #8b5cf6 12%, transparent)', border: '1px solid color-mix(in oklab, #8b5cf6 30%, transparent)' }}>
-        <div className="flex items-center gap-3 mb-3"><div className="text-3xl">🤖</div><div><div className="font-bold text-sm">AI-Powered Lesson Generation</div><div className="text-xs opacity-70">e.g. "Grade 3 Science — Solar System" → 12 terms with definitions, emojis, difficulty tags</div></div></div>
-        <button onClick={() => { if (onAIStudio) onAIStudio(); else alert('AI Studio coming soon!'); }} className="rounded-xl px-5 py-3 text-sm font-bold" style={{ background: 'linear-gradient(135deg, #8b5cf6, #ec4899)', color: '#fff', border: 'none' }}>✨ Open AI Studio</button>
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Launch Card Tab — QR code + magic link
-// ---------------------------------------------------------------------------
-function LaunchCardTab({ onLaunchCard }: { onLaunchCard?: () => void }) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <h3 className="text-lg font-bold mb-1" style={{ color: 'var(--brand-text)' }}>📱 Launch Card</h3>
-        <p className="text-sm opacity-70" style={{ color: 'var(--brand-text)' }}>Generate a QR code + magic link. Students scan → instantly dropped into the exact game. No menus, no login.</p>
-      </div>
-      <div className="rounded-2xl p-4" style={{ background: 'color-mix(in oklab, #06b6d4 12%, transparent)', border: '1px solid color-mix(in oklab, #06b6d4 30%, transparent)' }}>
-        <div className="flex items-center gap-3 mb-3"><div className="text-3xl">📱</div><div><div className="font-bold text-sm">Instant Classroom Launch</div><div className="text-xs opacity-70">Pick game + world → get QR code → display on board → students scan</div></div></div>
-        <button onClick={() => { if (onLaunchCard) onLaunchCard(); else alert('Launch Card coming soon!'); }} className="rounded-xl px-5 py-3 text-sm font-bold" style={{ background: 'linear-gradient(135deg, #06b6d4, #3b82f6)', color: '#fff', border: 'none' }}>🚀 Create Launch Card</button>
-      </div>
     </div>
   );
 }

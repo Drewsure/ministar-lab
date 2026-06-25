@@ -108,17 +108,17 @@ export abstract class BaseEngine extends Phaser.Scene {
     this.hud = new Hud(this, this.theme, (state) => this.onHudUpdate(state));
     this.startTime = Date.now(); // Use real time, not Phaser game time (which accumulates)
 
-    // AAA 2029 — Level badge (top-center, prominent like Wordwall)
+    // AAA 2029 — Level badge (top-LEFT, not center — avoids overlapping prompt text)
     this.levelBg = this.add.rectangle(
-      this.scale.width / 2, 45, 140, 44,
+      80, 45, 120, 36,
       0x000000, 0.7
     ).setStrokeStyle(2, this.theme.warning, 0.8).setDepth(250);
     this.levelBadge = this.add.text(
-      this.scale.width / 2, 45,
-      `LEVEL ${this.level}`,
+      80, 45,
+      `LVL ${this.level}`,
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '22px',
+        fontSize: '16px',
         color: this.hex(this.theme.warning),
         fontStyle: 'bold',
       }
@@ -136,12 +136,16 @@ export abstract class BaseEngine extends Phaser.Scene {
     // NOTE: Welcome speech removed — it was causing issues with TTS overlap.
     // TTS now only speaks when the user taps an interactive element.
 
-    // HUD loop
+    // HUD loop — wrapped in try-catch so no error can freeze the game
     this.events.on('update', () => {
       if (this.isFinished) return;
-      const { remainingMs } = this.hud.tick(this.score, this.streak, this.maxScore);
-      this.onTick(remainingMs);
-      if (remainingMs <= 0) this.finishGame(false);
+      try {
+        const { remainingMs } = this.hud.tick(this.score, this.streak, this.maxScore);
+        this.onTick(remainingMs);
+        if (remainingMs <= 0) this.finishGame(false);
+      } catch (e) {
+        console.error('[MiniStar] Update loop error (suppressed):', e);
+      }
     });
   }
 

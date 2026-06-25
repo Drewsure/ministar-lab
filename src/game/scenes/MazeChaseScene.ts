@@ -84,23 +84,23 @@ export default class MazeChaseScene extends BaseEngine {
     this.mazeOffsetX = (this.scale.width - COLS * CELL) / 2;
     this.mazeOffsetY = HUD_HEIGHT + 10;
 
-    // Prompt + compass
+    // Prompt — moved DOWN to avoid overlapping with level badge (which is now top-left)
     this.promptText = this.add.text(
-      this.scale.width / 2, 70,
+      this.scale.width / 2, 75,
       'Collect the correct answer!',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '28px',
+        fontSize: '20px',
         color: this.hex(this.theme.warning),
         fontStyle: 'bold',
         stroke: '#000000',
-        strokeThickness: 4,
+        strokeThickness: 3,
       }
     ).setOrigin(0.5).setDepth(50);
     this.makeSpeakable(this.promptText, 'Tap to hear what to find');
 
     this.compassArrow = this.add.text(
-      this.scale.width / 2, 96,
+      this.scale.width / 2, 100,
       '↑',
       {
         fontFamily: 'Inter, sans-serif',
@@ -323,11 +323,8 @@ export default class MazeChaseScene extends BaseEngine {
 
     // First term is the active correct answer; others are decoys
     this.activeTerm = roundTerms[0];
-    const promptLabel = this.activeTerm.emoji
-      ? `Find: ${this.activeTerm.emoji} ${this.activeTerm.term}`
-      : `Find: ${this.activeTerm.term}`;
-    this.promptText.setText(promptLabel);
-    this.promptText.setData('speakText', `Find: ${this.activeTerm.term}`);
+    this.promptText.setText(`Find: ${this.activeTerm.term}`);
+    // TTS only on user tap — no automatic speech on game start
 
     // Available cells (exclude player start at 0,0)
     const interiorCells: { x: number; y: number }[] = [];
@@ -369,50 +366,39 @@ export default class MazeChaseScene extends BaseEngine {
     const px = this.mazeOffsetX + cell.x * CELL + CELL / 2;
     const py = this.mazeOffsetY + cell.y * CELL + CELL / 2;
 
-    // AAAA — FIX: Make targets FULLY VISIBLE. Previous alpha was 0.32 (nearly
-    // invisible on dark background). Now fully opaque with bright colors.
-    const orb = this.add.circle(
-      px, py, 26,
-      isCorrect ? this.theme.success : this.theme.danger,
-      0.9  // was 0.32 — nearly invisible!
-    ).setStrokeStyle(4, isCorrect ? this.theme.success : this.theme.danger, 1);
-    orb.setDepth(15);
-
-    // Outer glow ring for the correct target — BRIGHT and VISIBLE
+    // Outer glow ring for the correct target
     if (isCorrect) {
-      const ring = this.add.circle(px, py, 34, this.theme.success, 0.4)
+      const ring = this.add.circle(px, py, 30, this.theme.success, 0.12)
         .setDepth(14);
       this.tweens.add({
         targets: ring,
-        scale: { from: 1, to: 1.5 },
-        alpha: { from: 0.5, to: 0.1 },
-        duration: 700, repeat: -1, ease: 'Sine.out',
+        scale: { from: 1, to: 1.4 },
+        alpha: { from: 0.18, to: 0 },
+        duration: 900, repeat: -1, ease: 'Sine.out',
       });
-      orb.setData('glowRing', ring);
     }
 
-    // AAAA — FIX: Show the FULL WORD at a READABLE size.
-    // Previous: 13px (unreadable). Now: 20px bold with stroke.
-    const labelText = term.emoji ? `${term.emoji} ${term.term}` : term.term;
-    const label = this.add.text(px, py, labelText, {
+    const orb = this.add.circle(
+      px, py, 22,
+      isCorrect ? this.theme.success : this.theme.danger,
+      0.32
+    ).setStrokeStyle(3, isCorrect ? this.theme.success : this.theme.danger);
+    orb.setDepth(15);
+
+    const label = this.add.text(px, py, term.emoji ?? term.term.slice(0, 3), {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '20px',
+      fontSize: '16px',
       color: '#ffffff',
       fontStyle: 'bold',
-      stroke: '#000000',
-      strokeThickness: 4,
-      wordWrap: { width: 100 },
+      wordWrap: { width: 56 },
       align: 'center',
     }).setOrigin(0.5).setDepth(16);
 
-    // Make target speakable (tap to hear the word)
-    label.setData('speakText', term.term);
-
-    // Pulse — BIGGER pulse so the correct target is obvious
+    // Pulse
     this.tweens.add({
       targets: [orb, label],
-      scale: { from: 1, to: isCorrect ? 1.2 : 1.08 },
-      duration: isCorrect ? 500 : 800, yoyo: true, repeat: -1, ease: 'Sine.inOut',
+      scale: { from: 1, to: 1.1 },
+      duration: 800, yoyo: true, repeat: -1, ease: 'Sine.inOut',
     });
 
     // Physics body — use a circular body sized to the orb
@@ -434,26 +420,31 @@ export default class MazeChaseScene extends BaseEngine {
     const px = this.mazeOffsetX + cell.x * CELL + CELL / 2;
     const py = this.mazeOffsetY + cell.y * CELL + CELL / 2;
 
-    const enemyKey = 'particle-' + this.theme.id;
-    const enemy = this.add.image(px, py, enemyKey);
-    enemy.setTint(this.theme.danger);
-    enemy.setDisplaySize(34, 34);
-    enemy.setDepth(15);
+    // AAAA — Pac-Man style ghost: emoji that chases the player
+    const ghostEmojis = ['👻', '👹', '👺', '💀'];
+    const ghostEmoji = ghostEmojis[Math.floor(Math.random() * ghostEmojis.length)];
+    const enemy = this.add.text(px, py, ghostEmoji, { fontSize: '32px' })
+      .setOrigin(0.5).setDepth(15);
+    enemy.setData('emoji', ghostEmoji);
 
-    // Pulsing red glow
-    const aura = this.add.circle(px, py, 20, this.theme.danger, 0.22)
+    // Pulsing red aura
+    const aura = this.add.circle(px, py, 22, this.theme.danger, 0.25)
       .setDepth(14);
     this.tweens.add({
       targets: aura,
       scale: { from: 0.9, to: 1.3 },
-      alpha: { from: 0.25, to: 0 },
+      alpha: { from: 0.3, to: 0 },
       duration: 600, repeat: -1, ease: 'Sine.out',
     });
     enemy.setData('aura', aura);
 
+    // AAAA — Ghost personality (0=chaser, 1=ambusher, 2=patrol, 3=scared)
+    const personality = Math.floor(Math.random() * 4);
+    enemy.setData('personality', personality);
+
     this.physics.add.existing(enemy);
     const body = enemy.body as Phaser.Physics.Arcade.Body;
-    body.setCircle(17, 0, 0)
+    body.setCircle(16, 0, 0)
         .setAllowGravity(false)
         .setCollideWorldBounds(true);
     body.setBoundsRectangle(
@@ -474,7 +465,7 @@ export default class MazeChaseScene extends BaseEngine {
     this.enemiesGroup.add(enemy);
   }
 
-  private updateEnemyAI(enemy: Phaser.GameObjects.Image) {
+  private updateEnemyAI(enemy: Phaser.GameObjects.Text) {
     if (!enemy.active || this.isFinished) return;
     const body = enemy.body as Phaser.Physics.Arcade.Body;
     if (!body) return;
@@ -485,8 +476,7 @@ export default class MazeChaseScene extends BaseEngine {
       const dx = this.player.x - enemy.x;
       const dy = this.player.y - enemy.y;
       const dist = Math.hypot(dx, dy);
-      // AAAA — Ghosts slower at start, ramp with level
-      const chaseSpeed = (this.lod.isMobile ? 60 : 80) + (this.level - 1) * 10;
+      const chaseSpeed = this.lod.isMobile ? 110 : 150;
       if (dist > 1) {
         body.setVelocity((dx / dist) * chaseSpeed, (dy / dist) * chaseSpeed);
       }
@@ -498,9 +488,8 @@ export default class MazeChaseScene extends BaseEngine {
       { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 },
     ];
     const d = Phaser.Utils.Array.GetRandom(dirs);
-    // AAAA — Patrol speed also ramps with level
-    const patrolSpeed = (this.lod.isMobile ? 40 : 55) + (this.level - 1) * 8;
-    body.setVelocity(d.x * patrolSpeed, d.y * patrolSpeed);
+    const speed = this.lod.isMobile ? 70 : 100;
+    body.setVelocity(d.x * speed, d.y * speed);
   }
 
   private hasLineOfSight(x1: number, y1: number, x2: number, y2: number): boolean {
@@ -590,7 +579,7 @@ export default class MazeChaseScene extends BaseEngine {
       term: 'enemy',
       response: 'enemy-collision',
       success: false,
-      coordinate: { x: (enemy as Phaser.GameObjects.Image).x, y: (enemy as Phaser.GameObjects.Image).y, t: this.time.now },
+      coordinate: { x: (enemy as Phaser.GameObjects.Text).x, y: (enemy as Phaser.GameObjects.Text).y, t: this.time.now },
     });
 
     // Hit-stop: brief physics freeze for impact
@@ -619,20 +608,9 @@ export default class MazeChaseScene extends BaseEngine {
       this.checkWin();
       return;
     }
-    // AAAA — FIX: Re-spawn ALL targets with the new active term.
-    // Previous code only changed the prompt text but didn't update the
-    // targets in the maze — so the prompt said "Find: Banana" but the
-    // maze still had the old target. Now we regenerate the maze + targets.
     this.activeTerm = Phaser.Utils.Array.GetRandom(remaining);
-    const promptLabel = this.activeTerm.emoji
-      ? `Find: ${this.activeTerm.emoji} ${this.activeTerm.term}`
-      : `Find: ${this.activeTerm.term}`;
-    this.promptText.setText(promptLabel);
-    this.promptText.setData('speakText', `Find: ${this.activeTerm.term}`);
-    // Regenerate maze + targets for the new round
-    this.generateMaze();
-    this.renderMaze();
-    this.spawnTargetsAndEnemies();
+    this.promptText.setText(`Find: ${this.activeTerm.term}`);
+    // TTS only on user tap
   }
 
   // ===========================================================================
@@ -726,24 +704,19 @@ export default class MazeChaseScene extends BaseEngine {
   }
 
   // ===========================================================================
-  // PER-FRAME UPDATE — uses physics velocity (respects wall colliders)
-  // AAAA — MUST use setVelocity() not direct position updates.
-  // Direct position (this.player.x += ...) BYPASSES physics colliders,
-  // allowing the player to walk through walls. This was the root cause
-  // of "Maze Chase is impossible to play."
+  // PER-FRAME UPDATE — uses direct position movement (more reliable than physics velocity)
   // ===========================================================================
   update(_time: number, delta: number) {
     if (this.isFinished || !this.player) return;
 
     const now = Date.now();
     const boosted = now < this.speedBoostUntil;
-    // AAAA — SLOWER START: Level 1 = 140px/s (was 280). Ramps up 20px/s per level.
-    // Level 1=140, Level 2=160, Level 3=180, Level 4=200, Level 5=220, Level 6=240
-    const baseSpeed = this.lod.isMobile ? 110 : 140;
-    const levelSpeed = baseSpeed + (this.level - 1) * 20;
-    const speed = boosted ? levelSpeed * 1.55 : levelSpeed;
+    const baseSpeed = this.lod.isMobile ? 220 : 280;
+    const speed = boosted ? baseSpeed * 1.55 : baseSpeed;
+    // Pixels per frame (assuming ~60fps, delta ~16.67ms)
+    const moveAmount = speed * (delta / 1000);
 
-    // ---- Keyboard input ----
+    // ---- Keyboard input (objects already created in create()) ----
     let vx = 0, vy = 0;
     if (this.cursors?.left.isDown  || this.wasd?.A.isDown) vx -= 1;
     if (this.cursors?.right.isDown || this.wasd?.D.isDown) vx += 1;
@@ -755,29 +728,36 @@ export default class MazeChaseScene extends BaseEngine {
       this.path = [];
       this.pathIdx = 0;
       const mag = Math.hypot(vx, vy);
-      // AAAA — Use physics velocity (respects wall colliders!)
-      this.player.setVelocity((vx / mag) * speed, (vy / mag) * speed);
+      // Direct position update (bypass physics velocity which is unreliable in Phaser 4)
+      this.player.x += (vx / mag) * moveAmount;
+      this.player.y += (vy / mag) * moveAmount;
       this.playerDir = vy < 0 ? 'up' : vy > 0 ? 'down' : vx < 0 ? 'left' : 'right';
     } else if (this.path.length > 0 && this.pathIdx < this.path.length) {
-      // Follow A* path — use physics velocity toward target
+      // Follow A* path — direct position movement
       const target = this.path[this.pathIdx];
       const dx = target.x - this.player.x;
       const dy = target.y - this.player.y;
       const dist = Math.hypot(dx, dy);
-      if (dist < 8) {
+      if (dist < 6) {
         this.pathIdx++;
-        this.player.setVelocity(0, 0);
+        if (this.pathIdx >= this.path.length) {
+          // Reached destination
+        }
       } else {
-        // Move toward target using physics velocity
-        this.player.setVelocity((dx / dist) * speed, (dy / dist) * speed);
+        // Move directly toward target
+        const moveX = (dx / dist) * Math.min(moveAmount, dist);
+        const moveY = (dy / dist) * Math.min(moveAmount, dist);
+        this.player.x += moveX;
+        this.player.y += moveY;
         this.playerDir = Math.abs(dx) > Math.abs(dy)
           ? (dx < 0 ? 'left' : 'right')
           : (dy < 0 ? 'up' : 'down');
       }
-    } else {
-      // No input — stop
-      this.player.setVelocity(0, 0);
     }
+
+    // Keep player in bounds
+    this.player.x = Phaser.Math.Clamp(this.player.x, this.mazeOffsetX + 20, this.mazeOffsetX + COLS * CELL - 20);
+    this.player.y = Phaser.Math.Clamp(this.player.y, this.mazeOffsetY + 20, this.mazeOffsetY + ROWS * CELL - 20);
 
     // Update directional indicator
     const rotMap: Record<Dir, number> = {
@@ -789,18 +769,13 @@ export default class MazeChaseScene extends BaseEngine {
 
     // Trail emitter follows the player
     if (this.trailEmitter) {
-      try { this.trailEmitter.setPosition(this.player.x, this.player.y); } catch {}
-      const vel = this.player.body?.velocity;
-      const moving = vel && (Math.abs(vel.x) + Math.abs(vel.y) > 50);
+      this.trailEmitter.setPosition(this.player.x, this.player.y);
+      const moving = Math.abs(this.player.body?.velocity.x ?? 0) + Math.abs(this.player.body?.velocity.y ?? 0) > 50;
       if (moving) {
-        try {
-          this.trailEmitter.emitting = true;
-          if (typeof (this.trailEmitter as any).setTint === 'function') {
-            (this.trailEmitter as any).setTint(boosted ? this.theme.warning : this.theme.accent);
-          }
-        } catch {}
+        this.trailEmitter.emitting = true;
+        this.trailEmitter.setTint(boosted ? this.theme.warning : this.theme.accent);
       } else {
-        try { this.trailEmitter.emitting = false; } catch {}
+        this.trailEmitter.emitting = false;
       }
     }
   }

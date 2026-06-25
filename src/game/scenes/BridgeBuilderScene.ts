@@ -113,7 +113,7 @@ export default class BridgeBuilderScene extends BaseEngine {
     const hintBtnBg = this.add.rectangle(0, 0, 100, 34, this.theme.warning, 0.6)
       .setStrokeStyle(2, this.theme.warning, 0.8);
     const hintBtnTxt = this.add.text(0, 0, '💡 Hint', {
-      fontFamily: 'Inter, sans-serif', fontSize: '16px', color: '#ffffff', fontStyle: 'bold',
+      fontFamily: 'Inter, sans-serif', fontSize: '14px', color: '#ffffff', fontStyle: 'bold',
     }).setOrigin(0.5);
     this.hintBtn = this.add.container(this.scale.width - 70, 560, [hintBtnBg, hintBtnTxt])
       .setSize(100, 34).setInteractive({ useHandCursor: true }).setDepth(50);

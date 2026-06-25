@@ -265,7 +265,7 @@ export default class SpinWheelScene extends BaseEngine {
         .setStrokeStyle(2, this.theme.accent, 0.6);
       const txt = this.add.text(0, y, opt.term.definition ?? opt.term.term, {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '18px',
+        fontSize: '15px',
         color: this.hex(this.theme.text),
         align: 'center',
         wordWrap: { width: btnW - 20 },
