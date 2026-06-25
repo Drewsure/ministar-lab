@@ -1257,7 +1257,7 @@ export class Hud {
         this.lastStreakShown = streak;
       }
     } else {
-      this.streakText.setColor(accentHex);
+      this.streakText.setColor('#' + this.theme.accent.toString(16).padStart(6, '0'));
       this.lastStreakShown = 0;
     }
     // Animate progress bar
