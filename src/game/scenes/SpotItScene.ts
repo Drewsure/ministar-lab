@@ -35,10 +35,10 @@ export default class SpotItScene extends BaseEngine {
   private round = 0;
   private maxRounds = 8;
   private symbols: SpotItSymbol[] = [];
-  private card1Center = { x: 220, y: 320 };
-  private card2Center = { x: 580, y: 320 };
-  private cardRadius = 130;
-  private symbolsPerCard = 8; // Blueprint: 8 terms/words/images focus
+  private card1Center = { x: 220, y: 340 };
+  private card2Center = { x: 580, y: 340 };
+  private cardRadius = 120;
+  private symbolsPerCard = 6; // AAAA — Reduced from 8 to 6 for small term lists
   private canInteract = true;
   private roundStartTime = 0;
   private promptText!: Phaser.GameObjects.Text;
@@ -54,11 +54,11 @@ export default class SpotItScene extends BaseEngine {
 
     // ---- Title ----
     this.add.text(
-      this.scale.width / 2, 100,
+      this.scale.width / 2, 90,
       '👁️ Spot It!',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '28px',
+        fontSize: '24px',
         color: this.hex(this.theme.accent),
         fontStyle: 'bold',
       }
@@ -66,23 +66,24 @@ export default class SpotItScene extends BaseEngine {
 
     // ---- Prompt banner ----
     this.promptBg = this.add.rectangle(
-      this.scale.width / 2, 145, 500, 44, this.theme.card, 0.85
+      this.scale.width / 2, 130, 500, 40, this.theme.card, 0.85
     ).setStrokeStyle(2, this.theme.accent, 0.6).setDepth(48);
 
     this.promptText = this.add.text(
-      this.scale.width / 2, 145,
-      'Find the matching symbol!',
+      this.scale.width / 2, 130,
+      'Find the symbol on BOTH cards!',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '18px',
+        fontSize: '15px',
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
       }
     ).setOrigin(0.5).setDepth(49);
+    this.makeSpeakable(this.promptText, 'Find the symbol that appears on both cards!');
 
     // ---- Speed bonus text ----
     this.speedBonusText = this.add.text(
-      this.scale.width / 2, 175, '',
+      this.scale.width / 2, 160, '',
       {
         fontFamily: 'Inter, sans-serif',
         fontSize: '16px',
@@ -144,33 +145,35 @@ export default class SpotItScene extends BaseEngine {
     this.speedBonusText.setText('');
 
     // ---- Generate two cards with exactly ONE matching symbol ----
-    // AAAA — FIX: Card 2 must NOT share any terms with Card 1 (except the match).
-    // Previous code only filtered out matchTerm, so both cards had the same terms.
+    // AAAA — FIX: With only 8 terms, we can't make 2 cards of 8 unique symbols.
+    // Solution: dynamically reduce symbolsPerCard based on available terms.
+    // Need: match(1) + card1(N-1) + card2(N-1) unique terms = 2N-1 total.
+    // With 8 terms: max N = (8+1)/2 = 4 symbols per card.
+    const maxSymbols = Math.floor((this.terms.length + 1) / 2);
+    const symbolsThisRound = Math.min(this.symbolsPerCard, maxSymbols);
+
     const pool = [...this.terms];
     Phaser.Utils.Array.Shuffle(pool);
 
     // Pick the matching term (shared between both cards)
     const matchTerm = pool[0];
 
-    // Card 1: match + 7 others
-    const card1Terms = pool.slice(1, this.symbolsPerCard); // 7 terms
+    // Card 1: match + (N-1) others
+    const card1Terms = pool.slice(1, symbolsThisRound); // N-1 terms
 
-    // Card 2: match + 7 others — MUST be different from card1 terms
-    // Filter out BOTH matchTerm AND all card1 terms
+    // Card 2: match + (N-1) others — MUST be different from card1 terms
     const card1Ids = new Set(card1Terms.map(t => t.id));
-    const pool2 = pool.filter(t => t.id !== matchTerm.id && !card1Ids.has(t.id));
-    // If not enough unique terms, duplicate terms are OK (better than all matching)
-    const card2Terms = pool2.slice(0, this.symbolsPerCard - 1); // 7 terms
+    let pool2 = pool.filter(t => t.id !== matchTerm.id && !card1Ids.has(t.id));
 
-    // If pool2 is too small, pad with random terms from the full pool
-    while (card2Terms.length < this.symbolsPerCard - 1 && pool.length > 1) {
+    // If not enough unique terms, allow some overlap (but not the match)
+    while (pool2.length < symbolsThisRound - 1 && pool.length > 1) {
       const extra = pool[Math.floor(Math.random() * pool.length)];
-      if (extra.id !== matchTerm.id && !card2Terms.find(t => t.id === extra.id)) {
-        card2Terms.push(extra);
+      if (extra.id !== matchTerm.id && !pool2.find(t => t.id === extra.id)) {
+        pool2.push(extra);
       }
-      // Safety break to avoid infinite loop
-      if (card2Terms.length >= this.symbolsPerCard - 1) break;
+      if (pool2.length >= symbolsThisRound - 1) break;
     }
+    const card2Terms = pool2.slice(0, symbolsThisRound - 1);
 
     // Combine: card1 = [match, ...card1Terms], card2 = [match, ...card2Terms]
     const card1All = [matchTerm, ...card1Terms];
