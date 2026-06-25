@@ -71,14 +71,17 @@ export default class SpotItScene extends BaseEngine {
 
     this.promptText = this.add.text(
       this.scale.width / 2, 145,
-      'Find the matching symbol!',
+      'Find the symbol that appears on BOTH cards!',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '18px',
+        fontSize: '16px',
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
+        wordWrap: { width: 480 },
+        align: 'center',
       }
     ).setOrigin(0.5).setDepth(49);
+    this.makeSpeakable(this.promptText, 'Find the symbol that appears on both cards!');
 
     // ---- Speed bonus text ----
     this.speedBonusText = this.add.text(
@@ -199,14 +202,17 @@ export default class SpotItScene extends BaseEngine {
       const circle = this.add.circle(x, y, 28, this.theme.cardAlt, 0.9)
         .setStrokeStyle(2, this.theme.accent, 0.5).setDepth(30);
 
-      // Symbol text (emoji + term)
-      const displayText = term.emoji ?? term.term.slice(0, 4);
+      // Symbol text — show emoji + word so it's a vocabulary match
+      // (not just picture matching like real Dobble)
+      const displayText = term.emoji ? `${term.emoji}` : term.term.slice(0, 4);
       const text = this.add.text(x, y, displayText, {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '24px',
+        fontSize: '28px',
         color: '#ffffff',
         fontStyle: 'bold',
       }).setOrigin(0.5).setDepth(31);
+      // Make each symbol speakable — tap to hear the word
+      text.setData('speakText', term.term);
 
       // Gentle pulse for all symbols
       this.tweens.add({

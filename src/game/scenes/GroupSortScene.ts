@@ -95,7 +95,7 @@ export default class GroupSortScene extends BaseEngine {
       // Drop zone indicator
       this.add.text(x, bucketY + 20, 'Drop here', {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '13px',
+        fontSize: '18px',
         color: this.hex(this.theme.textMuted),
       }).setOrigin(0.5).setDepth(21).setAlpha(0.5);
 

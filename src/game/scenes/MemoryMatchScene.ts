@@ -76,14 +76,14 @@ export default class MemoryMatchScene extends BaseEngine {
     this.buildGrid();
 
     // Global pointer handler for reliable card clicks
-    // NOTE: tap-to-speak is handled by BaseEngine's setupGlobalPointer.
-    // Cards don't have speakText data, so taps go straight to flipCard.
     this.setupGlobalPointer((x, y) => {
       if (!this.canInteract) return;
       for (const card of this.cards) {
         if (card.isFlipped || card.isMatched) continue;
         const cardW = 100, cardH = 120;
         if (Math.abs(x - card.container.x) < cardW / 2 && Math.abs(y - card.container.y) < cardH / 2) {
+          // ESL: speak the card's text when flipped
+          audioBus.speak(card.text);
           this.flipCard(card);
           break;
         }
@@ -128,18 +128,7 @@ export default class MemoryMatchScene extends BaseEngine {
         wordWrap: { width: cardW - 10 },
       }).setOrigin(0.5).setVisible(false);
 
-      // AAAA — Number badge on each card for verbal identification in online classes
-      // Teacher can say "flip card number 3" — student finds the 3
-      const numBg = this.add.circle(-cardW / 2 + 14, -cardH / 2 + 14, 12, this.theme.accent, 0.9)
-        .setStrokeStyle(1.5, 0xffffff, 0.6);
-      const numText = this.add.text(-cardW / 2 + 14, -cardH / 2 + 14, String(i + 1), {
-        fontFamily: 'Inter, sans-serif',
-        fontSize: '13px',
-        color: '#ffffff',
-        fontStyle: 'bold',
-      }).setOrigin(0.5);
-
-      const container = this.add.container(x, y, [back, front, label, numBg, numText])
+      const container = this.add.container(x, y, [back, front, label])
         .setSize(cardW, cardH).setInteractive({ useHandCursor: true });
 
       const card: Card = {

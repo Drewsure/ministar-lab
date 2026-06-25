@@ -911,16 +911,8 @@ export class Juice {
   }
 
   hitStop(ms = 80) {
-    // Only pause physics if there are active bodies — pausing on a scene
-    // with no bodies can leave the time loop in a bad state.
-    try {
-      const world = this.scene.physics.world;
-      if (!world || this.scene.physics.world.getBodies().length === 0) return;
-      world.pause();
-      this.scene.time.delayedCall(ms, () => {
-        try { world.resume(); } catch {}
-      });
-    } catch {}
+    this.scene.physics.world.pause();
+    this.scene.time.delayedCall(ms, () => this.scene.physics.world.resume());
   }
 
   flash(color = 0xffffff, alpha = 0.4, ms = 120) {
@@ -981,73 +973,33 @@ export class Juice {
    * Used on streak milestones and big wins.
    */
   glowRing(x: number, y: number, color: number = 0xffffff, maxRadius = 80) {
-    // AAAA — Use a SINGLE tween with onUpdate instead of recursive delayedCall.
-    // The old approach created 37 timers per glow ring (delayedCall every 16ms
-    // for 600ms), which overloaded Phaser's timer queue and froze the scene.
-    try {
-      const gfx = this.scene.add.graphics();
-      gfx.setDepth(9997);
-      const startRadius = 8;
-      const duration = 600;
-      let currentRadius = startRadius;
-      let currentAlpha = 0.9;
-
-      this.scene.tweens.add({
-        targets: this,
-        duration: duration,
-        ease: 'Cubic.out',
-        onUpdate: (tween) => {
-          const t = tween.progress;
-          currentRadius = startRadius + (maxRadius - startRadius) * (1 - Math.pow(1 - t, 3));
-          currentAlpha = 0.9 * (1 - t);
-          try {
-            gfx.clear();
-            gfx.lineStyle(3, color, currentAlpha);
-            gfx.strokeCircle(x, y, currentRadius);
-          } catch {}
-        },
-        onComplete: () => {
-          try { gfx.destroy(); } catch {}
-        },
-      });
-    } catch {}
+    const ring = this.scene.add.circle(x, y, 8, color, 0)
+      .setStrokeStyle(3, color, 1)
+      .setDepth(9997);
+    this.scene.tweens.add({
+      targets: ring,
+      radius: maxRadius,
+      alpha: { from: 0.9, to: 0 },
+      duration: 600,
+      ease: 'Cubic.out',
+      onUpdate: (_, target) => {
+        const c = target as Phaser.GameObjects.Arc;
+        c.setRadius((c as any).radius);
+      },
+      onComplete: () => ring.destroy(),
+    });
   }
 
   /**
    * Camera zoom punch — quick zoom in/out for impact.
-   * AAAA — Completely rewritten to NOT use cam.zoomTo() which creates
-   * internal tweens that corrupt camera state when called multiple times.
-   * Instead, we tween a dummy object and manually set cam.zoom.
+   * Used on big wins and game-over.
    */
   zoomPunch(zoomIn = 1.08, duration = 200) {
-    try {
-      const cam = this.scene.cameras.main;
-      // Cancel any existing zoom by resetting to 1 immediately
-      cam.setZoom(1);
-
-      // Use a dummy object for the tween (not the camera itself)
-      const dummy = { zoom: 1 };
-      this.scene.tweens.add({
-        targets: dummy,
-        zoom: zoomIn,
-        duration: duration * 0.4,
-        ease: 'Quad.out',
-        onUpdate: () => {
-          try { cam.setZoom(dummy.zoom); } catch {}
-        },
-        onComplete: () => {
-          this.scene.tweens.add({
-            targets: dummy,
-            zoom: 1,
-            duration: duration * 0.6,
-            ease: 'Quad.in',
-            onUpdate: () => {
-              try { cam.setZoom(dummy.zoom); } catch {}
-            },
-          });
-        },
-      });
-    } catch {}
+    const cam = this.scene.cameras.main;
+    cam.zoomTo(zoomIn, duration * 0.4, 'Quad.out');
+    this.scene.time.delayedCall(duration * 0.4, () => {
+      cam.zoomTo(1, duration * 0.6, 'Quad.in');
+    });
   }
 
   /**
@@ -1305,7 +1257,7 @@ export class Hud {
         this.lastStreakShown = streak;
       }
     } else {
-      this.streakText.setColor('#' + this.theme.accent.toString(16).padStart(6, '0'));
+      this.streakText.setColor(accentHex);
       this.lastStreakShown = 0;
     }
     // Animate progress bar

@@ -199,7 +199,7 @@ export default class AirplaneScene extends BaseEngine {
       }).setOrigin(0.5);
       const label = this.add.text(0, -8, entry.term.term.slice(0, 12), {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '12px',
+        fontSize: '18px',
         color: '#ffffff',
         fontStyle: 'bold',
       }).setOrigin(0.5).setAlpha(0.8);

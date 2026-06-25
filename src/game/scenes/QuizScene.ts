@@ -83,7 +83,7 @@ export default class QuizScene extends BaseEngine {
     // ---- Timer ring (right side) ----
     this.timerRing = this.add.arc(
       this.scale.width - 60, 200, 28, 0, 360, false,
-      this.theme.warning, 0.2
+      this.theme.warning, 0.4
     ).setStrokeStyle(4, this.theme.warning, 0.8).setDepth(45);
     this.timerText = this.add.text(
       this.scale.width - 60, 200, '10',
@@ -123,34 +123,22 @@ export default class QuizScene extends BaseEngine {
       }
     ).setOrigin(0.5).setDepth(49);
 
-    // Make the prompt banner tap-to-speak — students tap the question to hear it read aloud.
-    // Also make the promptBg rectangle speakable so the whole banner is tappable.
-    this.makeSpeakable(this.promptText, 'Tap to hear the question'); // placeholder; updated in renderRound()
-
-    // Widen the tappable area: also tag the promptBg with the same speakText
-    // (updated each round via setPromptSpeakText)
-    this.promptBg.setData('speakText', 'Tap to hear the question');
-    this.promptBg.setInteractive({ useHandCursor: true });
-
     // ---- Lifeline buttons (bottom) ----
     this.createLifelineButtons();
 
     this.renderRound();
 
       // Global pointer handler for reliable button clicks
-    // NOTE: BaseEngine's setupGlobalPointer intercepts taps on any object
-    // with `speakText` data (prompt banner, option text, letter badge) and
-    // reads them aloud — those taps never reach this handler. This handler
-    // only fires for taps on non-speakable areas (e.g., the button bg),
-    // which means: tap text = hear it; tap button chrome = answer.
     this.setupGlobalPointer((x, y) => {
       if (!this.canAnswer) return;
       const r = this.rounds[this.round];
       if (!r) return;
-      // Hit-test option buttons (the full button area, including bg)
+      // Hit-test option buttons
       this.optionButtons.forEach((btn, i) => {
         const btnW = 300, btnH = 80;
         if (Math.abs(x - btn.x) < btnW / 2 && Math.abs(y - btn.y) < btnH / 2) {
+          // ESL: speak the option text before answering
+          audioBus.speak(r.options[i].term);
           this.handleAnswer(btn, i, r.correctIndex, r.options[i]);
         }
       });
@@ -210,23 +198,8 @@ export default class QuizScene extends BaseEngine {
     }
     this.canAnswer = true;
     const r = this.rounds[this.round];
-    // Build the spoken prompt — plain text (no quote chars, no emoji) for clean TTS
-    const promptSpeech = `Which word matches: ${r.prompt.definition ?? r.prompt.emoji ?? r.prompt.term}?`;
     this.promptText.setText(`Which word matches: "${r.prompt.definition ?? r.prompt.emoji ?? r.prompt.term}"?`);
-
-    // UNIVERSAL TAP-TO-SPEAK: update the speakText on BOTH the prompt text
-    // and the prompt background so students can tap anywhere on the banner
-    // to hear the question read aloud.
-    this.promptText.setData('speakText', promptSpeech);
-    this.promptBg.setData('speakText', promptSpeech);
-    // Move the 🔊 hint to follow the prompt text
-    const hint = this.promptText.getData('speakHint') as Phaser.GameObjects.Text | undefined;
-    if (hint) {
-      hint.setPosition(
-        this.promptText.x + (this.promptText.width ?? 0) / 2 + 14,
-        this.promptText.y
-      );
-    }
+    // ESL: speak the prompt aloud
 
 
 
@@ -279,12 +252,6 @@ export default class QuizScene extends BaseEngine {
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
       }).setOrigin(0.5);
-      // UNIVERSAL TAP-TO-SPEAK: tag the option text + letter badge with speakText.
-      // The global pointer handler in BaseEngine will intercept taps on these
-      // text objects and speak them aloud — student can hear an option before
-      // deciding. Tapping the empty bg area behind the text still answers.
-      txt.setData('speakText', opt.term);
-      letterTxt.setData('speakText', `Option ${letters[i]}: ${opt.term}`);
 
       const container = this.add.container(cx, cy, [bg, letterBg, letterTxt, txt])
         .setSize(btnW, btnH).setInteractive({ useHandCursor: true });
@@ -321,7 +288,7 @@ export default class QuizScene extends BaseEngine {
     this.questionTimer = 10;
     this.timerText.setText('10');
     this.timerText.setColor(this.hex(this.theme.text));
-    this.timerRing.setFillStyle(this.theme.warning, 0.2);
+    this.timerRing.setFillStyle(this.theme.warning, 0.4);
 
     if (this.questionTimerEvent) this.questionTimerEvent.remove();
     this.questionTimerEvent = this.time.addEvent({
@@ -332,7 +299,7 @@ export default class QuizScene extends BaseEngine {
         // Color shift as time runs out
         if (this.questionTimer <= 3) {
           this.timerText.setColor(this.hex(this.theme.danger));
-          this.timerRing.setFillStyle(this.theme.danger, 0.3);
+          this.timerRing.setFillStyle(this.theme.danger, 0.5);
           audioBus.play('countdown');
         }
         if (this.questionTimer <= 0) {
@@ -415,40 +382,9 @@ export default class QuizScene extends BaseEngine {
     if (this.questionTimerEvent) this.questionTimerEvent.remove();
     const isCorrect = index === correctIndex;
     const bg = btn.getData('bg') as Phaser.GameObjects.Rectangle;
-    const currentRound = this.round; // capture before recordAnswer changes anything
-
-    // AAAA — Schedule the next-round transition FIRST, before recordAnswer.
-    // Use setTimeout (browser-native) instead of this.time.delayedCall
-    // because Phaser's scene time can get stuck if the tween manager
-    // gets overloaded during level-up celebrations.
-    const advanceRound = () => {
-      try {
-        this.optionButtons.forEach((b, i) => {
-          this.tweens.add({
-            targets: b,
-            alpha: 0, y: b.y - 30,
-            duration: 200, delay: i * 30, ease: 'Cubic.in',
-          });
-        });
-        setTimeout(() => {
-          try {
-            this.round++;
-            this.renderRound();
-          } catch (e) {
-            console.error('[MiniStar] renderRound error:', e);
-          }
-        }, 300);
-      } catch (e) {
-        console.error('[MiniStar] advanceRound error:', e);
-        // Fallback: just advance immediately
-        this.round++;
-        this.renderRound();
-      }
-    };
-    setTimeout(advanceRound, 900);
 
     this.recordAnswer({
-      term: this.rounds[currentRound].prompt.term,
+      term: this.rounds[this.round].prompt.term,
       response: option.term,
       success: isCorrect,
       coordinate: { x: btn.x, y: btn.y, t: this.time.now },
@@ -456,7 +392,7 @@ export default class QuizScene extends BaseEngine {
 
     // Spaced repetition: queue wrong answers to resurface later
     if (!isCorrect) {
-      this.wrongQueue.push(this.rounds[currentRound]);
+      this.wrongQueue.push(this.rounds[this.round]);
     }
 
     if (isCorrect) {
@@ -486,10 +422,25 @@ export default class QuizScene extends BaseEngine {
       this.juice.glowRing(correctBtn.x, correctBtn.y, this.theme.success, 80);
       // Speak the correct answer
       this.time.delayedCall(300, () => {
-        try { audioBus.speak(`The answer is ${this.rounds[currentRound].options[correctIndex].term}`); } catch {}
+        audioBus.speak(`The answer is ${this.rounds[this.round].options[correctIndex].term}`);
       });
       this.juice.shake('medium');
       this.juice.burst(btn.x, btn.y, 'incorrect');
     }
+
+    // Slide out transition
+    this.time.delayedCall(900, () => {
+      this.optionButtons.forEach((b, i) => {
+        this.tweens.add({
+          targets: b,
+          alpha: 0, y: b.y - 30,
+          duration: 200, delay: i * 30, ease: 'Cubic.in',
+        });
+      });
+      this.time.delayedCall(300, () => {
+        this.round++;
+        this.renderRound();
+      });
+    });
   }
 }

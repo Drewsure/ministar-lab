@@ -85,7 +85,7 @@ export default class CrosswordScene extends BaseEngine {
     this.renderKeyboard();
 
     // Highlight helpers
-    this.activeEntryHighlight = this.add.rectangle(0, 0, 0, 0, this.theme.accent, 0.18)
+    this.activeEntryHighlight = this.add.rectangle(0, 0, 0, 0, this.theme.accent, 0.5)
       .setVisible(false).setDepth(14);
     this.activeCellHighlight = this.add.rectangle(0, 0, this.cellSize - 4, this.cellSize - 4, this.theme.accent2, 0.5)
       .setStrokeStyle(2, this.theme.accent2)
@@ -326,7 +326,7 @@ export default class CrosswordScene extends BaseEngine {
         if (owner && owner.cells[0].r === r && owner.cells[0].c === c) {
           this.add.text(x - this.cellSize / 2 + 3, y - this.cellSize / 2 + 2, String(owner.number), {
             fontFamily: 'Inter, sans-serif',
-            fontSize: '12px',
+            fontSize: '16px',
             color: this.hex(this.theme.textMuted),
           }).setOrigin(0, 0).setDepth(12);
         }
@@ -375,7 +375,7 @@ export default class CrosswordScene extends BaseEngine {
     const bsBg = this.add.rectangle(0, 0, 80, btnSize, this.theme.danger, 0.7)
       .setStrokeStyle(1, this.theme.danger);
     const bsTxt = this.add.text(0, 0, '⌫ DEL', {
-      fontFamily: 'Inter, sans-serif', fontSize: '14px', color: '#ffffff', fontStyle: 'bold',
+      fontFamily: 'Inter, sans-serif', fontSize: '16px', color: '#ffffff', fontStyle: 'bold',
     }).setOrigin(0.5);
     const bsBtn = this.add.container(this.scale.width / 2 - 50, kbY2, [bsBg, bsTxt])
       .setSize(80, btnSize).setInteractive({ useHandCursor: true });

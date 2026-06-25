@@ -1,15 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import type * as Phaser from 'phaser';
 import type { GameLaunchConfig } from '@/lib/types';
 import { THEMES } from '@/lib/themes';
-import { GAME_MODE_MAP } from '@/lib/gameModes';
-import { audioBus } from '@/lib/audio';
-import LoadingScreen from './LoadingScreen';
 
 // Dynamic import so Phaser only loads on the client.
-// All 17 game scenes are registered here; the active scene is selected
+// All 11 game scenes are registered here; the active scene is selected
 // by the `mode` field in the launch config.
 
 const SCENE_IMPORTS: Record<string, () => Promise<{ default: any }>> = {
@@ -30,13 +27,14 @@ const SCENE_IMPORTS: Record<string, () => Promise<{ default: any }>> = {
   'group-sort':      () => import('@/game/scenes/GroupSortScene'),
   'type-answer':     () => import('@/game/scenes/TypeAnswerScene'),
   'spot-it':         () => import('@/game/scenes/SpotItScene'),
-  'label-it':        () => import('@/game/scenes/LabelItScene'),
-  'speak-it':        () => import('@/game/scenes/SpeakItScene'),
-  'endless-runner':  () => import('@/game/scenes/EndlessRunnerScene'),
-  'physics-puzzler': () => import('@/game/scenes/PhysicsPuzzlerScene'),
-  'snaking':         () => import('@/game/scenes/SnakingScene'),
-  'training-academy':() => import('@/game/scenes/TrainingAcademyScene'),
-  'rescue-quest':    () => import('@/game/scenes/RescueQuestScene'),
+  // Arcade games — files need to be recreated (lost during zip extraction)
+  // 'label-it':        () => import('@/game/scenes/LabelItScene'),
+  // 'speak-it':        () => import('@/game/scenes/SpeakItScene'),
+  // 'endless-runner':  () => import('@/game/scenes/EndlessRunnerScene'),
+  // 'physics-puzzler': () => import('@/game/scenes/PhysicsPuzzlerScene'),
+  // 'snaking':         () => import('@/game/scenes/SnakingScene'),
+  // 'training-academy':() => import('@/game/scenes/TrainingAcademyScene'),
+  // 'rescue-quest':    () => import('@/game/scenes/RescueQuestScene'),
 };
 
 const SCENE_KEY_BY_MODE: Record<string, string> = {
@@ -69,26 +67,12 @@ const SCENE_KEY_BY_MODE: Record<string, string> = {
 interface GameCanvasProps {
   config: GameLaunchConfig | null;
   onExit?: () => void;
-  onSwitchGame?: (newConfig: { mode: string; theme: any; terms: any[]; unit: string; tenantId?: string }) => void;
-  onPrint?: (printData: { mode: string; terms: any[]; theme: any }) => void;
 }
 
-export default function GameCanvas({ config, onExit, onSwitchGame, onPrint }: GameCanvasProps) {
+export default function GameCanvas({ config, onExit }: GameCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
-  const switchRef = useRef(onSwitchGame);
-  const printRef = useRef(onPrint);
-  switchRef.current = onSwitchGame;
-  printRef.current = onPrint;
-  const [loading, setLoading] = useState(true);
-  const [fadeIn, setFadeIn] = useState(false);
-
-  // Trigger fade-in transition once loading completes
-  const handleLoadingComplete = () => {
-    setLoading(false);
-    // Small delay then trigger the fade-in
-    requestAnimationFrame(() => setFadeIn(true));
-  };
+  const loadedScenesRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!config || !containerRef.current) {
@@ -98,7 +82,7 @@ export default function GameCanvas({ config, onExit, onSwitchGame, onPrint }: Ga
     let cancelled = false;
 
     (async () => {
-      // Phaser 3.80 ESM has no default export — import the namespace and use it directly.
+      // Phaser 3/4 ESM has no default export — import the namespace and use it directly
       const Phaser: any = await import('phaser');
       if (cancelled) return;
 
@@ -112,19 +96,14 @@ export default function GameCanvas({ config, onExit, onSwitchGame, onPrint }: Ga
       // Load the scene module (only the active one — keeps bundle light)
       const SceneClass = (await sceneLoader()).default;
 
+      // Responsive sizing — use FIT mode so the 800x600 game scales to fit
+      // any screen (mobile portrait, mobile landscape, desktop) without overflow
       const container = containerRef.current!;
+
       const bgColor = '#' + (theme?.bg ?? 0x000000).toString(16).padStart(6, '0');
 
-      // Resolve the launch config BEFORE creating the Phaser.Game.
-      // The scene's init() reads from the registry, so it must be populated
-      // before boot completes.
-      const resolvedConfig = { ...config, theme } as any;
-
       const sceneConfig: Phaser.Types.Core.GameConfig = {
-        // Use AUTO (WebGL with Canvas fallback) — most performant on real browsers.
-        // The black-screen bug was caused by a ReferenceError in Juice.ts (Hud.tick),
-        // not by the renderer type.
-        type: Phaser.AUTO,
+        type: Phaser.AUTO, // Let Phaser choose — works on real browsers
         parent: container,
         width: 800,
         height: 600,
@@ -133,11 +112,8 @@ export default function GameCanvas({ config, onExit, onSwitchGame, onPrint }: Ga
           default: 'arcade',
           arcade: { debug: false, gravity: { x: 0, y: 0 } },
         },
-        // IMPORTANT: leave scene array empty. We register the scene explicitly
-        // after the game boots so we can control the scene key. Passing the
-        // class directly here causes Phaser to register it under whatever key
-        // it can derive from the class (often mangled by Turbopack), which
-        // breaks later `game.scene.start('QuizScene', ...)` calls.
+        // AAAA — Don't auto-start the scene. Register it empty, add with
+        // explicit key, then start AFTER setting the registry.
         scene: [],
         fps: { target: 60, forceSetTimeOut: false },
         render: {
@@ -151,15 +127,12 @@ export default function GameCanvas({ config, onExit, onSwitchGame, onPrint }: Ga
         },
       };
 
+      // Canvas styling is now handled in the 'ready' event below
+
       let game: Phaser.Game;
       try {
         game = new Phaser.Game(sceneConfig);
       } catch (e: any) {
-        console.error('[MiniStar] Failed to create Phaser.Game:', e);
-        return;
-      }
-      if (cancelled) {
-        try { game.destroy(true); } catch {}
         return;
       }
       gameRef.current = game;
@@ -167,14 +140,14 @@ export default function GameCanvas({ config, onExit, onSwitchGame, onPrint }: Ga
         (window as any).__PHASER_GAME = game;
       }
 
-      // Populate the registry before the scene boots so init() can read it.
+      // Pass launch config via registry — scenes read it in init()
+      const resolvedConfig = { ...config, theme } as any;
       game.registry.set('launchConfig', resolvedConfig);
 
-      // Once the game is ready, register the scene under the explicit string
-      // key (autoStart=false), then start it with the launch config data.
+      // AAAA — After game boots, add the scene under the correct key and start it
       game.events.once('ready', () => {
         try {
-          // Make the canvas focusable + responsive right after boot.
+          // Make the canvas focusable + responsive right after boot
           const canvas = container.querySelector('canvas');
           if (canvas) {
             canvas.setAttribute('tabindex', '0');
@@ -198,53 +171,16 @@ export default function GameCanvas({ config, onExit, onSwitchGame, onPrint }: Ga
         }
       });
 
-      // Surface any boot-time errors so they aren't swallowed silently.
-      game.events.on('error', (err: any) => {
-        console.error('[MiniStar] Phaser game error:', err);
-      });
-
-      // AAAA — Capture final score when game ends, report to React for leaderboard
-      game.events.on('ready', () => {
-        const checkSceneEnd = setInterval(() => {
-          try {
-            const scene = game.scene.scenes[0];
-            if (scene && (scene as any).isFinished) {
-              const score = (scene as any).score ?? 0;
-              const maxScore = (scene as any).maxScore ?? 0;
-              const startTime = (scene as any).startTime ?? Date.now();
-              const durationMs = Date.now() - startTime;
-              // Dispatch event for React to pick up
-              window.dispatchEvent(new CustomEvent('ministar-game-ended', {
-                detail: { score, maxScore, durationMs }
-              }));
-              clearInterval(checkSceneEnd);
-            }
-          } catch {}
-        }, 500);
-      });
+      loadedScenesRef.current.add(mode);
     })();
 
     return () => {
       cancelled = true;
-      // Check if the game was destroyed for a switch or print request
-      if (gameRef.current) {
-        try {
-          const switchData = gameRef.current.registry.get('switchGame');
-          const printData = gameRef.current.registry.get('printRequest');
-          if (switchData && switchRef.current) {
-            // Small delay so the game canvas unmounts cleanly first
-            setTimeout(() => switchRef.current?.(switchData), 100);
-          } else if (printData && printRef.current) {
-            setTimeout(() => printRef.current?.(printData), 100);
-          }
-        } catch {}
-      }
-      // Cancel any in-progress TTS + stop music when game exits
+      // Cancel any in-progress TTS when game exits
       try {
         if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
           window.speechSynthesis.cancel();
         }
-        audioBus.stopMusic();
       } catch {}
       if (gameRef.current) {
         try { gameRef.current.destroy(true); } catch {}
@@ -253,43 +189,15 @@ export default function GameCanvas({ config, onExit, onSwitchGame, onPrint }: Ga
     };
   }, [config?.mode, config?.theme, config?.terms.length, config?.unit, config?.qrSlug]);
 
-  // ===========================================================================
-  // RENDER
-  // ===========================================================================
-  if (!config) return null;
-  const theme = THEMES[config.theme] ?? THEMES.space;
-  const gameMeta = GAME_MODE_MAP[config.mode] ?? { name: 'Game', emoji: '🎮' };
-
   return (
-    <div
-      className="relative w-full h-full transition-opacity duration-500"
-      style={{
-        touchAction: 'none',
-        opacity: fadeIn ? 1 : 0,
-        minHeight: '500px',
-        // Safe-area insets for notched phones
-        paddingTop: 'env(safe-area-inset-top)',
-        paddingBottom: 'env(safe-area-inset-bottom)',
-        paddingLeft: 'env(safe-area-inset-left)',
-        paddingRight: 'env(safe-area-inset-right)',
-      }}
-    >
-      {loading && (
-        <div className="absolute inset-0 z-50">
-          <LoadingScreen
-            gameName={gameMeta?.name ?? 'Game'}
-            gameEmoji={gameMeta?.emoji ?? '🎮'}
-            themeName={theme?.name ?? 'World'}
-            themeEmoji={(theme as any)?.emoji ?? '🌟'}
-            onReady={handleLoadingComplete}
-          />
-        </div>
-      )}
+    <div className="relative w-full h-full" style={{ touchAction: 'none' }}>
       <div
         ref={containerRef}
         className="w-full h-full"
-        style={{ touchAction: 'none', pointerEvents: 'auto', minHeight: '500px' }}
+        style={{ touchAction: 'none', pointerEvents: 'auto' }}
       />
+      {/* Exit button removed — the parent page provides a clear "← Back to Library" button.
+          Having two exit buttons was confusing users. */}
     </div>
   );
 }

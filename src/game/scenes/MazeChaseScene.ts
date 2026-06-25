@@ -90,11 +90,14 @@ export default class MazeChaseScene extends BaseEngine {
       'Collect the correct answer!',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '25px',
-        color: this.hex(this.theme.text),
+        fontSize: '28px',
+        color: this.hex(this.theme.warning),
         fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 4,
       }
     ).setOrigin(0.5).setDepth(50);
+    this.makeSpeakable(this.promptText, 'Tap to hear what to find');
 
     this.compassArrow = this.add.text(
       this.scale.width / 2, 96,
@@ -265,10 +268,6 @@ export default class MazeChaseScene extends BaseEngine {
   private addWall(x: number, y: number, w: number, h: number, color: number) {
     const wall = this.add.rectangle(x, y, w, h, color, 0.92)
       .setStrokeStyle(1.5, this.theme.accent, 0.55);
-    // AAAA — Explicitly create a STATIC physics body.
-    // physics.add.existing with static=true automatically sizes the body
-    // to match the rectangle. No manual offset needed.
-    this.physics.add.existing(wall, true);
     this.wallsGroup.add(wall);
   }
 
@@ -324,8 +323,11 @@ export default class MazeChaseScene extends BaseEngine {
 
     // First term is the active correct answer; others are decoys
     this.activeTerm = roundTerms[0];
-    this.promptText.setText(`Find: ${this.activeTerm.term}`);
-    // TTS only on user tap — no automatic speech on game start
+    const promptLabel = this.activeTerm.emoji
+      ? `Find: ${this.activeTerm.emoji} ${this.activeTerm.term}`
+      : `Find: ${this.activeTerm.term}`;
+    this.promptText.setText(promptLabel);
+    this.promptText.setData('speakText', `Find: ${this.activeTerm.term}`);
 
     // Available cells (exclude player start at 0,0)
     const interiorCells: { x: number; y: number }[] = [];
@@ -367,39 +369,50 @@ export default class MazeChaseScene extends BaseEngine {
     const px = this.mazeOffsetX + cell.x * CELL + CELL / 2;
     const py = this.mazeOffsetY + cell.y * CELL + CELL / 2;
 
-    // Outer glow ring for the correct target
+    // AAAA — FIX: Make targets FULLY VISIBLE. Previous alpha was 0.32 (nearly
+    // invisible on dark background). Now fully opaque with bright colors.
+    const orb = this.add.circle(
+      px, py, 26,
+      isCorrect ? this.theme.success : this.theme.danger,
+      0.9  // was 0.32 — nearly invisible!
+    ).setStrokeStyle(4, isCorrect ? this.theme.success : this.theme.danger, 1);
+    orb.setDepth(15);
+
+    // Outer glow ring for the correct target — BRIGHT and VISIBLE
     if (isCorrect) {
-      const ring = this.add.circle(px, py, 30, this.theme.success, 0.12)
+      const ring = this.add.circle(px, py, 34, this.theme.success, 0.4)
         .setDepth(14);
       this.tweens.add({
         targets: ring,
-        scale: { from: 1, to: 1.4 },
-        alpha: { from: 0.18, to: 0 },
-        duration: 900, repeat: -1, ease: 'Sine.out',
+        scale: { from: 1, to: 1.5 },
+        alpha: { from: 0.5, to: 0.1 },
+        duration: 700, repeat: -1, ease: 'Sine.out',
       });
+      orb.setData('glowRing', ring);
     }
 
-    const orb = this.add.circle(
-      px, py, 22,
-      isCorrect ? this.theme.success : this.theme.danger,
-      0.32
-    ).setStrokeStyle(3, isCorrect ? this.theme.success : this.theme.danger);
-    orb.setDepth(15);
-
-    const label = this.add.text(px, py, term.emoji ?? term.term.slice(0, 3), {
+    // AAAA — FIX: Show the FULL WORD at a READABLE size.
+    // Previous: 13px (unreadable). Now: 20px bold with stroke.
+    const labelText = term.emoji ? `${term.emoji} ${term.term}` : term.term;
+    const label = this.add.text(px, py, labelText, {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '16px',
+      fontSize: '20px',
       color: '#ffffff',
       fontStyle: 'bold',
-      wordWrap: { width: 56 },
+      stroke: '#000000',
+      strokeThickness: 4,
+      wordWrap: { width: 100 },
       align: 'center',
     }).setOrigin(0.5).setDepth(16);
 
-    // Pulse
+    // Make target speakable (tap to hear the word)
+    label.setData('speakText', term.term);
+
+    // Pulse — BIGGER pulse so the correct target is obvious
     this.tweens.add({
       targets: [orb, label],
-      scale: { from: 1, to: 1.1 },
-      duration: 800, yoyo: true, repeat: -1, ease: 'Sine.inOut',
+      scale: { from: 1, to: isCorrect ? 1.2 : 1.08 },
+      duration: isCorrect ? 500 : 800, yoyo: true, repeat: -1, ease: 'Sine.inOut',
     });
 
     // Physics body — use a circular body sized to the orb
@@ -421,15 +434,14 @@ export default class MazeChaseScene extends BaseEngine {
     const px = this.mazeOffsetX + cell.x * CELL + CELL / 2;
     const py = this.mazeOffsetY + cell.y * CELL + CELL / 2;
 
-    // AAAA — Pac-Man style ghost: emoji with eyes that track the player
-    const ghostEmojis = ['👻', '👹', '👺', '💀'];
-    const ghostEmoji = ghostEmojis[Math.floor(Math.random() * ghostEmojis.length)];
-    const enemy = this.add.text(px, py, ghostEmoji, { fontSize: '32px' })
-      .setOrigin(0.5).setDepth(15);
-    enemy.setData('emoji', ghostEmoji);
+    const enemyKey = 'particle-' + this.theme.id;
+    const enemy = this.add.image(px, py, enemyKey);
+    enemy.setTint(this.theme.danger);
+    enemy.setDisplaySize(34, 34);
+    enemy.setDepth(15);
 
-    // Pulsing red aura
-    const aura = this.add.circle(px, py, 22, this.theme.danger, 0.22)
+    // Pulsing red glow
+    const aura = this.add.circle(px, py, 20, this.theme.danger, 0.22)
       .setDepth(14);
     this.tweens.add({
       targets: aura,
@@ -439,16 +451,9 @@ export default class MazeChaseScene extends BaseEngine {
     });
     enemy.setData('aura', aura);
 
-    // AAAA — Ghost personality: 0=chaser (red, direct pursuit), 1=ambusher (pink, targets ahead of player),
-    // 2=patrol (cyan, random), 3=scared (orange, runs away when player has boost)
-    const personality = Math.floor(Math.random() * 4);
-    enemy.setData('personality', personality);
-    enemy.setData('lastAIUpdate', 0);
-
     this.physics.add.existing(enemy);
     const body = enemy.body as Phaser.Physics.Arcade.Body;
-    // AAAA — Simple circle collider (primitive, not exact shape — best practice)
-    body.setCircle(16, 0, 0)
+    body.setCircle(17, 0, 0)
         .setAllowGravity(false)
         .setCollideWorldBounds(true);
     body.setBoundsRectangle(
@@ -457,79 +462,43 @@ export default class MazeChaseScene extends BaseEngine {
       )
     );
 
-    // AAAA — Ghost AI: A* pathfinding toward player (like Pac-Man)
-    // Updates every 800ms — not every frame (performance: sleeping logic)
+    // Patrol AI: change direction every 1.4s, or chase player if in LOS
     this.time.addEvent({
-      delay: 800, loop: true,
-      callback: () => this.updateGhostAI(enemy),
+      delay: 1400, loop: true,
+      callback: () => this.updateEnemyAI(enemy),
     });
-    this.updateGhostAI(enemy);
+    // Initial impulse
+    this.updateEnemyAI(enemy);
 
-    // AAAA — Collision with walls (physics layer filtering)
     this.physics.add.collider(enemy, this.wallsGroup);
     this.enemiesGroup.add(enemy);
   }
 
-  // ===========================================================================
-  // AAAA — GHOST AI: Pac-Man style pathfinding with personalities
-  // ===========================================================================
-  private updateGhostAI(enemy: Phaser.GameObjects.Text) {
+  private updateEnemyAI(enemy: Phaser.GameObjects.Image) {
     if (!enemy.active || this.isFinished) return;
     const body = enemy.body as Phaser.Physics.Arcade.Body;
     if (!body) return;
 
-    const personality = enemy.getData('personality') as number;
-    const ghostCell = this.pixelToCell(enemy.x, enemy.y);
-    const playerCell = this.pixelToCell(this.player.x, this.player.y);
-    if (!ghostCell || !playerCell) return;
-
-    // Target cell depends on personality (like Pac-Man ghosts)
-    let targetCell = playerCell;
-    switch (personality) {
-      case 0: // Chaser (red) — direct pursuit
-        targetCell = playerCell;
-        break;
-      case 1: // Ambusher (pink) — target 2 cells ahead of player direction
-        const dirOffset = { up: {x:0,y:-2}, down: {x:0,y:2}, left: {x:-2,y:0}, right: {x:2,y:0} };
-        const offset = dirOffset[this.playerDir];
-        targetCell = {
-          x: Phaser.Math.Clamp(playerCell.x + offset.x, 0, COLS - 1),
-          y: Phaser.Math.Clamp(playerCell.y + offset.y, 0, ROWS - 1),
-        };
-        break;
-      case 2: // Patrol (cyan) — random target
-        targetCell = { x: Math.floor(Math.random() * COLS), y: Math.floor(Math.random() * ROWS) };
-        break;
-      case 3: // Scared (orange) — runs away when player has speed boost
-        if (Date.now() < this.speedBoostUntil) {
-          targetCell = { x: 0, y: 0 }; // flee to corner
-        } else {
-          targetCell = playerCell;
-        }
-        break;
-    }
-
-    // A* pathfind to target cell
-    const path = this.findPath(ghostCell, targetCell);
-    if (path.length > 0) {
-      // Move toward first cell in path
-      const nextCell = path[0];
-      const nextPx = this.mazeOffsetX + nextCell.x * CELL + CELL / 2;
-      const nextPy = this.mazeOffsetY + nextCell.y * CELL + CELL / 2;
-      const dx = nextPx - enemy.x;
-      const dy = nextPy - enemy.y;
+    // Check line-of-sight to player (same row or column with no wall)
+    if (this.hasLineOfSight(enemy.x, enemy.y, this.player.x, this.player.y)) {
+      // Chase the player
+      const dx = this.player.x - enemy.x;
+      const dy = this.player.y - enemy.y;
       const dist = Math.hypot(dx, dy);
-      const speed = this.lod.isMobile ? 100 : 140;
+      const chaseSpeed = this.lod.isMobile ? 110 : 150;
       if (dist > 1) {
-        body.setVelocity((dx / dist) * speed, (dy / dist) * speed);
+        body.setVelocity((dx / dist) * chaseSpeed, (dy / dist) * chaseSpeed);
       }
-    } else {
-      // No path — random direction
-      const dirs = [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
-      const d = Phaser.Utils.Array.GetRandom(dirs);
-      const speed = this.lod.isMobile ? 70 : 100;
-      body.setVelocity(d.x * speed, d.y * speed);
+      return;
     }
+
+    // Patrol: random cardinal direction (so it stays on corridors)
+    const dirs = [
+      { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 },
+    ];
+    const d = Phaser.Utils.Array.GetRandom(dirs);
+    const speed = this.lod.isMobile ? 70 : 100;
+    body.setVelocity(d.x * speed, d.y * speed);
   }
 
   private hasLineOfSight(x1: number, y1: number, x2: number, y2: number): boolean {
@@ -619,13 +588,11 @@ export default class MazeChaseScene extends BaseEngine {
       term: 'enemy',
       response: 'enemy-collision',
       success: false,
-      coordinate: { x: (enemy as Phaser.GameObjects.Text).x, y: (enemy as Phaser.GameObjects.Text).y, t: this.time.now },
+      coordinate: { x: (enemy as Phaser.GameObjects.Image).x, y: (enemy as Phaser.GameObjects.Image).y, t: this.time.now },
     });
 
-    // AAAA — Dramatic hit: hit-stop + heavy shake + flash
+    // Hit-stop: brief physics freeze for impact
     this.juice.hitStop(100);
-    this.juice.shake('heavy');
-    this.juice.flash(this.theme.danger, 0.3, 200);
     this.bouncePlayerBack();
     this.time.delayedCall(900, () => this.targetHits.delete(enemy));
   }
@@ -650,9 +617,20 @@ export default class MazeChaseScene extends BaseEngine {
       this.checkWin();
       return;
     }
+    // AAAA — FIX: Re-spawn ALL targets with the new active term.
+    // Previous code only changed the prompt text but didn't update the
+    // targets in the maze — so the prompt said "Find: Banana" but the
+    // maze still had the old target. Now we regenerate the maze + targets.
     this.activeTerm = Phaser.Utils.Array.GetRandom(remaining);
-    this.promptText.setText(`Find: ${this.activeTerm.term}`);
-    // TTS only on user tap
+    const promptLabel = this.activeTerm.emoji
+      ? `Find: ${this.activeTerm.emoji} ${this.activeTerm.term}`
+      : `Find: ${this.activeTerm.term}`;
+    this.promptText.setText(promptLabel);
+    this.promptText.setData('speakText', `Find: ${this.activeTerm.term}`);
+    // Regenerate maze + targets for the new round
+    this.generateMaze();
+    this.renderMaze();
+    this.spawnTargetsAndEnemies();
   }
 
   // ===========================================================================
@@ -747,6 +725,10 @@ export default class MazeChaseScene extends BaseEngine {
 
   // ===========================================================================
   // PER-FRAME UPDATE — uses physics velocity (respects wall colliders)
+  // AAAA — MUST use setVelocity() not direct position updates.
+  // Direct position (this.player.x += ...) BYPASSES physics colliders,
+  // allowing the player to walk through walls. This was the root cause
+  // of "Maze Chase is impossible to play."
   // ===========================================================================
   update(_time: number, delta: number) {
     if (this.isFinished || !this.player) return;
@@ -769,7 +751,6 @@ export default class MazeChaseScene extends BaseEngine {
       this.pathIdx = 0;
       const mag = Math.hypot(vx, vy);
       // AAAA — Use physics velocity (respects wall colliders!)
-      // Previous code used direct position updates which walked through walls.
       this.player.setVelocity((vx / mag) * speed, (vy / mag) * speed);
       this.playerDir = vy < 0 ? 'up' : vy > 0 ? 'down' : vx < 0 ? 'left' : 'right';
     } else if (this.path.length > 0 && this.pathIdx < this.path.length) {
@@ -809,8 +790,6 @@ export default class MazeChaseScene extends BaseEngine {
       if (moving) {
         try {
           this.trailEmitter.emitting = true;
-          // AAAA — setTint doesn't exist on ParticleEmitter in Phaser 3.80,
-          // use setTint on the particle config instead (or just skip)
           if (typeof (this.trailEmitter as any).setTint === 'function') {
             (this.trailEmitter as any).setTint(boosted ? this.theme.warning : this.theme.accent);
           }

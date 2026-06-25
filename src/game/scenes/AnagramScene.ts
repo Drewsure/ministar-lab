@@ -65,7 +65,7 @@ export default class AnagramScene extends BaseEngine {
       this.scale.width / 2, 180, 'Your Answer',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '14px',
+        fontSize: '16px',
         color: this.hex(this.theme.textMuted),
       }
     ).setOrigin(0.5).setDepth(40);

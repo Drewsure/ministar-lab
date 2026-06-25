@@ -5,15 +5,6 @@ import { BrandHeader } from '@/components/ministar/BrandHeader';
 import { GameLibrary } from '@/components/ministar/GameLibrary';
 import { TeacherDashboard } from '@/components/ministar/TeacherDashboard';
 import GameCanvas from '@/components/ministar/GameCanvas';
-import LiveMultiplayer from '@/components/ministar/LiveMultiplayer';
-import LiveArena from '@/components/ministar/LiveArena';
-import AIAuthStudio from '@/components/ministar/AIAuthStudio';
-import ActivityOptions from '@/components/ministar/ActivityOptions';
-import StarGarden from '@/components/ministar/StarGarden';
-import OnboardingFlow from '@/components/ministar/OnboardingFlow';
-import ParentGate from '@/components/ministar/ParentGate';
-import LaunchCard from '@/components/ministar/LaunchCard';
-import ErrorBoundary from '@/components/ministar/ErrorBoundary';
 import { useBrand } from '@/components/ministar/useBrand';
 import { THEMES } from '@/lib/themes';
 import { GAME_MODE_MAP } from '@/lib/gameModes';
@@ -107,27 +98,8 @@ export default function Home() {
   const [theme, setTheme] = useState<ThemeId>(brand.defaultTheme);
   const [terms, setTerms] = useState<TermItem[]>(DEFAULT_TERMS);
   const [launch, setLaunch] = useState<GameLaunchConfig | null>(null);
-  const [liveMode, setLiveMode] = useState<{ mode: GameModeId; theme: ThemeId } | null>(null);
-  const [arenaMode, setArenaMode] = useState<{ mode: GameModeId; theme: ThemeId } | null>(null);
-  const [aiStudio, setAiStudio] = useState<boolean>(false);
-  const [showOptions, setShowOptions] = useState<boolean>(false);
-  const [showStarGarden, setShowStarGarden] = useState<boolean>(false);
-  const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
-  const [showParentGate, setShowParentGate] = useState<boolean>(false);
-  const [showLaunchCard, setShowLaunchCard] = useState<boolean>(false);
-  const [lastScore, setLastScore] = useState<number>(0);
-  const [lastDurationMs, setLastDurationMs] = useState<number>(0);
   const [lastBrand, setLastBrand] = useState(brand.subdomain);
-  const [stats, setStats] = useState<StudentStats>(() => ({
-    xp: 0, level: 1, streak: 0, lastPlayed: '', gamesPlayed: 0, bestStreak: 0, streakFreezes: 1, tokens: 0, mysteryBoxesOpened: 0,
-  }));
-  const [hydrated, setHydrated] = useState(false);
-
-  // AAAA — Load stats from localStorage AFTER hydration (prevents React #418)
-  useEffect(() => {
-    setStats(loadStats());
-    setHydrated(true);
-  }, []);
+  const [stats, setStats] = useState<StudentStats>(() => loadStats());
 
   // Sync theme when brand changes
   if (brand.subdomain !== lastBrand) {
@@ -176,71 +148,20 @@ export default function Home() {
   };
 
   // Pick up ?game= shortcut from URL (PWA shortcut support)
-  // Also pick up ?room=XXXX for multiplayer join + ?auto=1 for launch card
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     const game = params.get('game') as GameModeId | null;
-    const room = params.get('room');
-    const autoLaunch = params.get('auto');
-    if (room) {
-      setLiveMode({ mode: game ?? 'quiz', theme: (params.get('theme') as ThemeId) ?? 'space' });
-    } else if (game && GAME_MODE_MAP[game]) {
-      // auto=1 means instant launch from a LaunchCard QR (skip onboarding)
-      if (autoLaunch) {
-        setTimeout(() => launchGame(game, (params.get('theme') as ThemeId) ?? theme), 200);
-      } else {
-        setTimeout(() => launchGame(game, theme), 100);
-      }
-    } else {
-      // Check if this is the first visit (show onboarding)
-      const onboarded = localStorage.getItem('ministar_onboarded');
-      if (!onboarded) {
-        setShowOnboarding(true);
-      }
+    if (game && GAME_MODE_MAP[game]) {
+      setTimeout(() => launchGame(game, theme), 100);
     }
   }, [brand.subdomain]);
-
-  const launchLiveGame = (mode: GameModeId, themeId: ThemeId) => {
-    audioBus.init();
-    setLiveMode({ mode, theme: themeId });
-    setLaunch(null);
-  };
-
-  const launchArena = (mode: GameModeId, themeId: ThemeId) => {
-    audioBus.init();
-    setArenaMode({ mode, theme: themeId });
-    setLaunch(null);
-  };
-
-  const exitLive = () => {
-    setLiveMode(null);
-    if (typeof window !== 'undefined' && window.location.search) {
-      window.history.replaceState({}, '', window.location.pathname);
-    }
-  };
-
-  const exitArena = () => {
-    setArenaMode(null);
-  };
 
   const exitGame = () => {
     setLaunch(null);
   };
 
-  // AAAA — Listen for game-ended events to capture score for leaderboard
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      setLastScore(detail.score ?? 0);
-      setLastDurationMs(detail.durationMs ?? 0);
-    };
-    window.addEventListener('ministar-game-ended', handler);
-    return () => window.removeEventListener('ministar-game-ended', handler);
-  }, []);
-
   return (
-    <ErrorBoundary>
     <div
       className="min-h-screen flex flex-col"
       style={{
@@ -249,49 +170,10 @@ export default function Home() {
         fontFamily: 'var(--font-display)',
       }}
     >
-      {/* LIVE MULTIPLAYER MODE — takes over the whole screen */}
-      {liveMode ? (
-        <LiveMultiplayer
-          mode={liveMode.mode}
-          theme={liveMode.theme}
-          terms={verifiedTerms.length > 0 ? verifiedTerms : terms}
-          unit="unit-1"
-          tenantId={brand.id}
-          onExit={exitLive}
-        />
-      ) : arenaMode ? (
-        <LiveArena
-          mode={arenaMode.mode}
-          theme={arenaMode.theme}
-          terms={verifiedTerms.length > 0 ? verifiedTerms : terms}
-          unit="unit-1"
-          tenantId={brand.id}
-          onExit={exitArena}
-        />
-      ) : aiStudio ? (
-        <AIAuthStudio
-          onPublish={(newTerms, unit) => {
-            setTerms(prev => [...prev, ...newTerms]);
-            setAiStudio(false);
-            setView('student');
-          }}
-          onCancel={() => setAiStudio(false)}
-        />
-      ) : showStarGarden ? (
-        <StarGarden onClose={() => setShowStarGarden(false)} />
-      ) : (
-        <>
       <BrandHeader
         brand={brand}
         onSwitchBrand={(k) => { setBrandKey(k); }}
-        onOpenTeacher={() => {
-          // AAAA — Parent Gate protects teacher area from young children
-          if (view === 'teacher') {
-            setView('student');
-          } else {
-            setShowParentGate(true);
-          }
-        }}
+        onOpenTeacher={() => setView(v => v === 'teacher' ? 'student' : 'teacher')}
         isTeacherOpen={view === 'teacher'}
       />
 
@@ -332,8 +214,8 @@ export default function Home() {
               Play amazing games, learn new words, and level up! Every game speaks to you — tap anything to hear it.
             </p>
 
-            {/* AAA 2029 — Student Stats Bar (only after hydration to prevent #418) */}
-            {!launch && hydrated && stats.gamesPlayed > 0 && (
+            {/* AAA 2029 — Student Stats Bar */}
+            {!launch && stats.gamesPlayed > 0 && (
               <div className="flex items-center justify-center gap-3 mt-4 flex-wrap">
                 <div className="rounded-xl px-4 py-2 text-sm font-semibold"
                   style={{
@@ -390,25 +272,13 @@ export default function Home() {
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <div>
                 <div className="text-xs uppercase tracking-widest opacity-60" style={{ color: 'var(--brand-text)' }}>
-                  Now playing · {THEMES[launch.theme]?.name ?? 'World'}
+                  Now playing · {THEMES[launch.theme].name}
                 </div>
                 <div className="font-bold text-lg" style={{ color: 'var(--brand-text)' }}>
-                  {GAME_MODE_MAP[launch.mode]?.emoji ?? '🎮'} {GAME_MODE_MAP[launch.mode]?.name ?? 'Game'}
+                  {GAME_MODE_MAP[launch.mode].emoji} {GAME_MODE_MAP[launch.mode].name}
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => { setShowOptions(true); audioBus.play('tap'); }}
-                  className="rounded-xl px-3 py-2 text-xs font-semibold"
-                  style={{
-                    background: 'color-mix(in oklab, var(--brand-accent) 25%, transparent)',
-                    color: 'var(--brand-text)',
-                    border: '1px solid color-mix(in oklab, var(--brand-accent) 50%, transparent)',
-                  }}
-                  title="Activity options: edit, print, embed, assign, style, timer, leaderboard"
-                >
-                  ⚙️ Options
-                </button>
                 <button
                   onClick={() => {
                     // Restart the game by toggling launch
@@ -465,71 +335,12 @@ export default function Home() {
                 boxShadow: `0 30px 80px -20px ${brand.primaryColor}80`,
               }}
             >
-              <GameCanvas
-              config={launch}
-              onExit={exitGame}
-              onSwitchGame={(data) => {
-                // Switch template: relaunch with same terms but different game mode
-                setLaunch({
-                  mode: data.mode as GameModeId,
-                  theme: data.theme,
-                  terms: data.terms,
-                  unit: data.unit,
-                  tenantId: data.tenantId,
-                });
-              }}
-              onPrint={(data) => {
-                // Open print PDF in new tab via API
-                const params = new URLSearchParams({
-                  mode: data.mode,
-                  theme: typeof data.theme === 'string' ? data.theme : 'space',
-                });
-                // Encode terms as URL-safe base64 (replace + with -, / with _)
-                const termsJson = JSON.stringify(data.terms);
-                const termsB64 = btoa(unescape(encodeURIComponent(termsJson))).replace(/\+/g, '-').replace(/\//g, '_');
-                window.open(`/api/print?${params.toString()}&terms=${termsB64}`, '_blank');
-                setLaunch(null);
-              }}
-            />
+              <GameCanvas config={launch} onExit={exitGame} />
             </div>
 
             <div className="text-center mt-4 text-xs opacity-60" style={{ color: 'var(--brand-text)' }}>
               Tap to play · Tap any text to hear it · Press P to pause
             </div>
-
-            {/* AAAA — Activity Options Modal (Wordwall-style) */}
-            <ActivityOptions
-              open={showOptions}
-              onClose={() => setShowOptions(false)}
-              mode={launch.mode}
-              theme={launch.theme}
-              terms={launch.terms}
-              unit={launch.unit}
-              tenantId={launch.tenantId}
-              lastScore={lastScore}
-              lastDurationMs={lastDurationMs}
-              onEditTerms={(newTerms) => {
-                setLaunch({ ...launch, terms: newTerms });
-                setTerms(newTerms);
-              }}
-              onChangeTheme={(newTheme) => {
-                setLaunch({ ...launch, theme: newTheme });
-                setTheme(newTheme);
-              }}
-              onChangeTimer={(ms) => {
-                // Timer change applies to next game launch
-                localStorage.setItem('ministar_timer_override', String(ms));
-              }}
-              onPrint={() => {
-                const params = new URLSearchParams({
-                  mode: launch.mode,
-                  theme: launch.theme,
-                });
-                const termsJson = JSON.stringify(launch.terms);
-                const termsB64 = btoa(unescape(encodeURIComponent(termsJson))).replace(/\+/g, '-').replace(/\//g, '_');
-                window.open(`/api/print?${params.toString()}&terms=${termsB64}`, '_blank');
-              }}
-            />
           </div>
         ) : view === 'teacher' ? (
           // -----------------------------------------------------------------
@@ -569,151 +380,6 @@ export default function Home() {
           // STUDENT VIEW — game library
           // -----------------------------------------------------------------
           <div className="ministar-rise pt-2">
-            {/* AAAA — Launch Card CTA (classroom QR instant-launch) */}
-            <div className="rounded-2xl mb-3 p-4 flex items-center gap-4 flex-wrap"
-              style={{
-                background: 'linear-gradient(135deg, color-mix(in oklab, #06b6d4 25%, var(--brand-card)), color-mix(in oklab, #3b82f6 20%, var(--brand-card)))',
-                border: '2px solid color-mix(in oklab, #06b6d4 50%, transparent)',
-              }}>
-              <div className="text-4xl">🚀</div>
-              <div className="flex-1 min-w-0">
-                <div className="font-bold text-lg" style={{ color: 'var(--brand-text)' }}>
-                  Launch Card
-                </div>
-                <div className="text-xs opacity-80" style={{ color: 'var(--brand-text)' }}>
-                  QR code + magic link · Students scan → instant game launch
-                </div>
-              </div>
-              <button
-                onClick={() => { setShowLaunchCard(true); audioBus.init(); audioBus.play('tap'); }}
-                className="rounded-xl px-5 py-3 text-sm font-bold"
-                style={{
-                  background: 'linear-gradient(135deg, #06b6d4, #3b82f6)',
-                  color: '#fff',
-                  border: 'none',
-                  boxShadow: '0 4px 12px -2px rgba(6,182,212,0.6)',
-                }}
-              >
-                🚀 Create Card
-              </button>
-            </div>
-
-            {/* AAAA — Star Garden CTA (progression system) */}
-            <div className="rounded-2xl mb-3 p-4 flex items-center gap-4 flex-wrap"
-              style={{
-                background: 'linear-gradient(135deg, color-mix(in oklab, #fbbf24 25%, var(--brand-card)), color-mix(in oklab, #a855f7 20%, var(--brand-card)))',
-                border: '2px solid color-mix(in oklab, #fbbf24 50%, transparent)',
-              }}>
-              <div className="text-4xl">✨</div>
-              <div className="flex-1 min-w-0">
-                <div className="font-bold text-lg" style={{ color: 'var(--brand-text)' }}>
-                  Star Garden
-                </div>
-                <div className="text-xs opacity-80" style={{ color: 'var(--brand-text)' }}>
-                  Earn Star Dust · Grow plants · Evolve your Cloud Dog
-                </div>
-              </div>
-              <button
-                onClick={() => { setShowStarGarden(true); audioBus.init(); audioBus.play('tap'); }}
-                className="rounded-xl px-5 py-3 text-sm font-bold"
-                style={{
-                  background: 'linear-gradient(135deg, #fbbf24, #a855f7)',
-                  color: '#fff',
-                  border: 'none',
-                  boxShadow: '0 4px 12px -2px rgba(251,191,36,0.6)',
-                }}
-              >
-                ✨ Open Garden
-              </button>
-            </div>
-
-            {/* AAAA — AI Authoring Studio CTA (the Wordwall killer) */}
-            <div className="rounded-2xl mb-3 p-4 flex items-center gap-4 flex-wrap"
-              style={{
-                background: 'linear-gradient(135deg, color-mix(in oklab, #8b5cf6 25%, var(--brand-card)), color-mix(in oklab, #ec4899 20%, var(--brand-card)))',
-                border: '2px solid color-mix(in oklab, #8b5cf6 50%, transparent)',
-              }}>
-              <div className="text-4xl">🤖</div>
-              <div className="flex-1 min-w-0">
-                <div className="font-bold text-lg" style={{ color: 'var(--brand-text)' }}>
-                  AI Authoring Studio
-                </div>
-                <div className="text-xs opacity-80" style={{ color: 'var(--brand-text)' }}>
-                  Type a topic → get 12 ready-to-play terms in 30 seconds
-                </div>
-              </div>
-              <button
-                onClick={() => { setAiStudio(true); audioBus.init(); audioBus.play('tap'); }}
-                className="rounded-xl px-5 py-3 text-sm font-bold"
-                style={{
-                  background: 'linear-gradient(135deg, #8b5cf6, #ec4899)',
-                  color: '#fff',
-                  border: 'none',
-                  boxShadow: '0 4px 12px -2px rgba(139,92,246,0.6)',
-                }}
-              >
-                ✨ Generate a Lesson
-              </button>
-            </div>
-
-            {/* AAAA — Competitive Arena CTA (1v1 duels) */}
-            <div className="rounded-2xl mb-3 p-4 flex items-center gap-4 flex-wrap"
-              style={{
-                background: 'linear-gradient(135deg, color-mix(in oklab, #f43f5e 25%, var(--brand-card)), color-mix(in oklab, #8b5cf6 20%, var(--brand-card)))',
-                border: '2px solid color-mix(in oklab, #f43f5e 50%, transparent)',
-              }}>
-              <div className="text-4xl">⚔️</div>
-              <div className="flex-1 min-w-0">
-                <div className="font-bold text-lg" style={{ color: 'var(--brand-text)' }}>
-                  Arena — 1v1 Duel
-                </div>
-                <div className="text-xs opacity-80" style={{ color: 'var(--brand-text)' }}>
-                  Battle a friend · HP-based combat · Sabotage power-ups
-                </div>
-              </div>
-              <button
-                onClick={() => launchArena('quiz', theme)}
-                className="rounded-xl px-5 py-3 text-sm font-bold"
-                style={{
-                  background: 'linear-gradient(135deg, #f43f5e, #8b5cf6)',
-                  color: '#fff',
-                  border: 'none',
-                  boxShadow: '0 4px 12px -2px rgba(244,63,94,0.6)',
-                }}
-              >
-                ⚔️ Start Duel
-              </button>
-            </div>
-
-            {/* AAAA — Live Multiplayer CTA (the Blooket killer) */}
-            <div className="rounded-2xl mb-6 p-4 flex items-center gap-4 flex-wrap"
-              style={{
-                background: 'linear-gradient(135deg, color-mix(in oklab, #ef4444 25%, var(--brand-card)), color-mix(in oklab, #f59e0b 20%, var(--brand-card)))',
-                border: '2px solid color-mix(in oklab, #ef4444 50%, transparent)',
-              }}>
-              <div className="text-4xl">🔴</div>
-              <div className="flex-1 min-w-0">
-                <div className="font-bold text-lg" style={{ color: 'var(--brand-text)' }}>
-                  Live Multiplayer Classroom!
-                </div>
-                <div className="text-xs opacity-80" style={{ color: 'var(--brand-text)' }}>
-                  Host a live game · Students join with a 6-digit code · Real-time leaderboard
-                </div>
-              </div>
-              <button
-                onClick={() => launchLiveGame('quiz', theme)}
-                className="rounded-xl px-5 py-3 text-sm font-bold"
-                style={{
-                  background: 'linear-gradient(135deg, #ef4444, #f59e0b)',
-                  color: '#fff',
-                  border: 'none',
-                  boxShadow: '0 4px 12px -2px rgba(239,68,68,0.6)',
-                }}
-              >
-                ▶ Host Live Game
-              </button>
-            </div>
-
             {/* Daily Challenge — featured game with bonus XP */}
             <div className="rounded-2xl mb-6 p-4 flex items-center gap-4 flex-wrap"
               style={{
@@ -779,7 +445,7 @@ export default function Home() {
             </div>
 
             {/* Achievement Badges — Blooket-grade engagement */}
-            {hydrated && stats.gamesPlayed > 0 && (
+            {stats.gamesPlayed > 0 && (
               <div className="rounded-2xl mb-6 p-4"
                 style={{
                   background: 'color-mix(in oklab, var(--brand-card) 50%, transparent)',
@@ -869,34 +535,6 @@ export default function Home() {
           </div>
         </div>
       </footer>
-        </>
-      )}
-
-      {/* AAAA — Onboarding Flow (first visit only) */}
-      {showOnboarding && (
-        <OnboardingFlow onComplete={() => {
-          setShowOnboarding(false);
-          localStorage.setItem('ministar_onboarded', '1');
-        }} />
-      )}
-
-      {/* AAAA — Parent Gate (protects teacher area) */}
-      <ParentGate
-        open={showParentGate}
-        onSuccess={() => {
-          setShowParentGate(false);
-          setView('teacher');
-        }}
-        onCancel={() => setShowParentGate(false)}
-      />
-
-      {/* AAAA — Launch Card (QR + magic link for classroom) */}
-      <LaunchCard
-        open={showLaunchCard}
-        onClose={() => setShowLaunchCard(false)}
-        onLaunch={(m, t) => launchGame(m, t)}
-      />
     </div>
-    </ErrorBoundary>
   );
 }

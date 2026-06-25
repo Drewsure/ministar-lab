@@ -365,7 +365,7 @@ export default class BalloonPopScene extends BaseEngine {
     // Term name below emoji (smaller, for ESL reading)
     const nameTxt = this.add.text(0, 12, term.term.slice(0, 8), {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '12px',
+      fontSize: '18px',
       color: '#ffffff',
       fontStyle: 'bold',
     }).setOrigin(0.5);

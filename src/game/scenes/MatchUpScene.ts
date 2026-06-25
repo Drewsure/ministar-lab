@@ -201,7 +201,7 @@ export default class MatchUpScene extends BaseEngine {
       const x = this.scale.width - 160;
 
       // Slot background (dashed border look)
-      const bg = this.add.rectangle(0, 0, cardW, cardH, this.theme.cardAlt, 0.4)
+      const bg = this.add.rectangle(0, 0, cardW, cardH, this.theme.cardAlt, 0.7)
         .setStrokeStyle(2, this.theme.accent2, 0.5).setDepth(10);
       // Drop zone indicator
       const indicator = this.add.text(0, 0, def.term, {
