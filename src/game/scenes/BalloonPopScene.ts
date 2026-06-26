@@ -61,6 +61,10 @@ export default class BalloonPopScene extends BaseEngine {
     this.spawnCarrier();
 
     // ---- First prompt ----
+    if (this.terms.length === 0) {
+      this.finishGame(false);
+      return;
+    }
     this.activePrompt = this.terms[0];
     this.updatePrompt();
 
@@ -410,7 +414,9 @@ export default class BalloonPopScene extends BaseEngine {
       yoyo: true, repeat: -1, ease: 'Sine.inOut',
     });
 
-    container.on('pointerdown', () => this.popBalloon(b));
+    // NOTE: per-container pointerdown removed — the global handler in
+    // setupGlobalPointer handles balloon taps. Double-listening caused
+    // popBalloon() to fire twice on a single tap.
   }
 
   // ===========================================================================

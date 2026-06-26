@@ -100,7 +100,8 @@ export default class PhysicsPuzzlerScene extends BaseEngine {
     this.projectiles.push(proj); audioBus.play('launch');
     const startTime = this.time.now;
     const updateProj = () => {
-      if (!proj.active) return;
+      if (!proj.active || this.isFinished) return;
+      if (!this.sys.isActive()) return;
       if (this.time.now - startTime > 3000) { proj.destroy(); return; }
       proj.x += proj.getData('vx') * 0.016; proj.y += proj.getData('vy') * 0.016;
       proj.setData('vy', proj.getData('vy') + 200 * 0.016);
@@ -108,16 +109,23 @@ export default class PhysicsPuzzlerScene extends BaseEngine {
       requestAnimationFrame(updateProj);
     };
     updateProj();
-    if (this.shotsLeft <= 0) setTimeout(() => { if (!this.isFinished) this.finishGame(this.score >= this.maxScore * 0.5); }, 2000);
+    if (this.shotsLeft <= 0) this.time.delayedCall(2000, () => { if (!this.isFinished) this.finishGame(this.score >= this.maxScore * 0.5); });
   }
 
   private handleHit(block: WordBlock, proj: Phaser.GameObjects.Arc) {
-    proj.destroy(); block.container.destroy(); block.container.setActive(false);
+    proj.destroy();
+    const bx = block.container.x, by = block.container.y;
+    block.container.destroy();
     this.recordAnswer({ term: this.currentPrompt!.term, response: block.term.term, success: block.isCorrect,
-      coordinate: { x: block.container.x, y: block.container.y, t: this.time.now } });
+      coordinate: { x: bx, y: by, t: this.time.now } });
     if (block.isCorrect) {
-      audioBus.play('correct'); this.juice.burst(block.container.x, block.container.y, 'correct');
-      setTimeout(() => { this.blocks.forEach(b => { if (b.container.active) b.container.destroy(); }); this.blocks = []; this.renderRound(); }, 500);
+      audioBus.play('correct'); this.juice.burst(bx, by, 'correct');
+      this.time.delayedCall(500, () => {
+        if (this.isFinished) return;
+        this.blocks.forEach(b => { try { if (b.container && b.container.active) b.container.destroy(); } catch {} });
+        this.blocks = [];
+        this.renderRound();
+      });
     } else { audioBus.play('incorrect'); this.juice.shake('medium'); }
   }
 }

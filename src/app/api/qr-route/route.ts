@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   // No database configured (e.g. Vercel without DATABASE_URL) — return a stub
   if (!db) {
     return NextResponse.json({
-      route: { slug: body.slug, ...body, active: true, id: 'stub' },
+      route: { ...body, slug: body.slug, active: true, id: 'stub' },
       note: 'No database configured — returning in-memory stub.',
     });
   }

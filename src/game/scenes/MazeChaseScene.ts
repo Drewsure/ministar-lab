@@ -538,15 +538,15 @@ export default class MazeChaseScene extends BaseEngine {
   // ===========================================================================
   // COLLISION HANDLERS
   // ===========================================================================
-  private handleTargetCollision(_player: Phaser.GameObjects.GameObject, target: Phaser.GameObjects.GameObject) {
+  private handleTargetCollision(_player: Phaser.GameObjects.GameObject | Phaser.Tilemaps.Tile, target: Phaser.GameObjects.GameObject | Phaser.Tilemaps.Tile) {
     if (this.isFinished) return;
-    if (this.targetHits.get(target)) return;
-    this.targetHits.set(target, true);
-
-    const isCorrect = target.getData('isCorrect') as boolean;
-    const term = target.getData('term') as TermItem;
-    const label = target.getData('label') as Phaser.GameObjects.Text;
     const t = target as Phaser.GameObjects.Arc;
+    if (this.targetHits.get(t)) return;
+    this.targetHits.set(t, true);
+
+    const isCorrect = t.getData('isCorrect') as boolean;
+    const term = t.getData('term') as TermItem;
+    const label = t.getData('label') as Phaser.GameObjects.Text;
     const coord = { x: t.x, y: t.y, t: this.time.now };
 
     this.recordAnswer({
@@ -581,22 +581,23 @@ export default class MazeChaseScene extends BaseEngine {
     }
   }
 
-  private handleEnemyCollision(_player: Phaser.GameObjects.GameObject, enemy: Phaser.GameObjects.GameObject) {
+  private handleEnemyCollision(_player: Phaser.GameObjects.GameObject | Phaser.Tilemaps.Tile, enemy: Phaser.GameObjects.GameObject | Phaser.Tilemaps.Tile) {
     if (this.isFinished) return;
-    if (this.targetHits.get(enemy)) return;
-    this.targetHits.set(enemy, true);
+    const e = enemy as Phaser.GameObjects.GameObject;
+    if (this.targetHits.get(e)) return;
+    this.targetHits.set(e, true);
 
     this.recordAnswer({
       term: 'enemy',
       response: 'enemy-collision',
       success: false,
-      coordinate: { x: (enemy as Phaser.GameObjects.Image).x, y: (enemy as Phaser.GameObjects.Image).y, t: this.time.now },
+      coordinate: { x: (e as Phaser.GameObjects.Image).x, y: (e as Phaser.GameObjects.Image).y, t: this.time.now },
     });
 
     // Hit-stop: brief physics freeze for impact
     this.juice.hitStop(100);
     this.bouncePlayerBack();
-    this.time.delayedCall(900, () => this.targetHits.delete(enemy));
+    this.time.delayedCall(900, () => this.targetHits.delete(e));
   }
 
   private bouncePlayerBack() {
@@ -734,6 +735,14 @@ export default class MazeChaseScene extends BaseEngine {
   // ===========================================================================
   update(_time: number, delta: number) {
     if (this.isFinished || !this.player) return;
+    try {
+      this.updateMazeChase(delta);
+    } catch (e) {
+      console.error('[MiniStar] MazeChase update error:', e);
+    }
+  }
+
+  private updateMazeChase(delta: number) {
 
     const now = Date.now();
     const boosted = now < this.speedBoostUntil;

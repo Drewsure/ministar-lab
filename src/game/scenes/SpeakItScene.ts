@@ -61,7 +61,7 @@ export default class SpeakItScene extends BaseEngine {
           if (isCorrect) { audioBus.play('correct'); this.juice.burst(cx, cy, 'correct'); }
           else { audioBus.play('incorrect'); this.juice.shake('medium'); }
           this.canAnswer = false;
-          setTimeout(() => { this.canAnswer = true; }, 500);
+          this.time.delayedCall(500, () => { this.canAnswer = true; });
           break;
         }
       }

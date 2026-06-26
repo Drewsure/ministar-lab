@@ -182,10 +182,9 @@ export default class MatchUpScene extends BaseEngine {
         this.handleDrop(container, cardInfo);
       });
 
-      // Tap to hear
-      container.on('pointerdown', () => {
-    
-      });
+      // NOTE: per-container pointerdown removed. The global handler in
+      // setupGlobalPointer handles tap-to-speak. Double-listening caused
+      // speech to fire twice.
 
       // Entrance animation
       container.setAlpha(0).setX(x - 100);

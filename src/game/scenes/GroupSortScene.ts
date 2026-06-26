@@ -55,7 +55,9 @@ export default class GroupSortScene extends BaseEngine {
 
     // Categorize terms: group by first letter (demo categorization)
     // In production, this would be teacher-defined categories
-    const firstLetters = [...new Set(terms.map(t => t.term[0].toUpperCase()))].sort();
+    // CRASH GUARD: if any term has an empty .term string, t.term[0] is undefined
+    // and .toUpperCase() throws. Fall back to '?' for empty terms.
+    const firstLetters = [...new Set(terms.map(t => (t.term[0] ?? '?').toUpperCase()))].sort();
     const categoryNames: string[] = [];
     if (numCategories === 2) {
       const mid = Math.ceil(firstLetters.length / 2);
@@ -101,7 +103,7 @@ export default class GroupSortScene extends BaseEngine {
 
       // Determine which terms belong in this category
       const belongs = terms.filter(t => {
-        const idx = firstLetters.indexOf(t.term[0].toUpperCase());
+        const idx = firstLetters.indexOf((t.term[0] ?? '?').toUpperCase());
         if (numCategories === 2) return idx < Math.ceil(firstLetters.length / 2) ? i === 0 : i === 1;
         return idx < Math.ceil(firstLetters.length / 3) ? i === 0
              : idx < Math.ceil(2 * firstLetters.length / 3) ? i === 1 : i === 2;
@@ -184,12 +186,9 @@ export default class GroupSortScene extends BaseEngine {
         this.handleDrop(sortTerm);
       });
 
-      // Tap to hear
-      container.on('pointerdown', () => {
-        if (!container.input?.dragState || container.input.dragState === 0) {
-      
-        }
-      });
+      // Tap to hear — REMOVED per-container pointerdown.
+      // The global pointer handler in setupGlobalPointer handles tap-to-speak.
+      // Per-container pointerdown caused speech to fire twice.
     });
 
     // Wire up global drag end
@@ -232,12 +231,15 @@ export default class GroupSortScene extends BaseEngine {
       return;
     }
 
+    // Bind to non-null const so closures retain the narrowing
+    const cat: Category = closestCat;
+
     // Check if correct (term's first letter matches category range)
-    const isCorrect = this.isCorrectCategory(sortTerm.term, closestCat);
+    const isCorrect = this.isCorrectCategory(sortTerm.term, cat);
 
     this.recordAnswer({
       term: sortTerm.term.term,
-      response: closestCat.name,
+      response: cat.name,
       success: isCorrect,
       coordinate: { x: droppedX, y: droppedY, t: this.time.now },
     });
@@ -245,9 +247,9 @@ export default class GroupSortScene extends BaseEngine {
     if (isCorrect) {
       // Snap into bucket
       sortTerm.placed = true;
-      closestCat.terms.push(sortTerm);
-      const placedCount = closestCat.terms.length;
-      const snapX = closestCat.x + (placedCount % 3 - 1) * 35;
+      cat.terms.push(sortTerm);
+      const placedCount = cat.terms.length;
+      const snapX = cat.x + (placedCount % 3 - 1) * 35;
       const snapY = this.scale.height - 120 + 30 + Math.floor(placedCount / 3) * 30;
       this.tweens.add({
         targets: sortTerm.container,
@@ -256,14 +258,14 @@ export default class GroupSortScene extends BaseEngine {
         duration: 300, ease: 'Back.out',
       });
       // Green flash on bucket
-      closestCat.bg.setFillStyle(this.theme.success, 0.4);
-      this.time.delayedCall(300, () => closestCat.bg.setFillStyle(this.theme.card, 0.7));
+      cat.bg.setFillStyle(this.theme.success, 0.4);
+      this.time.delayedCall(300, () => cat.bg.setFillStyle(this.theme.card, 0.7));
       this.juice.burst(droppedX, droppedY, 'correct');
       this.checkWin();
     } else {
       // Wrong bucket — red flash + bounce back
-      closestCat.bg.setFillStyle(this.theme.danger, 0.4);
-      this.time.delayedCall(300, () => closestCat.bg.setFillStyle(this.theme.card, 0.7));
+      cat.bg.setFillStyle(this.theme.danger, 0.4);
+      this.time.delayedCall(300, () => cat.bg.setFillStyle(this.theme.card, 0.7));
       this.juice.burst(droppedX, droppedY, 'incorrect');
       this.tweens.add({
         targets: sortTerm.container,

@@ -80,12 +80,20 @@ export default class AnagramScene extends BaseEngine {
       .setSize(120, 36).setInteractive({ useHandCursor: true }).setDepth(50);
     this.hintBtn.on('pointerover', () => hintBg.setFillStyle(this.theme.warning, 0.9));
     this.hintBtn.on('pointerout', () => hintBg.setFillStyle(this.theme.warning, 0.6));
-    this.hintBtn.on('pointerdown', () => this.useHint());
+    // NOTE: per-container pointerdown removed — the global handler in setupGlobalPointer
+    // handles hint button taps reliably. Double-listening caused useHint() to fire twice.
 
     this.rounds = this.pickTerms(this.maxScore);
     this.renderRound();
 
-    // Global pointer handler for reliable tile clicks
+    // Global pointer handler for reliable tile clicks.
+    // ROBUST DEBOUNCE: a single physical tap can fire pointerdown multiple times
+    // on touch devices (touchstart + mousedown + click). We track the last placed
+    // tile + timestamp and refuse to place the SAME tile within 250ms.
+    // We also pick the CLOSEST tile to the tap point (not the first in array order)
+    // so that when two same-letter tiles are adjacent, the correct one is chosen.
+    let lastPlacedTile: Tile | null = null;
+    let lastPlaceTime = 0;
     this.setupGlobalPointer((x, y) => {
       if (!this.canInteract) return;
       // Hit-test hint button
@@ -95,15 +103,29 @@ export default class AnagramScene extends BaseEngine {
           return;
         }
       }
-      // Hit-test pool tiles
+      // Find CLOSEST pool tile to the tap point (within hit radius)
+      let closest: Tile | null = null;
+      let closestDist = Infinity;
       for (const tile of this.pool) {
-        if (this.answer.includes(tile)) continue;
-        if (Math.abs(x - tile.sprite.x) < 27 && Math.abs(y - tile.sprite.y) < 27) {
-          // ESL: speak the letter when tapped
-          audioBus.speak(tile.letter);
-          this.tapTile(tile.letter, tile.originalIndex);
-          break;
+        if (this.answer.includes(tile)) continue;          // already placed
+        if (tile.placed) continue;                          // defensive double-guard
+        const dx = x - tile.sprite.x;
+        const dy = y - tile.sprite.y;
+        const dist = dx * dx + dy * dy;
+        if (dist < 27 * 27 && dist < closestDist) {
+          closestDist = dist;
+          closest = tile;
         }
+      }
+      if (closest) {
+        // Debounce: refuse same tile within 250ms (prevents touchstart+mousedown double-fire)
+        const now = Date.now();
+        if (closest === lastPlacedTile && now - lastPlaceTime < 250) return;
+        lastPlacedTile = closest;
+        lastPlaceTime = now;
+        // ESL: speak the letter when tapped
+        audioBus.speak(closest.letter);
+        this.tapTile(closest.letter, closest.originalIndex);
       }
     });
   }
@@ -183,7 +205,12 @@ export default class AnagramScene extends BaseEngine {
     }).setOrigin(0.5).setDepth(17);
 
     const container = this.add.container(x, y, [glow, shadow, bg, shine, txt])
-      .setSize(size, size).setInteractive({ useHandCursor: true }).setDepth(15);
+      .setSize(size, size).setDepth(15);
+    // CRITICAL: Do NOT call setInteractive() on the container.
+    // The global pointer handler in setupGlobalPointer (BaseEngine) handles ALL taps.
+    // If we setInteractive here, Phaser fires the container's input handler
+    // AND the global input.on('pointerdown') for the same event → tile placed twice.
+    // This was the root cause of the "appll" bug (typing apple → appll).
     container.setScale(0).setAlpha(0);
 
     // Entrance animation
@@ -192,7 +219,12 @@ export default class AnagramScene extends BaseEngine {
       duration: 300, delay: originalIndex * 60, ease: 'Back.out',
     });
 
-    // Hover effect
+    // Hover effect (pointerover/pointerout still work without setInteractive
+    // because we setInteractive on the container's hit area below — BUT we must
+    // NOT register a pointerdown handler. The global handler does that.)
+    // Actually, pointerover/pointerout require setInteractive. So we DO need it,
+    // but we MUST NOT add a pointerdown listener here.
+    container.setInteractive({ useHandCursor: true });
     container.on('pointerover', () => {
       if (!this.canInteract) return;
       bg.setFillStyle(this.theme.cardAlt, 1);
@@ -203,7 +235,9 @@ export default class AnagramScene extends BaseEngine {
       bg.setFillStyle(this.theme.card, 0.95);
       this.tweens.add({ targets: container, scale: 1, duration: 100, ease: 'Quad.out' });
     });
-    container.on('pointerdown', () => this.tapTile(letter, originalIndex));
+    // NOTE: per-container pointerdown REMOVED. The global handler in
+    // setupGlobalPointer handles tile taps. Double-listening caused the
+    // "appll" double-letter bug.
 
     return { letter, originalIndex, sprite: container, bg, glow, placed: false };
   }
@@ -212,9 +246,12 @@ export default class AnagramScene extends BaseEngine {
     if (!this.canInteract) return;
     audioBus.play('tap');
 
-    const idx = this.pool.findIndex(t => t.letter === letter && !this.answer.includes(t));
+    const idx = this.pool.findIndex(t => t.letter === letter && !this.answer.includes(t) && !t.placed);
     if (idx < 0) return;
     const tile = this.pool[idx];
+    // Defensive: ensure this specific tile isn't already placed (prevents double-place
+    // even if both container + global handlers somehow fire)
+    if (tile.placed || this.answer.includes(tile)) return;
     tile.placed = true;
     this.answer.push(tile);
 

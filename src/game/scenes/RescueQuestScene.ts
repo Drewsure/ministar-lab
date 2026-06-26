@@ -81,13 +81,14 @@ export default class RescueQuestScene extends BaseEngine {
     if (this.currentObstacleIdx >= this.obstacles.length) { this.finishGame(true); return; }
     const obs = this.obstacles[this.currentObstacleIdx];
     this.canAnswer = true;
-    this.statusText.setText(`Say "${obs.command}" to ${obs.label.toLowerCase()}`);
+    const labelText = obs.label.text;
+    this.statusText.setText(`Say "${obs.command}" to ${labelText.toLowerCase()}`);
     this.heardText.setText('');
     this.obstacles.forEach((o, i) => {
       o.label.setAlpha(i === this.currentObstacleIdx ? 1 : 0);
       if (i === this.currentObstacleIdx) this.tweens.add({ targets: o.text, scale: { from: 1, to: 1.2 }, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     });
-    audioBus.speak(`Say ${obs.command} to ${obs.label.toLowerCase()}`);
+    audioBus.speak(`Say ${obs.command} to ${labelText.toLowerCase()}`);
   }
 
   private initSpeechRecognition() {
@@ -124,7 +125,7 @@ export default class RescueQuestScene extends BaseEngine {
     this.recordAnswer({ term: obs.command, response: heard, success: isCorrect, coordinate: { x: obs.x, y: obs.y, t: this.time.now } });
     if (isCorrect) { this.statusText.setText(`✓ ${obs.command}! Obstacle cleared!`); this.statusText.setColor(this.hex(this.theme.success)); this.clearObstacle(obs); audioBus.speak(obs.command); }
     else { this.statusText.setText(`✗ You said "${heard}". Say "${obs.command}"`); this.statusText.setColor(this.hex(this.theme.danger)); audioBus.speak(obs.command); }
-    setTimeout(() => { if (isCorrect) this.currentObstacleIdx++; this.updateCurrentObstacle(); }, 2000);
+    this.time.delayedCall(2000, () => { if (this.isFinished) return; if (isCorrect) this.currentObstacleIdx++; this.updateCurrentObstacle(); });
   }
 
   private clearObstacle(obs: Obstacle) {

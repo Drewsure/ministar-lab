@@ -119,7 +119,7 @@ export default class BridgeBuilderScene extends BaseEngine {
       .setSize(100, 34).setInteractive({ useHandCursor: true }).setDepth(50);
     this.hintBtn.on('pointerover', () => hintBtnBg.setFillStyle(this.theme.warning, 0.9));
     this.hintBtn.on('pointerout', () => hintBtnBg.setFillStyle(this.theme.warning, 0.6));
-    this.hintBtn.on('pointerdown', () => this.useHint());
+    // NOTE: per-container pointerdown removed — global handler handles hint taps.
 
     this.renderRound();
 
@@ -232,7 +232,7 @@ export default class BridgeBuilderScene extends BaseEngine {
             audioBus.play('hover');
           });
           container.on('pointerout', () => bg.setFillStyle(this.theme.card, 0.9));
-          container.on('pointerdown', () => this.guessLetter(letter, container));
+          // NOTE: per-container pointerdown removed — global handler handles letter taps.
         }
         this.letterButtons.push(container);
       }

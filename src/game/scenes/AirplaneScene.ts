@@ -106,6 +106,10 @@ export default class AirplaneScene extends BaseEngine {
     this.physics.add.overlap(this.plane, this.bannerGroup, this.handleOverlap, undefined, this);
 
     // ---- First prompt ----
+    if (this.terms.length === 0) {
+      this.finishGame(false);
+      return;
+    }
     this.activePrompt = this.terms[0];
     this.updatePromptText();
 
@@ -271,7 +275,7 @@ export default class AirplaneScene extends BaseEngine {
   // ===========================================================================
   // OVERLAP HANDLER — catch the banner
   // ===========================================================================
-  private handleOverlap(_plane: Phaser.GameObjects.GameObject, target: Phaser.GameObjects.GameObject) {
+  private handleOverlap(_plane: Phaser.GameObjects.GameObject | Phaser.Tilemaps.Tile, target: Phaser.GameObjects.GameObject | Phaser.Tilemaps.Tile) {
     if (this.isFinished) return;
     const container = target as Phaser.GameObjects.Container;
     const banner = container.getData('banner') as Banner;
@@ -331,6 +335,14 @@ export default class AirplaneScene extends BaseEngine {
   // ===========================================================================
   update() {
     if (this.isFinished || !this.plane) return;
+    try {
+      this.updateAirplane();
+    } catch (e) {
+      console.error('[MiniStar] Airplane update error:', e);
+    }
+  }
+
+  private updateAirplane() {
     // AAAA — Plane speed: SLOWER at start (200 was too fast for level 1)
     const baseSpeed = 200; // was 340
     const speed = baseSpeed * this.speedMultiplier;

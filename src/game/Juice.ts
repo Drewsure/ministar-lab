@@ -865,195 +865,223 @@ export class Juice {
   private lod = getLod();
   constructor(private scene: Phaser.Scene, private theme: ThemeManifest) {}
 
-  burst(x: number, y: number, kind: 'correct' | 'incorrect' | 'streak' | 'win' = 'correct') {
-    const palette = this.theme.particles[kind === 'win' ? 'streak' : kind];
-    const count = Math.round((kind === 'win' ? 50 : 24) * this.lod.particleMultiplier);
-    const key = 'particle-' + this.theme.id;
-    if (!this.scene.textures.exists(key)) return;
-
-    const emitter = this.scene.add.particles(x, y, key, {
-      speed: { min: 120, max: 360 },
-      angle: { min: 0, max: 360 },
-      scale: { start: 1.6, end: 0 },
-      alpha: { start: 1, end: 0 },
-      lifespan: { min: 400, max: 900 },
-      tint: palette,
-      quantity: count,
-      blendMode: this.lod.blendAdd ? 'ADD' : 'NORMAL',
-      emitting: false,
-    });
-    emitter.explode(count);
-    this.scene.time.delayedCall(1100, () => emitter.destroy());
-
-    if ((kind === 'streak' || kind === 'win') && this.lod.blendAdd) {
-      const streakKey = 'streak-' + this.theme.id;
-      if (this.scene.textures.exists(streakKey)) {
-        const ribbon = this.scene.add.particles(x, y, streakKey, {
-          speed: { min: 200, max: 480 },
-          angle: { min: 0, max: 360 },
-          scale: { start: 1.2, end: 0 },
-          alpha: { start: 0.9, end: 0 },
-          lifespan: 600,
-          tint: palette,
-          quantity: 12,
-          blendMode: 'ADD',
-          emitting: false,
-        });
-        ribbon.explode(12);
-        this.scene.time.delayedCall(800, () => ribbon.destroy());
-      }
+  /** Safety guard — returns true if the scene is alive and safe to mutate. */
+  private alive(): boolean {
+    try {
+      return !!(this.scene && this.scene.sys && this.scene.sys.isActive());
+    } catch {
+      return false;
     }
   }
 
+  burst(x: number, y: number, kind: 'correct' | 'incorrect' | 'streak' | 'win' = 'correct') {
+    if (!this.alive()) return;
+    try {
+      const palette = this.theme.particles[kind === 'win' ? 'streak' : kind];
+      if (!palette || palette.length === 0) return;
+      const count = Math.round((kind === 'win' ? 50 : 24) * this.lod.particleMultiplier);
+      if (count <= 0) return;
+      const key = 'particle-' + this.theme.id;
+      if (!this.scene.textures.exists(key)) return;
+
+      const emitter = this.scene.add.particles(x, y, key, {
+        speed: { min: 120, max: 360 },
+        angle: { min: 0, max: 360 },
+        scale: { start: 1.6, end: 0 },
+        alpha: { start: 1, end: 0 },
+        lifespan: { min: 400, max: 900 },
+        tint: palette,
+        quantity: count,
+        blendMode: this.lod.blendAdd ? 'ADD' : 'NORMAL',
+        emitting: false,
+      });
+      emitter.explode(count);
+      this.scene.time.delayedCall(1100, () => { try { emitter.destroy(); } catch {} });
+
+      if ((kind === 'streak' || kind === 'win') && this.lod.blendAdd) {
+        const streakKey = 'streak-' + this.theme.id;
+        if (this.scene.textures.exists(streakKey)) {
+          const ribbon = this.scene.add.particles(x, y, streakKey, {
+            speed: { min: 200, max: 480 },
+            angle: { min: 0, max: 360 },
+            scale: { start: 1.2, end: 0 },
+            alpha: { start: 0.9, end: 0 },
+            lifespan: 600,
+            tint: palette,
+            quantity: 12,
+            blendMode: 'ADD',
+            emitting: false,
+          });
+          ribbon.explode(12);
+          this.scene.time.delayedCall(800, () => { try { ribbon.destroy(); } catch {} });
+        }
+      }
+    } catch { /* ignore — juice is cosmetic, never crash the game */ }
+  }
+
   shake(intensity: 'light' | 'medium' | 'heavy' = 'light') {
-    const map = { light: 0.004, medium: 0.01, heavy: 0.025 };
-    this.scene.cameras.main.shake(220, map[intensity]);
+    if (!this.alive()) return;
+    try {
+      const map = { light: 0.004, medium: 0.01, heavy: 0.025 };
+      this.scene.cameras.main.shake(220, map[intensity]);
+    } catch {}
   }
 
   hitStop(ms = 80) {
-    this.scene.physics.world.pause();
-    this.scene.time.delayedCall(ms, () => this.scene.physics.world.resume());
+    if (!this.alive()) return;
+    try {
+      this.scene.physics.world.pause();
+      this.scene.time.delayedCall(ms, () => {
+        try { if (this.alive()) this.scene.physics.world.resume(); } catch {}
+      });
+    } catch {}
   }
 
   flash(color = 0xffffff, alpha = 0.4, ms = 120) {
-    const r = this.scene.add.rectangle(
-      this.scene.scale.width / 2,
-      this.scene.scale.height / 2,
-      this.scene.scale.width,
-      this.scene.scale.height,
-      color,
-      alpha
-    );
-    r.setDepth(9999);
-    this.scene.tweens.add({
-      targets: r, alpha: 0, duration: ms, ease: 'Cubic.out',
-      onComplete: () => r.destroy(),
-    });
+    if (!this.alive()) return;
+    try {
+      const r = this.scene.add.rectangle(
+        this.scene.scale.width / 2,
+        this.scene.scale.height / 2,
+        this.scene.scale.width,
+        this.scene.scale.height,
+        color,
+        alpha
+      );
+      r.setDepth(9999);
+      this.scene.tweens.add({
+        targets: r, alpha: 0, duration: ms, ease: 'Cubic.out',
+        onComplete: () => { try { r.destroy(); } catch {} },
+      });
+    } catch {}
   }
 
   squash(target: Phaser.GameObjects.GameObject, scale = 1.25) {
-    this.scene.tweens.add({
-      targets: target,
-      scaleX: scale, scaleY: 1 / scale,
-      duration: 90, yoyo: true, ease: 'Quad.out',
-    });
+    if (!this.alive()) return;
+    try {
+      this.scene.tweens.add({
+        targets: target,
+        scaleX: scale, scaleY: 1 / scale,
+        duration: 90, yoyo: true, ease: 'Quad.out',
+      });
+    } catch {}
   }
 
   // ===========================================================================
   // AAA 2029 ADDITIONS — score popups, glow rings, combo flashes, vignette
   // ===========================================================================
 
-  /**
-   * Float a "+1" / "+N" / "STREAK!" text upward and fade.
-   * Used on every correct answer for instant feedback.
-   */
   scorePopup(x: number, y: number, text: string, color: number = 0xffffff) {
-    const popup = this.scene.add.text(x, y, text, {
-      fontFamily: 'Inter, sans-serif',
-      fontSize: '32px',
-      color: '#' + color.toString(16).padStart(6, '0'),
-      fontStyle: 'bold',
-      stroke: '#000000',
-      strokeThickness: 4,
-    }).setOrigin(0.5).setDepth(9998);
+    if (!this.alive()) return;
+    try {
+      const popup = this.scene.add.text(x, y, text, {
+        fontFamily: 'Inter, sans-serif',
+        fontSize: '32px',
+        color: '#' + color.toString(16).padStart(6, '0'),
+        fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 4,
+      }).setOrigin(0.5).setDepth(9998);
 
-    this.scene.tweens.add({
-      targets: popup,
-      y: y - 60,
-      alpha: 0,
-      scale: { from: 0.6, to: 1.3 },
-      duration: 800,
-      ease: 'Back.out',
-      onComplete: () => popup.destroy(),
-    });
+      this.scene.tweens.add({
+        targets: popup,
+        y: y - 60,
+        alpha: 0,
+        scale: { from: 0.6, to: 1.3 },
+        duration: 800,
+        ease: 'Back.out',
+        onComplete: () => { try { popup.destroy(); } catch {} },
+      });
+    } catch {}
   }
 
-  /**
-   * Expanding glow ring — radiates outward from a point.
-   * Used on streak milestones and big wins.
-   */
   glowRing(x: number, y: number, color: number = 0xffffff, maxRadius = 80) {
-    const ring = this.scene.add.circle(x, y, 8, color, 0)
-      .setStrokeStyle(3, color, 1)
-      .setDepth(9997);
-    this.scene.tweens.add({
-      targets: ring,
-      radius: maxRadius,
-      alpha: { from: 0.9, to: 0 },
-      duration: 600,
-      ease: 'Cubic.out',
-      onUpdate: (_, target) => {
-        const c = target as Phaser.GameObjects.Arc;
-        c.setRadius((c as any).radius);
-      },
-      onComplete: () => ring.destroy(),
-    });
+    if (!this.alive()) return;
+    try {
+      const ring = this.scene.add.circle(x, y, 8, color, 0)
+        .setStrokeStyle(3, color, 1)
+        .setDepth(9997);
+      // Use scale tween (reliable on all Phaser versions) instead of radius tween
+      this.scene.tweens.add({
+        targets: ring,
+        scale: { from: 1, to: maxRadius / 8 },
+        alpha: { from: 0.9, to: 0 },
+        duration: 600,
+        ease: 'Cubic.out',
+        onComplete: () => { try { ring.destroy(); } catch {} },
+      });
+    } catch {}
   }
 
-  /**
-   * Camera zoom punch — quick zoom in/out for impact.
-   * Used on big wins and game-over.
-   */
   zoomPunch(zoomIn = 1.08, duration = 200) {
-    const cam = this.scene.cameras.main;
-    cam.zoomTo(zoomIn, duration * 0.4, 'Quad.out');
-    this.scene.time.delayedCall(duration * 0.4, () => {
-      cam.zoomTo(1, duration * 0.6, 'Quad.in');
-    });
+    if (!this.alive()) return;
+    try {
+      const cam = this.scene.cameras.main;
+      if (!cam) return;
+      cam.zoomTo(zoomIn, duration * 0.4, 'Quad.out');
+      this.scene.time.delayedCall(duration * 0.4, () => {
+        try {
+          if (this.alive() && cam) {
+            cam.zoomTo(1, duration * 0.6, 'Quad.in');
+          }
+        } catch {}
+      });
+    } catch {}
   }
 
-  /**
-   * Vignette flash — a colored radial overlay that fades from edge to center.
-   * More cinematic than a flat full-screen flash.
-   */
   vignetteFlash(color: number = 0xffffff, alpha = 0.5, ms = 200) {
-    const w = this.scene.scale.width;
-    const h = this.scene.scale.height;
-    const gfx = this.scene.add.graphics();
-    gfx.fillStyle(color, alpha);
-    gfx.fillRect(0, 0, w, h);
-    gfx.setDepth(9999);
-    this.scene.tweens.add({
-      targets: gfx,
-      alpha: 0,
-      duration: ms,
-      ease: 'Cubic.out',
-      onComplete: () => gfx.destroy(),
-    });
+    if (!this.alive()) return;
+    try {
+      const w = this.scene.scale.width;
+      const h = this.scene.scale.height;
+      const gfx = this.scene.add.graphics();
+      gfx.fillStyle(color, alpha);
+      gfx.fillRect(0, 0, w, h);
+      gfx.setDepth(9999);
+      this.scene.tweens.add({
+        targets: gfx,
+        alpha: 0,
+        duration: ms,
+        ease: 'Cubic.out',
+        onComplete: () => { try { gfx.destroy(); } catch {} },
+      });
+    } catch {}
   }
 
-  /**
-   * Confetti rain — drops colored particles from the top of the screen.
-   * Used on game completion (win state).
-   */
   confettiRain(durationMs = 2000) {
+    if (!this.alive()) return;
     if (!this.lod.blendAdd) return; // skip on low-end
-    const key = 'particle-' + this.theme.id;
-    if (!this.scene.textures.exists(key)) return;
-    const w = this.scene.scale.width;
-    const palette = [
-      ...this.theme.particles.correct,
-      ...this.theme.particles.streak,
-    ];
-    const emitter = this.scene.add.particles(0, 0, key, {
-      x: { min: 0, max: w },
-      y: -10,
-      speedY: { min: 100, max: 220 },
-      speedX: { min: -30, max: 30 },
-      angle: { min: 0, max: 360 },
-      rotation: { min: 0, max: 360 },
-      scale: { start: 1.2, end: 0.4 },
-      alpha: { start: 1, end: 0.6 },
-      lifespan: durationMs + 400,
-      tint: palette,
-      quantity: 3,
-      frequency: 50,
-      blendMode: 'NORMAL',
-    });
-    this.scene.time.delayedCall(durationMs, () => {
-      emitter.stop();
-      this.scene.time.delayedCall(1000, () => emitter.destroy());
-    });
+    try {
+      const key = 'particle-' + this.theme.id;
+      if (!this.scene.textures.exists(key)) return;
+      const w = this.scene.scale.width;
+      const palette = [
+        ...this.theme.particles.correct,
+        ...this.theme.particles.streak,
+      ];
+      if (!palette || palette.length === 0) return;
+      const emitter = this.scene.add.particles(0, 0, key, {
+        x: { min: 0, max: w },
+        y: -10,
+        speedY: { min: 100, max: 220 },
+        speedX: { min: -30, max: 30 },
+        angle: { min: 0, max: 360 },
+        scale: { start: 1.2, end: 0.4 },
+        alpha: { start: 1, end: 0.6 },
+        lifespan: durationMs + 400,
+        tint: palette,
+        quantity: 3,
+        frequency: 50,
+        blendMode: 'NORMAL',
+      });
+      this.scene.time.delayedCall(durationMs, () => {
+        try {
+          if (!this.alive()) { try { emitter.destroy(); } catch {} return; }
+          emitter.stop();
+          this.scene.time.delayedCall(1000, () => { try { emitter.destroy(); } catch {} });
+        } catch { try { emitter.destroy(); } catch {} }
+      });
+    } catch {}
   }
 }
 

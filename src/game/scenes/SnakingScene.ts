@@ -125,7 +125,7 @@ export default class SnakingScene extends BaseEngine {
     if (food.isCorrect) {
       audioBus.play('correct'); this.juice.burst(food.x, food.y, 'correct');
       this.moveInterval = Math.max(100, this.moveInterval - 5);
-      setTimeout(() => this.spawnFood(), 300);
+      this.time.delayedCall(300, () => { if (!this.isFinished) this.spawnFood(); });
     } else {
       audioBus.play('incorrect'); this.juice.shake('medium');
       for (let i = 0; i < 2 && this.snake.length > 3; i++) { const tail = this.snake.pop(); if (tail) tail.text.destroy(); }

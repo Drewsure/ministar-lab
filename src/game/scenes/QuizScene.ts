@@ -170,7 +170,7 @@ export default class QuizScene extends BaseEngine {
       .setSize(100, 36).setInteractive({ useHandCursor: true }).setDepth(50);
     this.fiftyFiftyBtn.on('pointerover', () => fiftyBg.setFillStyle(this.theme.warning, 0.9));
     this.fiftyFiftyBtn.on('pointerout', () => fiftyBg.setFillStyle(this.theme.warning, 0.6));
-    this.fiftyFiftyBtn.on('pointerdown', () => this.useFiftyFifty());
+    // NOTE: per-container pointerdown removed — global handler handles 50/50 taps.
 
     // Skip button
     const skipBg = this.add.rectangle(0, 0, 100, 36, this.theme.cardAlt, 0.6)
@@ -182,7 +182,7 @@ export default class QuizScene extends BaseEngine {
       .setSize(100, 36).setInteractive({ useHandCursor: true }).setDepth(50);
     this.skipBtn.on('pointerover', () => skipBg.setFillStyle(this.theme.cardAlt, 0.9));
     this.skipBtn.on('pointerout', () => skipBg.setFillStyle(this.theme.cardAlt, 0.6));
-    this.skipBtn.on('pointerdown', () => this.useSkip());
+    // NOTE: per-container pointerdown removed — global handler handles Skip taps.
   }
 
   private renderRound() {
@@ -270,7 +270,7 @@ export default class QuizScene extends BaseEngine {
         bg.setFillStyle(this.theme.card, 0.92);
         bg.setStrokeStyle(2, this.theme.accent, 0.5);
       });
-      container.on('pointerdown', () => this.handleAnswer(container, i, r.correctIndex, opt));
+      // NOTE: per-container pointerdown removed — global handler handles answer taps.
 
       // Entrance animation: slide in from below
       container.setAlpha(0).setY(cy + 30);

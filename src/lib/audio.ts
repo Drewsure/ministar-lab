@@ -57,7 +57,7 @@ class AudioBus {
 
   play(name: SfxName, opts: { freq?: number; duration?: number } = {}) {
     if (!this.enabled) return;
-    if (!this.ctx) {
+    if (!this.ctx || !this.master) {
       // Audio requires a user gesture — queue for init
       if (this.queued.length < 6) this.queued.push(name);
       return;
@@ -98,7 +98,7 @@ class AudioBus {
     gain.gain.exponentialRampToValueAtTime(p.gain ?? 0.25, now + 0.005);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
     osc.connect(gain);
-    gain.connect(this.master!);
+    try { gain.connect(this.master); } catch { return; }
     osc.start(now);
     osc.stop(now + dur + 0.02);
   }
@@ -220,6 +220,17 @@ class AudioBus {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
+  }
+
+  /** Enable / disable text-to-speech globally (toggled from UI) */
+  setTTSEnabled(enabled: boolean) {
+    this.ttsEnabled = enabled;
+    if (!enabled) this.stopSpeaking();
+  }
+
+  /** Whether TTS is currently enabled */
+  isTTSEnabled() {
+    return this.ttsEnabled;
   }
 
   // ===========================================================================

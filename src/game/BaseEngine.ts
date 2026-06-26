@@ -69,8 +69,28 @@ export abstract class BaseEngine extends Phaser.Scene {
   }
 
   create() {
+    // CRASH GUARD: if init() didn't receive a config, theme is undefined.
+    // This happens when Phaser auto-starts a scene before GameCanvas sets
+    // the registry. Bail out gracefully instead of crashing on this.theme.bg.
+    if (!this.theme) {
+      console.error('[MiniStar] BaseEngine.create: no theme — scene aborted');
+      // Try to recover from registry one more time
+      const cfg = this.registry.get('launchConfig') as GameLaunchConfig | undefined;
+      if (cfg?.theme) {
+        this.theme = cfg.theme as unknown as ThemeManifest;
+        this.terms = cfg.terms ?? [];
+      } else {
+        this.scene.stop();
+        return;
+      }
+    }
+
     // Build the theme atlas (procedural texture pack)
-    ThemeAtlas.build(this, this.theme);
+    try {
+      ThemeAtlas.build(this, this.theme);
+    } catch (e) {
+      console.error('[MiniStar] ThemeAtlas.build error:', e);
+    }
 
     // Paint background — use camera background color (more reliable than generated texture)
     this.cameras.main.setBackgroundColor(this.theme.bg);
@@ -138,10 +158,14 @@ export abstract class BaseEngine extends Phaser.Scene {
 
     // HUD loop
     this.events.on('update', () => {
-      if (this.isFinished) return;
-      const { remainingMs } = this.hud.tick(this.score, this.streak, this.maxScore);
-      this.onTick(remainingMs);
-      if (remainingMs <= 0) this.finishGame(false);
+      try {
+        if (this.isFinished) return;
+        const { remainingMs } = this.hud.tick(this.score, this.streak, this.maxScore);
+        this.onTick(remainingMs);
+        if (remainingMs <= 0) this.finishGame(false);
+      } catch (e) {
+        console.error('[MiniStar] Update loop error:', e);
+      }
     });
   }
 
@@ -186,6 +210,11 @@ export abstract class BaseEngine extends Phaser.Scene {
     success: boolean;
     coordinate?: { x: number; y: number; t: number };
   }) {
+    // CRASH GUARD: if juice/hud aren't initialized (scene still booting), bail
+    if (!this.juice || !this.hud) {
+      console.warn('[MiniStar] recordAnswer called before scene ready — skipping');
+      return;
+    }
     const actor = getActor();
     const ev = makeAnsweredEvent({
       actor,
@@ -288,7 +317,7 @@ export abstract class BaseEngine extends Phaser.Scene {
     });
 
     // Pause world, dim overlay, show result panel
-    this.physics.world.pause();
+    try { this.physics.world.pause(); } catch {}
     const overlay = this.add.rectangle(
       this.scale.width / 2, this.scale.height / 2,
       this.scale.width, this.scale.height,
@@ -307,16 +336,18 @@ export abstract class BaseEngine extends Phaser.Scene {
 
     if (isQuarantined) {
       audioBus.play('quarantine');
-      this.juice.shake('heavy');
+      try { this.juice.shake('heavy'); } catch {}
     } else if (won) {
-      this.hud.celebrate();
-      this.juice.burst(this.scale.width / 2, this.scale.height / 2, 'win');
-      // AAA 2029 — confetti rain + zoom punch on win
-      this.juice.confettiRain(2500);
-      this.juice.zoomPunch(1.06, 400);
-      this.juice.glowRing(this.scale.width / 2, this.scale.height / 2, this.theme.success, 200);
+      try { this.hud.celebrate(); } catch {}
+      try {
+        this.juice.burst(this.scale.width / 2, this.scale.height / 2, 'win');
+        // AAA 2029 — confetti rain + zoom punch on win
+        this.juice.confettiRain(2500);
+        this.juice.zoomPunch(1.06, 400);
+        this.juice.glowRing(this.scale.width / 2, this.scale.height / 2, this.theme.success, 200);
+      } catch {}
     } else {
-      this.hud.sad();
+      try { this.hud.sad(); } catch {}
     }
 
     const title = isQuarantined
@@ -440,7 +471,14 @@ export abstract class BaseEngine extends Phaser.Scene {
     btn2.on('pointerout', () => btn2.setScale(1));
     btn2.on('pointerdown', () => {
       audioBus.play('tap');
-      // Destroy the game — the React layer will show the library
+      // Tell React to exit the game canvas and show the library.
+      // We dispatch a window event that GameCanvas listens for.
+      try {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('ministar-exit-game'));
+        }
+      } catch {}
+      // Destroy the Phaser game
       this.game.destroy(true);
     });
 
@@ -521,27 +559,31 @@ export abstract class BaseEngine extends Phaser.Scene {
   }
 
   protected showLevelUp() {
-    if (!this.levelBadge) return;
-    // Update badge text
-    this.levelBadge.setText(`LEVEL ${this.level}`);
-    // ESC: speak the level up
-    audioBus.speak(`Level ${this.level}!`); // User earned this — speak it
-    // Big celebration: zoom punch + glow ring + confetti + scale pulse
-    this.juice.zoomPunch(1.08, 400);
-    this.juice.glowRing(this.scale.width / 2, this.scale.height / 2, this.theme.warning, 200);
-    this.juice.confettiRain(1500);
-    this.juice.scorePopup(
-      this.scale.width / 2,
-      this.scale.height / 2 - 50,
-      `LEVEL ${this.level}!`,
-      this.theme.warning
-    );
-    // Pulse the badge
-    this.tweens.add({
-      targets: [this.levelBadge, this.levelBg],
-      scale: { from: 1, to: 1.3 },
-      duration: 200, yoyo: true, repeat: 2, ease: 'Back.out',
-    });
+    if (!this.levelBadge || !this.juice) return;
+    try {
+      // Update badge text
+      this.levelBadge.setText(`LEVEL ${this.level}`);
+      // ESC: speak the level up
+      audioBus.speak(`Level ${this.level}!`); // User earned this — speak it
+      // Big celebration: zoom punch + glow ring + confetti + scale pulse
+      this.juice.zoomPunch(1.08, 400);
+      this.juice.glowRing(this.scale.width / 2, this.scale.height / 2, this.theme.warning, 200);
+      this.juice.confettiRain(1500);
+      this.juice.scorePopup(
+        this.scale.width / 2,
+        this.scale.height / 2 - 50,
+        `LEVEL ${this.level}!`,
+        this.theme.warning
+      );
+      // Pulse the badge
+      this.tweens.add({
+        targets: [this.levelBadge, this.levelBg],
+        scale: { from: 1, to: 1.3 },
+        duration: 200, yoyo: true, repeat: 2, ease: 'Back.out',
+      });
+    } catch (e) {
+      console.error('[MiniStar] showLevelUp error:', e);
+    }
   }
 
   // ===========================================================================

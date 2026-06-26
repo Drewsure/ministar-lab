@@ -111,7 +111,8 @@ export default class TrainingAcademyScene extends BaseEngine {
       coordinate: { x: this.scale.width / 2, y: this.scale.height / 2, t: this.time.now } });
     if (isCorrect) { this.statusText.setText('✓ Perfect!'); this.statusText.setColor(this.hex(this.theme.success)); this.animateMascot(this.currentCommand.action); audioBus.speak(this.currentCommand.text); }
     else { this.statusText.setText(`✗ You said "${heard}". Say "${this.currentCommand.text}"`); this.statusText.setColor(this.hex(this.theme.danger)); audioBus.speak(this.currentCommand.text); }
-    this.round++; setTimeout(() => this.nextCommand(), 2500);
+    this.round++;
+    this.time.delayedCall(2500, () => { if (!this.isFinished) this.nextCommand(); });
   }
 
   private animateMascot(action: string) {

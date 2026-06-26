@@ -73,6 +73,21 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
   const gameRef = useRef<Phaser.Game | null>(null);
   const loadedScenesRef = useRef<Set<string>>(new Set());
 
+  // Listen for "New Game" button presses from inside the Phaser game.
+  // The BaseEngine's finishGame() screen has a "New Game" button that
+  // dispatches this event. Without it, React never knows the user wants
+  // to exit, and the canvas goes blank (stuck state).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleExit = () => {
+      onExit?.();
+    };
+    window.addEventListener('ministar-exit-game', handleExit);
+    return () => {
+      window.removeEventListener('ministar-exit-game', handleExit);
+    };
+  }, [onExit]);
+
   useEffect(() => {
     if (!config || !containerRef.current) {
       return;
@@ -146,6 +161,9 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
       // AAAA — After game boots, add the scene under the correct key and start it
       game.events.once('ready', () => {
         try {
+          // Guard: check if the game was destroyed by cleanup before 'ready' fired
+          if (cancelled || !gameRef.current || gameRef.current !== game) return;
+
           // Make the canvas focusable + responsive right after boot
           const canvas = container.querySelector('canvas');
           if (canvas) {

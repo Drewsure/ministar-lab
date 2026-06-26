@@ -88,6 +88,10 @@ export default class WhackAMoleScene extends BaseEngine {
       }
     }
 
+    if (this.terms.length === 0) {
+      this.finishGame(false);
+      return;
+    }
     this.activePrompt = this.terms[0];
     this.updatePrompt();
 

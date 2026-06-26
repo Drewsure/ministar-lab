@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "MiniStar English Global Lab — Living Textbook",
-  description: "AAA 2029 white-label PWA learning portal. 11 physics-driven vocabulary games, AI authoring, xAPI anti-cheat telemetry, and four immersive theme worlds.",
-  keywords: ["MiniStar", "English", "ESL", "vocabulary", "games", "PWA", "white-label", "Phaser", "xAPI"],
+  description: "AAA 2029 white-label PWA learning portal. 24 physics-driven vocabulary games, AI authoring, xAPI anti-cheat telemetry, and immersive theme worlds.",
+  keywords: ["MiniStar", "English", "ESL", "vocabulary", "games", "PWA", "white-label", "Phaser", "xAPI", "Living Textbook"],
   authors: [{ name: "MiniStar Lab" }],
   manifest: "/manifest.json",
   icons: {
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "MiniStar English Global Lab",
-    description: "Living Textbook — AAA 2029 white-label PWA learning portal",
+    description: "Living Textbook — AAA 2029 white-label PWA learning portal with 24 games",
     type: "website",
   },
 };

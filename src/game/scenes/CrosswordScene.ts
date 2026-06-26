@@ -18,7 +18,7 @@ interface PlacedEntry {
   dir: 'across' | 'down';
   number: number;
   clue: string;
-  cells: { r: number; c: number }[];
+  cells: { r: number; c: number; letter: string }[];
   solved: boolean;
 }
 
@@ -33,6 +33,7 @@ interface GridCell {
 interface CellPos {
   r: number;
   c: number;
+  letter: string;
 }
 
 export default class CrosswordScene extends BaseEngine {
@@ -163,7 +164,7 @@ export default class CrosswordScene extends BaseEngine {
     const firstCells: CellPos[] = [];
     for (let i = 0; i < first.word.length; i++) {
       sparse.set(`0,${i}`, first.word[i]);
-      firstCells.push({ r: 0, c: i });
+      firstCells.push({ r: 0, c: i, letter: first.word[i] });
       maxC.v = Math.max(maxC.v, i);
     }
     placed.push({
@@ -213,7 +214,7 @@ export default class CrosswordScene extends BaseEngine {
           const r = bestPos.dir === 'across' ? bestPos.row : bestPos.row + i;
           const c = bestPos.dir === 'across' ? bestPos.col + i : bestPos.col;
           sparse.set(`${r},${c}`, term.word[i]);
-          cells.push({ r, c });
+          cells.push({ r, c, letter: term.word[i] });
           minR.v = Math.min(minR.v, r);
           maxR.v = Math.max(maxR.v, r);
           minC.v = Math.min(minC.v, c);
@@ -242,7 +243,7 @@ export default class CrosswordScene extends BaseEngine {
     for (const entry of placed) {
       entry.row = normRow(entry.row);
       entry.col = normCol(entry.col);
-      entry.cells = entry.cells.map(c => ({ r: normRow(c.r), c: normCol(c.c) }));
+      entry.cells = entry.cells.map(c => ({ r: normRow(c.r), c: normCol(c.c), letter: c.letter }));
       for (const cell of entry.cells) {
         this.grid[cell.r][cell.c].letter = sparse.get(`${cell.r + minR.v},${cell.c + minC.v}`) ?? '';
         this.grid[cell.r][cell.c].owner = entry;
@@ -310,7 +311,7 @@ export default class CrosswordScene extends BaseEngine {
           .setStrokeStyle(1.5, this.theme.accent, 0.5)
           .setInteractive({ useHandCursor: true })
           .setDepth(10);
-        rect.on('pointerdown', () => this.selectCell(r, c));
+        // NOTE: per-rect pointerdown removed — global handler handles cell taps.
 
         const text = this.add.text(x, y, '', {
           fontFamily: 'Inter, sans-serif',
@@ -319,7 +320,7 @@ export default class CrosswordScene extends BaseEngine {
           fontStyle: 'bold',
         }).setOrigin(0.5).setDepth(11);
         text.setInteractive({ useHandCursor: true });
-        text.on('pointerdown', () => this.selectCell(r, c));
+        // NOTE: per-text pointerdown removed — global handler handles cell taps.
 
         // Number label
         const owner = cell.owner;
@@ -365,7 +366,7 @@ export default class CrosswordScene extends BaseEngine {
           .setInteractive({ useHandCursor: true });
         container.on('pointerover', () => { bg.setFillStyle(this.theme.cardAlt, 1); audioBus.play('hover'); });
         container.on('pointerout', () => bg.setFillStyle(this.theme.card, 0.9));
-        container.on('pointerdown', () => this.typeLetter(letter));
+        // NOTE: per-container pointerdown removed — global handler handles letter taps.
         this.keyboardKeys.push(container);
       }
     });
@@ -379,7 +380,7 @@ export default class CrosswordScene extends BaseEngine {
     }).setOrigin(0.5);
     const bsBtn = this.add.container(this.scale.width / 2 - 50, kbY2, [bsBg, bsTxt])
       .setSize(80, btnSize).setInteractive({ useHandCursor: true });
-    bsBtn.on('pointerdown', () => this.deleteLetter());
+    // NOTE: per-container pointerdown removed — global handler handles DEL taps.
     this.keyboardKeys.push(bsBtn);
   }
 

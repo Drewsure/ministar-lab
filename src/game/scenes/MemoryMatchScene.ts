@@ -170,7 +170,9 @@ export default class MemoryMatchScene extends BaseEngine {
           });
         }
       });
-      container.on('pointerdown', () => this.flipCard(card));
+      // NOTE: per-container pointerdown removed — the global handler in
+      // setupGlobalPointer handles card flips. Double-listening caused
+      // flipCard() to fire twice on a single tap, instantly un-flipping cards.
 
       // Shuffle animation: fly in from random off-screen position
       const angle = Math.random() * Math.PI * 2;

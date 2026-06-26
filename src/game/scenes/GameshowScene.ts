@@ -290,7 +290,7 @@ export default class GameshowScene extends BaseEngine {
         bg.setFillStyle(this.theme.card, 0.95);
         bg.setStrokeStyle(3, btnColors[i], 0.7);
       });
-      container.on('pointerdown', () => this.handleAnswer(container, i, r.correctIndex, opt));
+      // NOTE: per-container pointerdown removed — global handler handles answer taps.
 
       // Dramatic entrance: drop from above
       container.setAlpha(0).setY(cy - 60);
