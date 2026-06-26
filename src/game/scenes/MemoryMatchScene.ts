@@ -128,7 +128,19 @@ export default class MemoryMatchScene extends BaseEngine {
         wordWrap: { width: cardW - 10 },
       }).setOrigin(0.5).setVisible(false);
 
-      const container = this.add.container(x, y, [back, front, label])
+      // AAAA — Number badge on each card for verbal identification in online classes
+      const numBg = this.add.circle(-cardW / 2 + 14, -cardH / 2 + 14, 12, this.theme.accent, 0.9)
+        .setStrokeStyle(1.5, 0xffffff, 0.6);
+      const numText = this.add.text(-cardW / 2 + 14, -cardH / 2 + 14, String(i + 1), {
+        fontFamily: 'Inter, sans-serif',
+        fontSize: '13px',
+        color: '#ffffff',
+        fontStyle: 'bold',
+      }).setOrigin(0.5);
+      // Make number badge speakable — tap to hear "Card N"
+      numText.setData('speakText', `Card ${i + 1}`);
+
+      const container = this.add.container(x, y, [back, front, label, numBg, numText])
         .setSize(cardW, cardH).setInteractive({ useHandCursor: true });
 
       const card: Card = {

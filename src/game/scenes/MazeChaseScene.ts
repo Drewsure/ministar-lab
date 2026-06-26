@@ -84,23 +84,20 @@ export default class MazeChaseScene extends BaseEngine {
     this.mazeOffsetX = (this.scale.width - COLS * CELL) / 2;
     this.mazeOffsetY = HUD_HEIGHT + 10;
 
-    // Prompt — moved DOWN to avoid overlapping with level badge (which is now top-left)
+    // Prompt + compass
     this.promptText = this.add.text(
-      this.scale.width / 2, 75,
+      this.scale.width / 2, 70,
       'Collect the correct answer!',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '20px',
-        color: this.hex(this.theme.warning),
+        fontSize: '25px',
+        color: this.hex(this.theme.text),
         fontStyle: 'bold',
-        stroke: '#000000',
-        strokeThickness: 3,
       }
     ).setOrigin(0.5).setDepth(50);
-    this.makeSpeakable(this.promptText, 'Tap to hear what to find');
 
     this.compassArrow = this.add.text(
-      this.scale.width / 2, 100,
+      this.scale.width / 2, 96,
       '↑',
       {
         fontFamily: 'Inter, sans-serif',
@@ -420,31 +417,26 @@ export default class MazeChaseScene extends BaseEngine {
     const px = this.mazeOffsetX + cell.x * CELL + CELL / 2;
     const py = this.mazeOffsetY + cell.y * CELL + CELL / 2;
 
-    // AAAA — Pac-Man style ghost: emoji that chases the player
-    const ghostEmojis = ['👻', '👹', '👺', '💀'];
-    const ghostEmoji = ghostEmojis[Math.floor(Math.random() * ghostEmojis.length)];
-    const enemy = this.add.text(px, py, ghostEmoji, { fontSize: '32px' })
-      .setOrigin(0.5).setDepth(15);
-    enemy.setData('emoji', ghostEmoji);
+    const enemyKey = 'particle-' + this.theme.id;
+    const enemy = this.add.image(px, py, enemyKey);
+    enemy.setTint(this.theme.danger);
+    enemy.setDisplaySize(34, 34);
+    enemy.setDepth(15);
 
-    // Pulsing red aura
-    const aura = this.add.circle(px, py, 22, this.theme.danger, 0.25)
+    // Pulsing red glow
+    const aura = this.add.circle(px, py, 20, this.theme.danger, 0.22)
       .setDepth(14);
     this.tweens.add({
       targets: aura,
       scale: { from: 0.9, to: 1.3 },
-      alpha: { from: 0.3, to: 0 },
+      alpha: { from: 0.25, to: 0 },
       duration: 600, repeat: -1, ease: 'Sine.out',
     });
     enemy.setData('aura', aura);
 
-    // AAAA — Ghost personality (0=chaser, 1=ambusher, 2=patrol, 3=scared)
-    const personality = Math.floor(Math.random() * 4);
-    enemy.setData('personality', personality);
-
     this.physics.add.existing(enemy);
     const body = enemy.body as Phaser.Physics.Arcade.Body;
-    body.setCircle(16, 0, 0)
+    body.setCircle(17, 0, 0)
         .setAllowGravity(false)
         .setCollideWorldBounds(true);
     body.setBoundsRectangle(
@@ -465,7 +457,7 @@ export default class MazeChaseScene extends BaseEngine {
     this.enemiesGroup.add(enemy);
   }
 
-  private updateEnemyAI(enemy: Phaser.GameObjects.Text) {
+  private updateEnemyAI(enemy: Phaser.GameObjects.Image) {
     if (!enemy.active || this.isFinished) return;
     const body = enemy.body as Phaser.Physics.Arcade.Body;
     if (!body) return;
@@ -579,7 +571,7 @@ export default class MazeChaseScene extends BaseEngine {
       term: 'enemy',
       response: 'enemy-collision',
       success: false,
-      coordinate: { x: (enemy as Phaser.GameObjects.Text).x, y: (enemy as Phaser.GameObjects.Text).y, t: this.time.now },
+      coordinate: { x: (enemy as Phaser.GameObjects.Image).x, y: (enemy as Phaser.GameObjects.Image).y, t: this.time.now },
     });
 
     // Hit-stop: brief physics freeze for impact
@@ -711,8 +703,10 @@ export default class MazeChaseScene extends BaseEngine {
 
     const now = Date.now();
     const boosted = now < this.speedBoostUntil;
-    const baseSpeed = this.lod.isMobile ? 220 : 280;
-    const speed = boosted ? baseSpeed * 1.55 : baseSpeed;
+    const baseSpeed = this.lod.isMobile ? 110 : 140;
+    const levelSpeed = baseSpeed + (this.level - 1) * 20;
+    const speed = boosted ? levelSpeed * 1.55 : levelSpeed;
+    
     // Pixels per frame (assuming ~60fps, delta ~16.67ms)
     const moveAmount = speed * (delta / 1000);
 

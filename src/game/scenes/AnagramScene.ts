@@ -203,7 +203,11 @@ export default class AnagramScene extends BaseEngine {
       bg.setFillStyle(this.theme.card, 0.95);
       this.tweens.add({ targets: container, scale: 1, duration: 100, ease: 'Quad.out' });
     });
-    container.on('pointerdown', () => this.tapTile(letter, originalIndex));
+    // NOTE: Do NOT add per-container pointerdown listener.
+    // The global pointer handler in setupGlobalPointer handles all taps.
+    // Adding per-container listeners causes DOUBLE FIRING (global + container)
+    // which places the same letter twice → "appll" instead of "apple".
+    //   // REMOVED
 
     return { letter, originalIndex, sprite: container, bg, glow, placed: false };
   }
