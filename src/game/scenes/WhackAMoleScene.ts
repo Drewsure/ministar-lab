@@ -95,8 +95,11 @@ export default class WhackAMoleScene extends BaseEngine {
     this.createHammer();
 
     // ---- Spawn loop ----
+    // AAAA — Mole spawn rate: SLOWER at start (1.8s), gets faster per level
+    // Level 1=1.8s, Level 2=1.5s, Level 3=1.2s, Level 4=1.0s, Level 5=0.8s
+    const spawnDelay = Math.max(700, 1800 - (this.level - 1) * 300);
     this.spawnTimer = this.time.addEvent({
-      delay: 1000, loop: true,
+      delay: spawnDelay, loop: true,
       callback: this.spawnMole,
       callbackScope: this,
     });
@@ -225,7 +228,9 @@ export default class WhackAMoleScene extends BaseEngine {
     container.on('pointerdown', () => this.whack(hole, mole));
 
     // Auto retreat after 1.8s
-    this.time.delayedCall(1800, () => {
+    // AAAA — Mole stay-up time: LONGER at start (3s), gets shorter per level
+    const stayTime = Math.max(1200, 3000 - (this.level - 1) * 400);
+    this.time.delayedCall(stayTime, () => {
       if (mole.active) this.retreat(hole, mole);
     });
   }

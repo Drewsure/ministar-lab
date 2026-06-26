@@ -3,70 +3,128 @@ import { BaseEngine } from '../BaseEngine';
 import { audioBus } from '../../lib/audio';
 import type { TermItem } from '../../lib/types';
 
-// EndlessRunner — Arcade Game
-export default class EndlessRunnerScene extends BaseEngine {
-  private promptText!: Phaser.GameObjects.Text;
-  private promptBg!: Phaser.GameObjects.Rectangle;
-  private canAnswer = true;
+// ENDLESS RUNNER — 3 lanes, switch to hit correct word, speed ramps per level
 
-  protected maxQuestions() { return Math.min(this.terms.length, 8); }
+export default class EndlessRunnerScene extends BaseEngine {
+  private player!: Phaser.GameObjects.Text;
+  private playerLane = 1;
+  private laneX = [200, 400, 600];
+  private currentPrompt?: { term: TermItem; options: TermItem[]; correctLane: number; y: number };
+  private speed = 60;
+  private strikes = 0;
+  private maxStrikes = 3;
+  private distance = 0;
+  private promptBg!: Phaser.GameObjects.Rectangle;
+  private promptText!: Phaser.GameObjects.Text;
+  private strikesText!: Phaser.GameObjects.Text;
+  private distanceText!: Phaser.GameObjects.Text;
+  private optionTexts: Phaser.GameObjects.Text[] = [];
+
+  protected maxQuestions() { return 15; }
 
   protected buildWorld() {
-    this.add.text(this.scale.width / 2, 100, 'EndlessRunner', {
+    this.add.text(this.scale.width / 2, 105, 'Endless Runner', {
       fontFamily: 'Inter, sans-serif', fontSize: '28px', color: this.hex(this.theme.accent), fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(50);
 
-    this.promptBg = this.add.rectangle(this.scale.width / 2, 160, 600, 50, this.theme.card, 0.85)
+    this.promptBg = this.add.rectangle(this.scale.width / 2, 170, 700, 60, this.theme.card, 0.85)
       .setStrokeStyle(2, this.theme.accent, 0.6).setDepth(48);
-    this.promptText = this.add.text(this.scale.width / 2, 160, 'Game loading...', {
+    this.promptText = this.add.text(this.scale.width / 2, 170, '', {
       fontFamily: 'Inter, sans-serif', fontSize: '18px', color: this.hex(this.theme.text), fontStyle: 'bold',
+      align: 'center', wordWrap: { width: 660 },
     }).setOrigin(0.5).setDepth(49);
     this.makeSpeakable(this.promptText);
 
-    const pool = [...this.terms];
-    Phaser.Utils.Array.Shuffle(pool);
-    const roundTerms = pool.slice(0, Math.min(6, pool.length));
+    this.strikesText = this.add.text(20, 220, '❤❤❤', { fontFamily: 'Inter, sans-serif', fontSize: '20px' }).setDepth(50);
+    this.distanceText = this.add.text(this.scale.width - 20, 220, '0m', {
+      fontFamily: 'Inter, sans-serif', fontSize: '20px', color: this.hex(this.theme.warning), fontStyle: 'bold',
+    }).setOrigin(1, 0).setDepth(50);
 
-    // Display terms as tappable buttons
-    const btnW = 200, btnH = 50, gap = 12;
-    const cols = Math.min(roundTerms.length, 3);
-    const totalW = cols * btnW + (cols - 1) * gap;
-    const startX = (this.scale.width - totalW) / 2 + btnW / 2;
-    const startY = 300;
+    this.player = this.add.text(this.laneX[this.playerLane], this.scale.height - 80, '🏃', { fontSize: '40px' }).setOrigin(0.5).setDepth(100);
+    const glow = this.add.circle(this.laneX[this.playerLane], this.scale.height - 40, 30, this.theme.accent, 0.3)
+      .setStrokeStyle(2, this.theme.accent, 0.6).setDepth(99);
+    this.tweens.add({ targets: glow, scale: { from: 1, to: 1.2 }, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    this.events.on('update', () => { glow.x = this.laneX[this.playerLane]; });
 
-    roundTerms.forEach((term, i) => {
-      const cx = startX + (i % cols) * (btnW + gap);
-      const cy = startY + Math.floor(i / cols) * (btnH + gap + 20);
-      const bg = this.add.rectangle(0, 0, btnW, btnH, this.theme.card, 0.9).setStrokeStyle(2, this.theme.accent, 0.6);
-      const txt = this.add.text(0, 0, `${term.emoji ?? ''} ${term.term}`.trim(), {
-        fontFamily: 'Inter, sans-serif', fontSize: '18px', color: this.hex(this.theme.text), fontStyle: 'bold',
-      }).setOrigin(0.5);
-      txt.setData('speakText', term.term);
-      const container = this.add.container(cx, cy, [bg, txt]).setSize(btnW, btnH).setDepth(40);
-      this.tweens.add({ targets: container, scale: { from: 0, to: 1 }, duration: 300, delay: i * 80, ease: 'Back.out' });
+    this.input.keyboard?.on('keydown-LEFT', () => this.switchLane(-1));
+    this.input.keyboard?.on('keydown-RIGHT', () => this.switchLane(1));
+    this.input.keyboard?.on('keydown-A', () => this.switchLane(-1));
+    this.input.keyboard?.on('keydown-D', () => this.switchLane(1));
+
+    this.setupGlobalPointer((x, y) => {
+      if (x < this.scale.width / 2) this.switchLane(-1); else this.switchLane(1);
     });
 
-    this.promptText.setText('Tap the correct answer!');
-    this.setupGlobalPointer((x, y) => {
-      if (!this.canAnswer) return;
-      for (let i = 0; i < roundTerms.length; i++) {
-        // Check each button position
-        const cx = startX + (i % cols) * (btnW + gap);
-        const cy = startY + Math.floor(i / cols) * (btnH + gap + 20);
-        if (Math.abs(x - cx) < btnW / 2 && Math.abs(y - cy) < btnH / 2) {
-          const term = roundTerms[i];
-          const isCorrect = i === 0;
-          this.recordAnswer({ term: roundTerms[0].term, response: term.term, success: isCorrect,
-            coordinate: { x: cx, y: cy, t: this.time.now } });
-          if (isCorrect) { audioBus.play('correct'); this.juice.burst(cx, cy, 'correct'); }
-          else { audioBus.play('incorrect'); this.juice.shake('medium'); }
-          this.canAnswer = false;
-          setTimeout(() => { this.canAnswer = true; }, 500);
-          break;
-        }
-      }
+    this.spawnNextPrompt();
+  }
+
+  protected onTick(_remainingMs: number) {
+    if (this.isFinished || !this.currentPrompt) return;
+    this.currentPrompt.y += this.speed * 0.016;
+    this.optionTexts.forEach((t, i) => { if (t) t.y = this.currentPrompt!.y; });
+    if (this.currentPrompt.y >= this.scale.height - 100) this.checkAnswer();
+    this.distance += this.speed * 0.016 * 0.1;
+    this.distanceText.setText(`${Math.floor(this.distance)}m`);
+    this.speed = Math.min(200, 60 + this.distance * 0.5);
+  }
+
+  private switchLane(dir: number) {
+    if (this.isFinished) return;
+    const newLane = this.playerLane + dir;
+    if (newLane < 0 || newLane > 2) return;
+    this.playerLane = newLane;
+    audioBus.play('tap');
+    this.tweens.add({ targets: this.player, x: this.laneX[this.playerLane], duration: 150, ease: 'Quad.out' });
+    this.player.setAngle(dir * 15);
+    this.time.delayedCall(150, () => this.player.setAngle(0));
+  }
+
+  private spawnNextPrompt() {
+    if (this.score >= this.maxScore) { this.finishGame(true); return; }
+    const prompt = this.terms[Math.floor(Math.random() * this.terms.length)];
+    const distractors = this.terms.filter(t => t.id !== prompt.id);
+    Phaser.Utils.Array.Shuffle(distractors);
+    const options = [prompt, ...distractors.slice(0, 2)];
+    Phaser.Utils.Array.Shuffle(options);
+    const correctLane = options.findIndex(o => o.id === prompt.id);
+    this.currentPrompt = { term: prompt, options, correctLane, y: 200 };
+
+    const def = prompt.definition ?? prompt.emoji ?? prompt.term;
+    this.promptText.setText(`Which word means: "${def}"?`);
+    this.promptText.setData('speakText', `Which word means: ${def}?`);
+    this.promptBg.setData('speakText', `Which word means: ${def}?`);
+
+    this.optionTexts.forEach(t => t?.destroy());
+    this.optionTexts = [];
+    this.currentPrompt.options.forEach((opt, i) => {
+      const t = this.add.text(this.laneX[i], this.currentPrompt!.y, `${opt.emoji ?? ''} ${opt.term}`.trim(), {
+        fontFamily: 'Inter, sans-serif', fontSize: '18px', color: this.hex(this.theme.text), fontStyle: 'bold',
+        backgroundColor: '#' + this.theme.card.toString(16).padStart(6, '0'), padding: { x: 12, y: 8 },
+      }).setOrigin(0.5).setDepth(40);
+      t.setData('speakText', opt.term);
+      this.optionTexts.push(t);
     });
   }
 
-  protected onTick(_remainingMs: number) {}
+  private checkAnswer() {
+    if (!this.currentPrompt) return;
+    const isCorrect = this.playerLane === this.currentPrompt.correctLane;
+    const opt = this.currentPrompt.options[this.playerLane];
+    this.recordAnswer({ term: this.currentPrompt.term.term, response: opt.term, success: isCorrect,
+      coordinate: { x: this.laneX[this.playerLane], y: this.currentPrompt.y, t: this.time.now } });
+    if (isCorrect) { this.destroyOptions(); this.spawnNextPrompt(); }
+    else {
+      this.strikes++;
+      this.strikesText.setText('❤'.repeat(this.maxStrikes - this.strikes) + '🖤'.repeat(this.strikes));
+      audioBus.play('incorrect'); this.juice.shake('medium');
+      if (this.strikes >= this.maxStrikes) { this.destroyOptions(); this.finishGame(false); }
+      else { this.destroyOptions(); this.spawnNextPrompt(); }
+    }
+  }
+
+  private destroyOptions() {
+    this.optionTexts.forEach(t => { if (t) this.tweens.add({ targets: t, alpha: 0, scale: 0.5, duration: 200, onComplete: () => t.destroy() }); });
+    this.optionTexts = [];
+    this.currentPrompt = undefined;
+  }
 }

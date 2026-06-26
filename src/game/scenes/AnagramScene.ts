@@ -65,7 +65,7 @@ export default class AnagramScene extends BaseEngine {
       this.scale.width / 2, 180, 'Your Answer',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '14px',
+        fontSize: '16px',
         color: this.hex(this.theme.textMuted),
       }
     ).setOrigin(0.5).setDepth(40);
@@ -203,11 +203,7 @@ export default class AnagramScene extends BaseEngine {
       bg.setFillStyle(this.theme.card, 0.95);
       this.tweens.add({ targets: container, scale: 1, duration: 100, ease: 'Quad.out' });
     });
-    // NOTE: Do NOT add per-container pointerdown listener.
-    // The global pointer handler in setupGlobalPointer handles all taps.
-    // Adding per-container listeners causes DOUBLE FIRING (global + container)
-    // which places the same letter twice → "appll" instead of "apple".
-    //   // REMOVED
+    container.on('pointerdown', () => this.tapTile(letter, originalIndex));
 
     return { letter, originalIndex, sprite: container, bg, glow, placed: false };
   }

@@ -40,7 +40,7 @@ export default class AirplaneScene extends BaseEngine {
   private spawnTimer?: Phaser.Time.TimerEvent;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
-  private speedMultiplier = 1;
+  private speedMultiplier = 0.6; // AAAA — Start SLOW (was 1.0), ramps to 2.5
   private catches = 0;
 
   protected maxQuestions() { return Math.min(this.terms.length, 8); }
@@ -181,7 +181,8 @@ export default class AirplaneScene extends BaseEngine {
     ];
     Phaser.Utils.Array.Shuffle(row);
 
-    const fallSpeed = (this.lod.isMobile ? 90 : 130) * this.speedMultiplier;
+    // AAAA — Banner fall speed: SLOWER at start, ramps with speedMultiplier
+    const fallSpeed = (this.lod.isMobile ? 60 : 80) * this.speedMultiplier;
 
     row.forEach((entry, i) => {
       const x = startX + i * (bannerW + gap);
@@ -199,7 +200,7 @@ export default class AirplaneScene extends BaseEngine {
       }).setOrigin(0.5);
       const label = this.add.text(0, -8, entry.term.term.slice(0, 12), {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '12px',
+        fontSize: '18px',
         color: '#ffffff',
         fontStyle: 'bold',
       }).setOrigin(0.5).setAlpha(0.8);
@@ -330,7 +331,8 @@ export default class AirplaneScene extends BaseEngine {
   // ===========================================================================
   update() {
     if (this.isFinished || !this.plane) return;
-    const baseSpeed = 340;
+    // AAAA — Plane speed: SLOWER at start (200 was too fast for level 1)
+    const baseSpeed = 200; // was 340
     const speed = baseSpeed * this.speedMultiplier;
     const pointer = this.input.activePointer;
 
