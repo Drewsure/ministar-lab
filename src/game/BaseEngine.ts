@@ -137,15 +137,11 @@ export abstract class BaseEngine extends Phaser.Scene {
     // TTS now only speaks when the user taps an interactive element.
 
     // HUD loop
-    this.events.on("update", () => {
-
-      try {
-
+    this.events.on('update', () => {
+      if (this.isFinished) return;
       const { remainingMs } = this.hud.tick(this.score, this.streak, this.maxScore);
       this.onTick(remainingMs);
-        if (remainingMs <= 0) this.finishGame(false);
-      } catch (e) { console.error("[MiniStar] Update loop error:", e); }
-    });
+      if (remainingMs <= 0) this.finishGame(false);
     });
   }
 
