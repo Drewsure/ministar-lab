@@ -874,9 +874,19 @@ export class Juice {
     }
   }
 
+  // Track active particle emitters to cap concurrency (prevents GPU overload freeze)
+  private activeEmitters: Phaser.GameObjects.Particles.ParticleEmitter[] = [];
+  private maxConcurrentEmitters = 5;
+
   burst(x: number, y: number, kind: 'correct' | 'incorrect' | 'streak' | 'win' = 'correct') {
     if (!this.alive()) return;
     try {
+      // CAP: If too many emitters active, destroy the oldest before creating new
+      while (this.activeEmitters.length >= this.maxConcurrentEmitters) {
+        const oldest = this.activeEmitters.shift();
+        if (oldest && oldest.active) { try { oldest.destroy(); } catch {} }
+      }
+
       const palette = this.theme.particles[kind === 'win' ? 'streak' : kind];
       if (!palette || palette.length === 0) return;
       const count = Math.round((kind === 'win' ? 50 : 24) * this.lod.particleMultiplier);
@@ -896,7 +906,12 @@ export class Juice {
         emitting: false,
       });
       emitter.explode(count);
-      this.scene.time.delayedCall(1100, () => { try { emitter.destroy(); } catch {} });
+      this.activeEmitters.push(emitter);
+      this.scene.time.delayedCall(1100, () => {
+        try { emitter.destroy(); } catch {}
+        const idx = this.activeEmitters.indexOf(emitter);
+        if (idx !== -1) this.activeEmitters.splice(idx, 1);
+      });
 
       if ((kind === 'streak' || kind === 'win') && this.lod.blendAdd) {
         const streakKey = 'streak-' + this.theme.id;
@@ -1262,7 +1277,13 @@ export class Hud {
     const sec = Math.floor(remainingMs / 1000);
     const mm = Math.floor(sec / 60);
     const ss = (sec % 60).toString().padStart(2, '0');
-    this.timerText.setText(`⏱ ${mm}:${ss}`);
+
+    // PERF: Only update timer text when the second changes (not every frame)
+    // setText() re-renders the text texture — calling it 60x/sec is wasteful
+    const newTimerStr = `⏱ ${mm}:${ss}`;
+    if (this.timerText.text !== newTimerStr) {
+      this.timerText.setText(newTimerStr);
+    }
 
     const isUrgent = remainingMs < this.initialTimeMs * 0.2;
     if (isUrgent && !this.lastUrgentTick) {
@@ -1274,10 +1295,18 @@ export class Hud {
       this.lastUrgentTick = false;
     }
 
-    this.scoreText.setText(`Score: ${score}/${maxScore}`);
-    // Combo multiplier display — shows x2, x3 etc. when on streak
+    // PERF: Only update score text when score changes
+    const newScoreStr = `Score: ${score}/${maxScore}`;
+    if (this.scoreText.text !== newScoreStr) {
+      this.scoreText.setText(newScoreStr);
+    }
+
+    // PERF: Only update streak text when streak changes
     const mult = streak >= 5 ? 3 : streak >= 3 ? 2 : 1;
-    this.streakText.setText(streak >= 3 ? `🔥${streak} x${mult}!` : `🔥 ${streak}`);
+    const newStreakStr = streak >= 3 ? `🔥${streak} x${mult}!` : `🔥 ${streak}`;
+    if (this.streakText.text !== newStreakStr) {
+      this.streakText.setText(newStreakStr);
+    }
     if (streak >= 3) {
       this.streakText.setColor('#' + this.theme.warning.toString(16).padStart(6, '0'));
       // Pulse the streak text on streak

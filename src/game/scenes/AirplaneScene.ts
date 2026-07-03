@@ -38,6 +38,9 @@ export default class AirplaneScene extends BaseEngine {
   private promptText!: Phaser.GameObjects.Text;
   private promptBg!: Phaser.GameObjects.Rectangle;
   private spawnTimer?: Phaser.Time.TimerEvent;
+  private obstacleTimer?: Phaser.Time.TimerEvent;
+  private obstacles: Phaser.GameObjects.Text[] = [];
+  private planeSlowUntil = 0;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
   private speedMultiplier = 0.6; // AAAA — Start SLOW (was 1.0), ramps to 2.5
@@ -120,6 +123,14 @@ export default class AirplaneScene extends BaseEngine {
       callbackScope: this,
     });
 
+    // DRAMA: Obstacle clouds — spawn every 2.5s, slow the plane on contact
+    // These are the "enemies" that create tension in the airplane game
+    this.obstacleTimer = this.time.addEvent({
+      delay: 2500, loop: true,
+      callback: this.spawnObstacleCloud,
+      callbackScope: this,
+    });
+
     // ---- Keyboard input (created ONCE) ----
     if (this.input.keyboard) {
       this.cursors = this.input.keyboard.createCursorKeys();
@@ -161,6 +172,35 @@ export default class AirplaneScene extends BaseEngine {
         this.cloudLayers.push(cloud);
       }
     }
+  }
+
+  // ===========================================================================
+  // DRAMA: Obstacle clouds — storm clouds that slow the plane on contact
+  // ===========================================================================
+  private spawnObstacleCloud() {
+    if (this.isFinished) return;
+    const x = Math.random() * (this.scale.width - 80) + 40;
+    const cloud = this.add.text(x, -40, '⛈️', {
+      fontFamily: 'Inter, sans-serif', fontSize: '40px',
+    }).setOrigin(0.5).setDepth(25);
+    this.obstacles.push(cloud);
+    // Fall down the screen
+    this.tweens.add({
+      targets: cloud,
+      y: this.scale.height + 40,
+      duration: 4000 + Math.random() * 2000,
+      ease: 'Linear',
+      onComplete: () => {
+        try { cloud.destroy(); } catch {}
+        this.obstacles = this.obstacles.filter(o => o !== cloud);
+      },
+    });
+    // Pulsing dark aura
+    this.tweens.add({
+      targets: cloud,
+      alpha: { from: 0.7, to: 1 },
+      duration: 400, yoyo: true, repeat: -1, ease: 'Sine.inOut',
+    });
   }
 
   // ===========================================================================
@@ -348,7 +388,27 @@ export default class AirplaneScene extends BaseEngine {
   private updateAirplane() {
     // AAAA — Plane speed: SLOWER at start (200 was too fast for level 1)
     const baseSpeed = 200; // was 340
-    const speed = baseSpeed * this.speedMultiplier;
+    let speed = baseSpeed * this.speedMultiplier;
+
+    // DRAMA: Check obstacle collisions — slow plane if hit
+    const now = Date.now();
+    if (now < this.planeSlowUntil) {
+      speed *= 0.3; // 70% slowdown when hit by obstacle
+    }
+    for (const obs of this.obstacles) {
+      if (!obs.active) continue;
+      const dist = Phaser.Math.Distance.Between(this.plane.x, this.plane.y, obs.x, obs.y);
+      if (dist < 35 && now >= this.planeSlowUntil) {
+        // Hit! Slow the plane for 1.5 seconds
+        this.planeSlowUntil = now + 1500;
+        audioBus.play('incorrect');
+        this.juice.shake('light');
+        // Visual feedback — flash the obstacle
+        this.tweens.add({ targets: obs, alpha: 0.3, duration: 200, yoyo: true });
+        break;
+      }
+    }
+
     const pointer = this.input.activePointer;
 
     let vx = 0;

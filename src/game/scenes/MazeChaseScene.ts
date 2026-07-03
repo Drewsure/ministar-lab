@@ -435,19 +435,28 @@ export default class MazeChaseScene extends BaseEngine {
     const py = this.mazeOffsetY + cell.y * CELL + CELL / 2;
 
     // Pac-Man-style ghost: body + eyes + pupil that tracks player
+    // ALL children added to container so they're destroyed together on round cleanup
     const ghostContainer = this.add.container(px, py);
     ghostContainer.setDepth(15);
+
+    // Pulsing red glow — CHILD of container (was separate, causing leak)
+    const aura = this.add.circle(0, 0, 22, this.theme.danger, 0.25);
+    aura.setDepth(-1); // behind body within container
+    ghostContainer.add(aura);
+    this.tweens.add({
+      targets: aura,
+      scale: { from: 0.9, to: 1.4 },
+      alpha: { from: 0.3, to: 0 },
+      duration: 500, repeat: -1, ease: 'Sine.out',
+    });
 
     // Ghost body (semicircle top + wavy bottom)
     const bodyGfx = this.add.graphics();
     const ghostColor = this.theme.danger;
     bodyGfx.fillStyle(ghostColor, 1);
     bodyGfx.beginPath();
-    // Top half-circle
     bodyGfx.arc(0, -2, 16, Math.PI, 0);
-    // Body sides
     bodyGfx.lineTo(16, 14);
-    // Wavy bottom (3 humps)
     bodyGfx.lineTo(10, 10);
     bodyGfx.lineTo(5, 14);
     bodyGfx.lineTo(0, 10);
@@ -470,20 +479,9 @@ export default class MazeChaseScene extends BaseEngine {
     ghostContainer.add(pupilL);
     ghostContainer.add(pupilR);
 
-    // Pulsing red glow
-    const aura = this.add.circle(px, py, 22, this.theme.danger, 0.25)
-      .setDepth(14);
-    this.tweens.add({
-      targets: aura,
-      scale: { from: 0.9, to: 1.4 },
-      alpha: { from: 0.3, to: 0 },
-      duration: 500, repeat: -1, ease: 'Sine.out',
-    });
-
     // Store pupil refs for tracking
     ghostContainer.setData('pupilL', pupilL);
     ghostContainer.setData('pupilR', pupilR);
-    ghostContainer.setData('aura', aura);
 
     this.physics.add.existing(ghostContainer);
     const body = ghostContainer.body as Phaser.Physics.Arcade.Body;
@@ -514,7 +512,7 @@ export default class MazeChaseScene extends BaseEngine {
   }
 
   private updateEnemyPupils(enemy: Phaser.GameObjects.Container) {
-    if (!enemy.active || this.isFinished) return;
+    if (!enemy.active || this.isFinished || !this.player || !this.player.active) return;
     const pupilL = enemy.getData('pupilL') as Phaser.GameObjects.Arc;
     const pupilR = enemy.getData('pupilR') as Phaser.GameObjects.Arc;
     if (!pupilL || !pupilR) return;

@@ -39,6 +39,9 @@ export abstract class BaseEngine extends Phaser.Scene {
   protected levelBadge?: Phaser.GameObjects.Text;
   protected levelBg?: Phaser.GameObjects.Rectangle;
   protected termsPerLevel = 3; // every 3 correct answers = level up
+  // DRAMA: Urgency vignette for time pressure (all 24 games)
+  protected urgencyVignette?: Phaser.GameObjects.Graphics;
+  protected urgencyActive = false;
 
   // Subclass contract
   protected abstract buildWorld(): void;
@@ -144,6 +147,13 @@ export abstract class BaseEngine extends Phaser.Scene {
       }
     ).setOrigin(0.5).setDepth(251);
 
+    // DRAMA: Urgency vignette — red pulsing border that activates when time < 20%
+    // This adds visible tension to ALL 24 Phaser games without per-scene code
+    this.urgencyVignette = this.add.graphics();
+    this.urgencyVignette.setDepth(400);
+    this.urgencyVignette.setVisible(false);
+    this.urgencyActive = false;
+
     // Wire global pause key (P)
     this.input.keyboard?.on('keydown-P', () => {
       if (this.scene.isPaused()) this.scene.resume();
@@ -197,8 +207,35 @@ export abstract class BaseEngine extends Phaser.Scene {
     audioBus.speak(instruction);
   }
 
-  protected onHudUpdate(_state: { score: number; streak: number; remainingMs: number }) {
-    // subclasses can override
+  protected onHudUpdate(state: { score: number; streak: number; remainingMs: number }) {
+    // DRAMA: Activate urgency vignette when time < 20% remaining
+    // This adds visible red pulsing border to ALL 24 games — dramatic tension
+    if (state.remainingMs < 60000 && !this.urgencyActive && !this.isFinished) {
+      // 60000ms = 1 minute (20% of 5-minute default timer)
+      this.urgencyActive = true;
+      if (this.urgencyVignette) {
+        this.urgencyVignette.setVisible(true);
+        // Pulsing red border
+        this.tweens.add({
+          targets: this.urgencyVignette,
+          alpha: { from: 0.3, to: 0.7 },
+          duration: 500, yoyo: true, repeat: -1, ease: 'Sine.inOut',
+        });
+      }
+      audioBus.play('countdown'); // urgency audio cue
+    }
+    // Redraw vignette each update (cheap — just 4 rectangles)
+    if (this.urgencyActive && this.urgencyVignette) {
+      const w = this.scale.width;
+      const h = this.scale.height;
+      const bw = 20; // border width
+      this.urgencyVignette.clear();
+      this.urgencyVignette.fillStyle(this.theme.danger, 0.5);
+      this.urgencyVignette.fillRect(0, 0, w, bw); // top
+      this.urgencyVignette.fillRect(0, h - bw, w, bw); // bottom
+      this.urgencyVignette.fillRect(0, 0, bw, h); // left
+      this.urgencyVignette.fillRect(w - bw, 0, bw, h); // right
+    }
   }
 
   // ------------------------------------------------------------------------
