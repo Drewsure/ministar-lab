@@ -362,7 +362,7 @@ export default class GameshowScene extends BaseEngine {
         // Green glow ring
         this.juice.glowRing(correctBtn.x, correctBtn.y, this.theme.success, 80);
         // Speak the correct answer
-        this.time.delayedCall(300, () => {
+        this.time.delayedCall(300, () => { if (this.isFinished) return;
           audioBus.speak(`The answer is ${this.rounds[this.round].options[correctIndex].term}`);
         });
         this.juice.shake('heavy');
@@ -372,7 +372,7 @@ export default class GameshowScene extends BaseEngine {
     }
 
     // Always advance to next round after delay (prevents freezing)
-    this.time.delayedCall(1200, () => {
+    this.time.delayedCall(1200, () => { if (this.isFinished) return;
       this.round++;
       this.renderRound();
     });

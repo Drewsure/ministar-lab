@@ -60,9 +60,10 @@ export default class EndlessRunnerScene extends BaseEngine {
 
   protected onTick(_remainingMs: number) {
     if (this.isFinished || !this.currentPrompt) return;
-    this.currentPrompt.y += this.speed * 0.016;
-    this.optionTexts.forEach((t, i) => { if (t) t.y = this.currentPrompt!.y; });
-    if (this.currentPrompt.y >= this.scale.height - 100) this.checkAnswer();
+    const cp = this.currentPrompt;
+    cp.y += this.speed * 0.016;
+    this.optionTexts.forEach((t) => { if (t) t.y = cp.y; });
+    if (cp.y >= this.scale.height - 100) this.checkAnswer();
     this.distance += this.speed * 0.016 * 0.1;
     this.distanceText.setText(`${Math.floor(this.distance)}m`);
     this.speed = Math.min(200, 60 + this.distance * 0.5);
@@ -76,7 +77,7 @@ export default class EndlessRunnerScene extends BaseEngine {
     audioBus.play('tap');
     this.tweens.add({ targets: this.player, x: this.laneX[this.playerLane], duration: 150, ease: 'Quad.out' });
     this.player.setAngle(dir * 15);
-    this.time.delayedCall(150, () => this.player.setAngle(0));
+    this.time.delayedCall(150, () => { if (!this.isFinished) this.player.setAngle(0); });
   }
 
   private spawnNextPrompt() {
@@ -96,8 +97,10 @@ export default class EndlessRunnerScene extends BaseEngine {
 
     this.optionTexts.forEach(t => t?.destroy());
     this.optionTexts = [];
-    this.currentPrompt.options.forEach((opt, i) => {
-      const t = this.add.text(this.laneX[i], this.currentPrompt!.y, `${opt.emoji ?? ''} ${opt.term}`.trim(), {
+    const cp = this.currentPrompt;
+    if (!cp) return;
+    cp.options.forEach((opt, i) => {
+      const t = this.add.text(this.laneX[i], cp.y, `${opt.emoji ?? ''} ${opt.term}`.trim(), {
         fontFamily: 'Inter, sans-serif', fontSize: '18px', color: this.hex(this.theme.text), fontStyle: 'bold',
         backgroundColor: '#' + this.theme.card.toString(16).padStart(6, '0'), padding: { x: 12, y: 8 },
       }).setOrigin(0.5).setDepth(40);

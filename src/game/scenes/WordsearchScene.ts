@@ -35,7 +35,7 @@ export default class WordsearchScene extends BaseEngine {
   private selecting = false;
   private selStart?: { r: number; c: number };
   private selEnd?: { r: number; c: number };
-  private selectionLine?: Phaser.GameObjects.Rectangle;
+  private selectionLine?: Phaser.GameObjects.Graphics;
   private wordsList: { term: TermItem; word: string; text: Phaser.GameObjects.Text }[] = [];
 
   protected maxQuestions() { return Math.min(this.terms.length, 6); }
@@ -253,8 +253,6 @@ export default class WordsearchScene extends BaseEngine {
     }
     return cells;
   }
-
-  private selectionLine?: Phaser.GameObjects.Graphics;
 
   private highlightSelection() {
     this.clearHighlight();

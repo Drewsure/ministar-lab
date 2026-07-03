@@ -259,13 +259,13 @@ export default class GroupSortScene extends BaseEngine {
       });
       // Green flash on bucket
       cat.bg.setFillStyle(this.theme.success, 0.4);
-      this.time.delayedCall(300, () => cat.bg.setFillStyle(this.theme.card, 0.7));
+      this.time.delayedCall(300, () => { if (!this.isFinished) cat.bg.setFillStyle(this.theme.card, 0.7); });
       this.juice.burst(droppedX, droppedY, 'correct');
       this.checkWin();
     } else {
       // Wrong bucket — red flash + bounce back
       cat.bg.setFillStyle(this.theme.danger, 0.4);
-      this.time.delayedCall(300, () => cat.bg.setFillStyle(this.theme.card, 0.7));
+      this.time.delayedCall(300, () => { if (!this.isFinished) cat.bg.setFillStyle(this.theme.card, 0.7); });
       this.juice.burst(droppedX, droppedY, 'incorrect');
       this.tweens.add({
         targets: sortTerm.container,

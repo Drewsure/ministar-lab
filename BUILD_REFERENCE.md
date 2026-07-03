@@ -2,9 +2,11 @@
 
 > **Purpose:** Living document. Updated every session with new learnings, environment details, gotchas, and constraints. Read this BEFORE starting any work.
 >
-> **Last updated:** 2026-07-03 (Session 3: Sentence Builder)
+> **Last updated:** 2026-07-03 (Session: AA Build Review Protocol embedded)
 > **Sandbox base path:** `/home/z/my-project`
 > **User repo path:** `C:\Users\User\ministar-lab`
+
+> **⚠️ MANDATORY:** Every build and every build review MUST follow the **AA_ENGINEERING_LEVEL_BUILD_REVIEW_PROTOCOL.md** (also saved as `AA_BUILD_REVIEW_PROTOCOL.md`). No exceptions. No bypassing. No "it's just a prototype" shortcuts. The protocol includes Phases 0-5 with Phase 4B (Production Readiness) and Phase 4C (Engagement/Polish) mandatory for any browser-shipping build.
 
 ---
 
@@ -282,6 +284,35 @@ npx tsc --noEmit --skipLibCheck   # TypeScript check (excludes examples/ and ski
 
 ## 7. SESSION LOG (append-only)
 
+### 2026-07-03 — Session: Quiz / True-False prototype (Prototype 04)
+
+**Delivered:**
+- Built Prototype 04: Quiz / True-False with start screen + 2 modes (Multiple Choice + True/False)
+- Question generator (`questions.js`) derives MC + TF questions from pedagogical_payload
+  - MC: "A cat says meow." → "Which word goes with: 'says meow'?" → answer: cat
+  - TF: "A cat says meow." → True version + "A dog says meow." (false version with swapped subject)
+- Verified both modes in headless browser — all 6 events fire correctly
+  - MC mode: game_started → round_shown (mc-0) → answer_submitted → answer_result → mastery_updated → round_shown (mc-1)
+  - TF mode: round_shown (tf-true-0) with "True or False: A cat says meow."
+- Wrote 7-section README with LivingTextbook Selection parent engine mapping
+- Updated `prototypes/README.md` index
+
+**Key design decisions:**
+- Start screen with mode selection (MC / TF) — each mode button has separate 🔊 listen button
+- Question generator is overrideable — host app can provide explicit questions array
+- `engine_id: "selection"` in unit_meta signals this belongs to the Selection parent engine family
+- Child-safe feedback: "That is right!" / "Not quite. Try again." — no shame language
+- Distractors deterministic (first 3 vocab words that aren't the answer, then shuffled)
+- TF false-statement generation: swaps subject with first different vocab word
+
+**Learned:**
+- Start screen with mode selection is a clean UX for multi-mode games
+- Question generation from target sentences works well for simple SVO sentences
+- The Selection engine family now has 3 prototypes (01, 03, 04) — good candidate for parent engine extraction
+- README's "Mapping to Selection Parent Engine" section documents the family relationship clearly
+
+**Pushed by user:** Pending
+
 ### 2026-07-03 — Session: Fill in the Blank prototype (Prototype 03)
 
 **Delivered:**
@@ -303,8 +334,12 @@ npx tsc --noEmit --skipLibCheck   # TypeScript check (excludes examples/ and ski
 - {blank} placeholder is a clean way to mark the missing word in target sentences
 - Answer derivation from audio_cues works well but requires the host app to provide matching sentence cues
 - Shame-free language is both a UI text concern AND a spoken audio concern
+- User ran `Start-Process` before downloading — need to make sure the download-extract-push-test order is clear in instructions
 
-**Pushed by user:** Pending
+**Pushed by user:** ✅ YES — commit `6e529f7` on `main` (2026-07-03)
+- 6 files changed, 1018 insertions(+), 2 deletions(-)
+- Prototype 03 + updated prototypes/README.md + updated BUILD_REFERENCE.md all live
+- User verified by opening the prototype in browser via `Start-Process`
 
 ### 2026-07-03 — Session: Sentence Builder prototype + framework extension
 
@@ -382,17 +417,19 @@ npx tsc --noEmit --skipLibCheck   # TypeScript check (excludes examples/ and ski
 
 When starting a new session:
 1. **Read this file first** (`BUILD_REFERENCE.md`)
-2. **Read `DEPLOY_PROCEDURE.md`** for the delivery procedure
-3. **Check the session log** (section 7) for recent context
-4. **Clean up ALL old zips** before creating a new one — use `rm -f download/ministar-*.zip`
-5. **Use the simple filename** `ministar-latest.zip` (not timestamps)
-6. **ALWAYS provide a download button/link in the chat** for the zip file — the user cannot access the sandbox filesystem directly. Without the download button, the delivery fails.
-7. **Don't suggest Python** — it's not installed
-8. **Don't read localStorage during SSR** — use the mounted guard pattern
-9. **Speak on user interaction, not on load** — TTS requires a gesture
-10. **Follow the 12 hard constraints** (section 4) for all prototype work — verbatim, do not paraphrase
-11. **Write the 7-section README** for every prototype
-12. **Append to the session log** at the end of each session
+2. **Read `AA_BUILD_REVIEW_PROTOCOL.md`** — mandatory for every build and every build review. Phases 0-5 with 4B (Production) and 4C (Engagement) mandatory.
+3. **Read `DEPLOY_PROCEDURE.md`** for the delivery procedure
+4. **Check the session log** (section 7) for recent context
+5. **Clean up ALL old zips** before creating a new one — use `rm -f download/ministar-*.zip`
+6. **Use the simple filename** `ministar-latest.zip` (not timestamps)
+7. **ALWAYS provide a download button/link in the chat** for the zip file — the user cannot access the sandbox filesystem directly. Without the download button, the delivery fails.
+8. **Don't suggest Python** — it's not installed
+9. **Don't read localStorage during SSR** — use the mounted guard pattern
+10. **Speak on user interaction, not on load** — TTS requires a gesture
+11. **Follow the 12 hard constraints** (section 4) for all prototype work — verbatim, do not paraphrase
+12. **Write the 7-section README** for every prototype
+13. **Append to the session log** at the end of each session
+14. **Every build review must produce a `BUILD_REVIEW_<commit>.md` report** following the AA protocol. No verbal "looks good" — produce the structured Phase 5 report.
 
 When the user says "ship it" / "deploy" / "push":
 1. Clean up old zips: `rm -f download/ministar-*.zip`

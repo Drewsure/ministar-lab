@@ -280,7 +280,7 @@ export default class AnagramScene extends BaseEngine {
     const target = this.rounds[this.round].term.toUpperCase().replace(/[^A-Z]/g, '');
     if (this.answer.length === target.length) {
       this.canInteract = false;
-      this.time.delayedCall(400, this.checkAnswer, [], this);
+      if (!this.isFinished) this.time.delayedCall(400, this.checkAnswer, [], this);
     }
   }
 
@@ -334,6 +334,7 @@ export default class AnagramScene extends BaseEngine {
       this.juice.confettiRain(1000);
 
       this.time.delayedCall(800, () => {
+        if (this.isFinished) return;
         this.round++;
         this.renderRound();
         this.canInteract = true;

@@ -242,17 +242,18 @@ export default class SpinWheelScene extends BaseEngine {
   }
 
   private showDefinitionOptions() {
-    if (!this.landedTerm) return;
-    this.promptText.setText(`Match: ${this.landedTerm.emoji ?? ''} ${this.landedTerm.term}`);
+    const landed = this.landedTerm;
+    if (!landed) return;
+    this.promptText.setText(`Match: ${landed.emoji ?? ''} ${landed.term}`);
 
     // 4 options: 1 correct (landed term's definition), 3 decoys
-    const decoys = this.terms.filter(t => t.id !== this.landedTerm!.id && t.definition);
+    const decoys = this.terms.filter(t => t.id !== landed.id && t.definition);
     Phaser.Utils.Array.Shuffle(decoys);
     const options = [
-      { term: this.landedTerm, isCorrect: true },
-      { term: decoys[0] ?? this.landedTerm, isCorrect: false },
-      { term: decoys[1] ?? this.landedTerm, isCorrect: false },
-      { term: decoys[2] ?? this.landedTerm, isCorrect: false },
+      { term: landed, isCorrect: true },
+      { term: decoys[0] ?? landed, isCorrect: false },
+      { term: decoys[1] ?? landed, isCorrect: false },
+      { term: decoys[2] ?? landed, isCorrect: false },
     ];
     Phaser.Utils.Array.Shuffle(options);
 
@@ -282,8 +283,11 @@ export default class SpinWheelScene extends BaseEngine {
   }
 
   private selectOption(isCorrect: boolean, term: TermItem, btn: Phaser.GameObjects.Container) {
+    if (this.isFinished) return;
+    const landed = this.landedTerm;
+    if (!landed) return;
     this.recordAnswer({
-      term: this.landedTerm!.term,
+      term: landed.term,
       response: term.term,
       success: isCorrect,
       coordinate: { x: btn.x, y: btn.y, t: this.time.now },
@@ -294,6 +298,7 @@ export default class SpinWheelScene extends BaseEngine {
     bg.setFillStyle(isCorrect ? this.theme.success : this.theme.danger, 1);
 
     this.time.delayedCall(800, () => {
+      if (this.isFinished) return;
       // Reset for next spin
       this.promptText.setText('🎡 Spin the Wheel!');
       this.answerButtons.forEach(b => b.destroy());

@@ -569,7 +569,7 @@ export default class MazeChaseScene extends BaseEngine {
         targets: this.playerGlow,
         scale: 1.6, duration: 200, yoyo: true, ease: 'Quad.out',
       });
-      this.time.delayedCall(350, () => this.advanceRound());
+      if (!this.isFinished) this.time.delayedCall(350, () => this.advanceRound());
       this.checkWin();
     } else {
       // Wrong target: fade it out, bounce player back
@@ -605,7 +605,7 @@ export default class MazeChaseScene extends BaseEngine {
     const targetX = this.mazeOffsetX + CELL / 2;
     const targetY = this.mazeOffsetY + CELL / 2;
     this.physics.moveTo(this.player, targetX, targetY, 600);
-    this.time.delayedCall(280, () => {
+    this.time.delayedCall(280, () => { if (this.isFinished) return;
       if (this.player && this.player.active) this.player.setVelocity(0, 0);
     });
     // Clear any active path

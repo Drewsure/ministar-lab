@@ -376,9 +376,19 @@
     makeSpeakable(el, speakText, audioBus) {
       el.classList.add('ltb-speakable');
       el.dataset.speakText = speakText || el.textContent;
+      el.setAttribute('role', 'button');
+      el.setAttribute('tabindex', '0');
+      el.setAttribute('aria-label', 'Tap to hear: ' + (speakText || el.textContent));
       el.addEventListener('click', function (e) {
         e.stopPropagation();
         audioBus.speak(el.dataset.speakText);
+      });
+      el.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          e.stopPropagation();
+          audioBus.speak(el.dataset.speakText);
+        }
       });
       return el;
     },
@@ -395,6 +405,18 @@
         audioBus.speak(speakText);
       });
       return btn;
+    },
+
+    /** Make a button keyboard-accessible (Enter/Space triggers click). */
+    makeKeyboardAccessible(el) {
+      el.setAttribute('tabindex', '0');
+      el.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          el.click();
+        }
+      });
+      return el;
     },
 
     /** Apply base mobile-first CSS to a root container. */
@@ -423,6 +445,10 @@
         }
         .ltb-speakable:hover, .ltb-speakable:active {
           background: rgba(0,0,0,0.06);
+        }
+        .ltb-speakable:focus-visible, .ltb-button:focus-visible, .ltb-listen-btn:focus-visible {
+          outline: 3px solid #2563eb;
+          outline-offset: 2px;
         }
         .ltb-listen-btn {
           display: inline-flex;

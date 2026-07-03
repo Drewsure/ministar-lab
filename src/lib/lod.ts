@@ -13,7 +13,7 @@ export interface LodProfile {
   shadow: boolean;
   dynamicLight: boolean;
   ambientParticles: number;
-  maxFpsTarget: 60;
+  maxFpsTarget: number;
   motionBlur: boolean;
   // Mobile safe-area
   isMobile: boolean;

@@ -217,7 +217,7 @@ export default class MemoryMatchScene extends BaseEngine {
       this.canInteract = false;
       this.moves++;
       this.movesText.setText(`Moves: ${this.moves}`);
-      this.time.delayedCall(700, this.checkMatch, [], this);
+      if (!this.isFinished) this.time.delayedCall(700, this.checkMatch, [], this);
     }
   }
 
@@ -317,6 +317,6 @@ export default class MemoryMatchScene extends BaseEngine {
       });
     }
     this.flippedQueue = [];
-    this.time.delayedCall(400, () => { this.canInteract = true; });
+    this.time.delayedCall(400, () => { if (!this.isFinished) this.canInteract = true; });
   }
 }

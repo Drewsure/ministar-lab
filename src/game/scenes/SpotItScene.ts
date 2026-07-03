@@ -222,7 +222,7 @@ export default class SpotItScene extends BaseEngine {
 
     // ESL: speak the prompt (synchronous with user gesture if this is round 1+
     // and they've already tapped to start. If pre-gesture, browser may block.)
-    this.time.delayedCall(400, () => {
+    this.time.delayedCall(400, () => { if (this.isFinished) return;
       if (!this.isFinished) {
         audioBus.speak('Find the matching symbol!', { isQuestion: true });
       }
@@ -348,7 +348,7 @@ export default class SpotItScene extends BaseEngine {
       });
 
       // Cards flip away animation → next round
-      this.time.delayedCall(1000, () => {
+      this.time.delayedCall(1000, () => { if (this.isFinished) return;
         this.tweens.add({
           targets: this.symbols.map(s => s.container),
           scaleX: 0, scaleY: 0,
@@ -384,7 +384,7 @@ export default class SpotItScene extends BaseEngine {
       });
 
       // Reset the wrong symbol after a moment
-      this.time.delayedCall(700, () => {
+      this.time.delayedCall(700, () => { if (this.isFinished) return;
         if (sym && sym.container && sym.container.active) {
           sym.circle.setFillStyle(this.theme.card, 0.98);
           sym.circle.setStrokeStyle(3, this.theme.accent, 0.8);

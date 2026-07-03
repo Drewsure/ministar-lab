@@ -339,7 +339,7 @@ export default class BridgeBuilderScene extends BaseEngine {
           y: this.scale.height + 80, angle: 180,
           duration: 1000, ease: 'Cubic.in',
           onComplete: () => {
-            this.time.delayedCall(500, () => {
+            this.time.delayedCall(500, () => { if (this.isFinished) return;
               this.round++;
               this.renderRound();
             });
@@ -363,7 +363,7 @@ export default class BridgeBuilderScene extends BaseEngine {
         x: this.scale.width + 80, y: 100,
         duration: 800, ease: 'Cubic.out',
         onComplete: () => {
-          this.time.delayedCall(400, () => {
+          this.time.delayedCall(400, () => { if (this.isFinished) return;
             this.round++;
             this.renderRound();
           });

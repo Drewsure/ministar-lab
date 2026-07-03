@@ -325,7 +325,7 @@ export default class QuizScene extends BaseEngine {
       coordinate: { x: this.scale.width / 2, y: 300, t: this.time.now },
     });
     this.juice.shake('medium');
-    this.time.delayedCall(1200, () => {
+    this.time.delayedCall(1200, () => { if (this.isFinished) return;
       this.round++;
       this.renderRound();
     });
@@ -365,7 +365,7 @@ export default class QuizScene extends BaseEngine {
     audioBus.play('tap');
     if (this.questionTimerEvent) this.questionTimerEvent.remove();
     this.canAnswer = false;
-    this.time.delayedCall(400, () => {
+    this.time.delayedCall(400, () => { if (this.isFinished) return;
       this.round++;
       this.renderRound();
     });
@@ -421,7 +421,7 @@ export default class QuizScene extends BaseEngine {
       // Green glow ring around correct answer
       this.juice.glowRing(correctBtn.x, correctBtn.y, this.theme.success, 80);
       // Speak the correct answer
-      this.time.delayedCall(300, () => {
+      this.time.delayedCall(300, () => { if (this.isFinished) return;
         audioBus.speak(`The answer is ${this.rounds[this.round].options[correctIndex].term}`);
       });
       this.juice.shake('medium');
@@ -429,7 +429,7 @@ export default class QuizScene extends BaseEngine {
     }
 
     // Slide out transition
-    this.time.delayedCall(900, () => {
+    this.time.delayedCall(900, () => { if (this.isFinished) return;
       this.optionButtons.forEach((b, i) => {
         this.tweens.add({
           targets: b,
@@ -437,7 +437,7 @@ export default class QuizScene extends BaseEngine {
           duration: 200, delay: i * 30, ease: 'Cubic.in',
         });
       });
-      this.time.delayedCall(300, () => {
+      this.time.delayedCall(300, () => { if (this.isFinished) return;
         this.round++;
         this.renderRound();
       });

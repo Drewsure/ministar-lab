@@ -176,7 +176,9 @@ export default class AirplaneScene extends BaseEngine {
     const startX = (this.scale.width - totalW) / 2 + bannerW / 2;
 
     // Build 3 banners: 1 correct, 2 wrong (decoys from other terms)
-    const decoys = this.terms.filter(t => t.id !== this.activePrompt!.id);
+    const prompt = this.activePrompt;
+    if (!prompt) return;
+    const decoys = this.terms.filter(t => t.id !== prompt.id);
     Phaser.Utils.Array.Shuffle(decoys);
     const row: { term: TermItem; isCorrect: boolean }[] = [
       { term: this.activePrompt, isCorrect: true },
@@ -286,7 +288,7 @@ export default class AirplaneScene extends BaseEngine {
     const coord = { x: container.x, y: container.y, t: this.time.now };
 
     this.recordAnswer({
-      term: this.activePrompt!.term,
+      term: this.activePrompt?.term ?? '',
       response: banner.term.term,
       success: isCorrect,
       coordinate: coord,
@@ -319,7 +321,8 @@ export default class AirplaneScene extends BaseEngine {
         this.juice.zoomPunch(1.05, 250);
       }
       // Advance prompt to next term
-      const remaining = this.terms.filter(t => t.id !== this.activePrompt!.id);
+      const currentPromptId = this.activePrompt?.id;
+      const remaining = this.terms.filter(t => t.id !== currentPromptId);
       if (remaining.length > 0) {
         this.activePrompt = Phaser.Utils.Array.GetRandom(remaining);
       } else {

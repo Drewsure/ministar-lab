@@ -194,9 +194,11 @@ export default class WhackAMoleScene extends BaseEngine {
 
     // 50% correct, 50% decoy
     const isCorrect = Math.random() < 0.5;
+    const prompt = this.activePrompt;
+    if (!prompt) return;
     const term = isCorrect
-      ? this.activePrompt
-      : Phaser.Utils.Array.GetRandom(this.terms.filter(t => t.id !== this.activePrompt!.id));
+      ? prompt
+      : Phaser.Utils.Array.GetRandom(this.terms.filter(t => t.id !== prompt.id));
     if (!term) return;
 
     // Mole body (using generated texture)
@@ -235,12 +237,13 @@ export default class WhackAMoleScene extends BaseEngine {
     // AAAA — Mole stay-up time: LONGER at start (3s), gets shorter per level
     const stayTime = Math.max(1200, 3000 - (this.level - 1) * 400);
     this.time.delayedCall(stayTime, () => {
+      if (this.isFinished) return;
       if (mole.active) this.retreat(hole, mole);
     });
   }
 
   private whack(hole: Hole, mole: Mole) {
-    if (!mole.active) return;
+    if (!mole.active || this.isFinished) return;
     mole.active = false;
     this.swingHammer();
 
@@ -254,7 +257,7 @@ export default class WhackAMoleScene extends BaseEngine {
     this.lastWhackTime = now;
 
     this.recordAnswer({
-      term: this.activePrompt!.term,
+      term: this.activePrompt?.term ?? '',
       response: mole.term.term,
       success: mole.isCorrect,
       coordinate: { x: mole.container.x, y: mole.container.y, t: now },
@@ -276,7 +279,8 @@ export default class WhackAMoleScene extends BaseEngine {
         });
       }
       // Advance prompt
-      const remaining = this.terms.filter(t => t.id !== this.activePrompt!.id);
+      const currentPromptId = this.activePrompt?.id;
+      const remaining = this.terms.filter(t => t.id !== currentPromptId);
       if (remaining.length > 0) {
         this.activePrompt = Phaser.Utils.Array.GetRandom(remaining);
         this.updatePrompt();

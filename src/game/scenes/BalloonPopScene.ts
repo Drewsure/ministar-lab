@@ -318,9 +318,11 @@ export default class BalloonPopScene extends BaseEngine {
 
     // 40% chance correct, 60% decoy
     const isCorrect = Math.random() < 0.4;
+    const prompt = this.activePrompt;
+    if (!prompt) return;
     const term = isCorrect
-      ? this.activePrompt
-      : Phaser.Utils.Array.GetRandom(this.terms.filter(t => t.id !== this.activePrompt!.id)) ?? this.activePrompt;
+      ? prompt
+      : Phaser.Utils.Array.GetRandom(this.terms.filter(t => t.id !== prompt.id)) ?? prompt;
     if (!term) return;
 
     const startX = this.carrierX + Phaser.Math.Between(-30, 30);
@@ -423,13 +425,13 @@ export default class BalloonPopScene extends BaseEngine {
   // POP — burst animation with confetti
   // ===========================================================================
   private popBalloon(b: Balloon) {
-    if (b.hit) return;
+    if (b.hit || this.isFinished) return;
     b.hit = true;
 
     const isCorrect = b.isCorrect;
     audioBus.play('pop');
     this.recordAnswer({
-      term: this.activePrompt!.term,
+      term: this.activePrompt?.term ?? '',
       response: b.term.term,
       success: isCorrect,
       coordinate: { x: b.container.x, y: b.container.y, t: this.time.now },
@@ -462,7 +464,8 @@ export default class BalloonPopScene extends BaseEngine {
       this.lastCorrectTime = now;
 
       // Advance to next prompt
-      const remaining = this.terms.filter(t => t.id !== this.activePrompt!.id);
+      const currentPromptId = this.activePrompt?.id;
+      const remaining = this.terms.filter(t => t.id !== currentPromptId);
       if (remaining.length > 0) {
         this.activePrompt = Phaser.Utils.Array.GetRandom(remaining);
         this.updatePrompt();

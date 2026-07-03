@@ -98,11 +98,14 @@ export default class SnakingScene extends BaseEngine {
   }
 
   private spawnFood() {
+    if (this.isFinished) return;
     if (this.score >= this.maxScore) { this.finishGame(true); return; }
     this.foods.forEach(f => f.text.destroy()); this.foods = [];
     const pool = [...this.terms]; Phaser.Utils.Array.Shuffle(pool);
     this.currentPrompt = pool[0];
-    const def = this.currentPrompt.definition ?? this.currentPrompt.emoji ?? this.currentPrompt.term;
+    const prompt = this.currentPrompt;
+    if (!prompt) return;
+    const def = prompt.definition ?? prompt.emoji ?? prompt.term;
     this.promptText.setText(`Eat the word for: "${def}"`);
     this.promptText.setData('speakText', `Eat the word for: ${def}`);
     this.promptBg.setData('speakText', `Eat the word for: ${def}`);
@@ -114,13 +117,16 @@ export default class SnakingScene extends BaseEngine {
         backgroundColor: '#' + this.theme.card.toString(16).padStart(6, '0'), padding: { x: 10, y: 6 },
       }).setOrigin(0.5).setDepth(50);
       txt.setData('speakText', term.term);
-      this.foods.push({ term, isCorrect: term.id === this.currentPrompt!.id, text: txt, x: gx, y: gy });
+      this.foods.push({ term, isCorrect: term.id === prompt.id, text: txt, x: gx, y: gy });
     });
   }
 
   private handleEat(food: FoodItem) {
+    if (this.isFinished) return;
     food.text.destroy(); this.foods = this.foods.filter(f => f !== food);
-    this.recordAnswer({ term: this.currentPrompt!.term, response: food.term.term, success: food.isCorrect,
+    const prompt = this.currentPrompt;
+    if (!prompt) return;
+    this.recordAnswer({ term: prompt.term, response: food.term.term, success: food.isCorrect,
       coordinate: { x: food.x, y: food.y, t: this.time.now } });
     if (food.isCorrect) {
       audioBus.play('correct'); this.juice.burst(food.x, food.y, 'correct');
