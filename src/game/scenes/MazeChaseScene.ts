@@ -222,10 +222,14 @@ export default class MazeChaseScene extends BaseEngine {
   }
 
   private renderMaze() {
-    // Clean up previous round's walls + floor
-    if (this.wallsGroup) this.wallsGroup.destroy(true);
+    // CRITICAL FIX: Don't destroy/recreate wallsGroup — that orphans the player
+    // collider registered in buildWorld(). Instead, create once, clear on subsequent rounds.
+    if (!this.wallsGroup) {
+      this.wallsGroup = this.physics.add.staticGroup();
+    } else {
+      this.wallsGroup.clear(true, true);
+    }
     if (this.floorLayer) this.floorLayer.destroy(true);
-    this.wallsGroup = this.physics.add.staticGroup();
     this.floorLayer = this.add.container(0, 0).setDepth(-1);
 
     const wallColor = this.theme.card;
@@ -521,7 +525,10 @@ export default class MazeChaseScene extends BaseEngine {
     // Initial impulse
     this.updateEnemyAI(ghostContainer);
 
-    this.physics.add.collider(ghostContainer, this.wallsGroup);
+    // CRITICAL: Do NOT add per-enemy colliders here. Previous code called
+    // this.physics.add.collider(ghostContainer, this.wallsGroup) every spawn,
+    // creating orphaned colliders that referenced destroyed enemies/walls → crash.
+    // Instead, enemies use manual wall-bounce logic in updateEnemyAI.
     this.enemiesGroup.add(ghostContainer);
   }
 
@@ -560,6 +567,38 @@ export default class MazeChaseScene extends BaseEngine {
     if (dist > 1) {
       body.setVelocity((dx / dist) * chaseSpeed, (dy / dist) * chaseSpeed);
     }
+
+    // MANUAL WALL BOUNCE: Check if enemy is inside a wall and push out.
+    // (Replaces the per-enemy physics collider that caused orphaned-collider crashes.)
+    const cell = this.pixelToCell(enemy.x, enemy.y);
+    if (cell) {
+      // If enemy is moving into a wall, reverse velocity
+      const vx = body.velocity.x;
+      const vy = body.velocity.y;
+      // Check cell ahead in X direction
+      const aheadX = this.pixelToCell(enemy.x + Math.sign(vx) * 20, enemy.y);
+      if (aheadX && aheadX.x !== cell.x) {
+        // Moving to a new cell horizontally — check if wall blocks
+        if (vx > 0 && this.maze[cell.y][cell.x].walls.right) {
+          body.setVelocityX(-Math.abs(vx));
+        } else if (vx < 0 && this.maze[cell.y][cell.x].walls.left) {
+          body.setVelocityX(Math.abs(vx));
+        }
+      }
+      // Check cell ahead in Y direction
+      const aheadY = this.pixelToCell(enemy.x, enemy.y + Math.sign(vy) * 20);
+      if (aheadY && aheadY.y !== cell.y) {
+        if (vy > 0 && this.maze[cell.y][cell.x].walls.bottom) {
+          body.setVelocityY(-Math.abs(vy));
+        } else if (vy < 0 && this.maze[cell.y][cell.x].walls.top) {
+          body.setVelocityY(Math.abs(vy));
+        }
+      }
+    }
+
+    // Keep enemy in bounds
+    enemy.x = Phaser.Math.Clamp(enemy.x, this.mazeOffsetX + 10, this.mazeOffsetX + COLS * CELL - 10);
+    enemy.y = Phaser.Math.Clamp(enemy.y, this.mazeOffsetY + 10, this.mazeOffsetY + ROWS * CELL - 10);
   }
 
   private hasLineOfSight(x1: number, y1: number, x2: number, y2: number): boolean {
