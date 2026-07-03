@@ -325,6 +325,20 @@ export abstract class BaseEngine extends Phaser.Scene {
     if (this.isFinished) return;
     this.isFinished = true;
 
+    // CRITICAL: Kill ALL tweens to prevent "this.ease is not a function" crash.
+    // Infinite tweens (repeat: -1) on scene objects keep running after game end.
+    // When those objects are destroyed, the tween's internal ease function
+    // reference becomes invalid → crash on next tween step.
+    // Fix: kill all tweens in the scene's tween manager.
+    try { this.tweens.killAll(); } catch {}
+
+    // Also destroy urgency vignette specifically (has infinite tween)
+    if (this.urgencyVignette) {
+      try { this.urgencyVignette.destroy(); } catch {}
+      this.urgencyVignette = undefined;
+    }
+    this.urgencyActive = false;
+
     const durationMs = Date.now() - this.startTime;
     const actor = getActor();
     const completed = makeCompletedEvent({
