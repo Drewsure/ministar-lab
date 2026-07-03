@@ -344,12 +344,17 @@ export default class AirplaneScene extends BaseEngine {
       onComplete: () => ripple.destroy(),
     });
 
-    // Banner poof
+    // Banner poof — disable physics body FIRST, then visual tween, then destroy
+    // CRITICAL: If we destroy without disabling body, physics world crashes on
+    // next step with "Cannot read properties of undefined (reading 'contains')"
+    const bannerBody = container.body as Phaser.Physics.Arcade.Body;
+    if (bannerBody) bannerBody.enable = false;
+    this.bannerGroup.remove(container, false, true); // remove from group, don't destroy yet
     this.tweens.add({
       targets: container,
       scale: 1.4, alpha: 0,
       duration: 250, ease: 'Back.in',
-      onComplete: () => container.destroy(),
+      onComplete: () => { try { container.destroy(); } catch {} },
     });
     this.banners = this.banners.filter(b => b !== banner);
 

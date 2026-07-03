@@ -58,6 +58,7 @@ export default class MazeChaseScene extends BaseEngine {
   private wallsGroup!: Phaser.Physics.Arcade.StaticGroup;
   private targetsGroup!: Phaser.Physics.Arcade.Group;
   private enemiesGroup!: Phaser.Physics.Arcade.Group;
+  private overlapsRegistered = false; // CRITICAL: only register overlaps ONCE
 
   // --- Game state ---
   private activeTerm?: TermItem;
@@ -312,11 +313,25 @@ export default class MazeChaseScene extends BaseEngine {
   // TARGETS + ENEMIES
   // ===========================================================================
   private spawnTargetsAndEnemies() {
-    if (this.targetsGroup) this.targetsGroup.destroy(true);
-    if (this.enemiesGroup) this.enemiesGroup.destroy(true);
-    this.targetsGroup = this.physics.add.group();
-    this.enemiesGroup = this.physics.add.group();
+    // CRITICAL FIX: Don't destroy/recreate groups — that orphans overlap callbacks.
+    // Instead, create groups once, clear them on subsequent rounds.
+    if (!this.targetsGroup) {
+      this.targetsGroup = this.physics.add.group();
+      this.enemiesGroup = this.physics.add.group();
+    } else {
+      // Clear existing children (destroy them) but keep the group + its overlap callbacks
+      this.targetsGroup.clear(true, true);
+      this.enemiesGroup.clear(true, true);
+    }
     this.targetHits.clear();
+
+    // CRITICAL: Only register overlap callbacks ONCE. Re-registering creates
+    // duplicate colliders that reference old destroyed groups → crash.
+    if (!this.overlapsRegistered) {
+      this.physics.add.overlap(this.player, this.targetsGroup, this.handleTargetCollision, undefined, this);
+      this.physics.add.overlap(this.player, this.enemiesGroup, this.handleEnemyCollision, undefined, this);
+      this.overlapsRegistered = true;
+    }
 
     const roundTerms = this.pickTerms(this.maxScore);
     if (roundTerms.length === 0) return;
@@ -360,9 +375,8 @@ export default class MazeChaseScene extends BaseEngine {
       this.spawnEnemy(cell);
     }
 
-    // Collisions
-    this.physics.add.overlap(this.player, this.targetsGroup, this.handleTargetCollision, undefined, this);
-    this.physics.add.overlap(this.player, this.enemiesGroup, this.handleEnemyCollision, undefined, this);
+    // NOTE: Overlap callbacks registered ONCE above (overlapsRegistered flag).
+    // Previous code re-registered them every round → orphaned callbacks → crash.
   }
 
   private spawnTarget(cell: { x: number; y: number }, term: TermItem, isCorrect: boolean) {
@@ -602,11 +616,16 @@ export default class MazeChaseScene extends BaseEngine {
     });
 
     if (isCorrect) {
+      // CRITICAL: Disable physics body + remove from group BEFORE tween/destroy.
+      // Otherwise physics world crashes on next step: "Cannot read properties of undefined"
+      const targetBody = t.body as Phaser.Physics.Arcade.Body;
+      if (targetBody) targetBody.enable = false;
+      this.targetsGroup.remove(t, false, false); // remove from group, don't destroy yet
       this.tweens.add({
         targets: [t, label],
         scale: 0, alpha: 0,
         duration: 250, ease: 'Back.in',
-        onComplete: () => { t.destroy(); label.destroy(); },
+        onComplete: () => { try { t.destroy(); label.destroy(); } catch {} },
       });
       // Speed boost reward (3 seconds)
       this.speedBoostUntil = this.time.now + 3000;
