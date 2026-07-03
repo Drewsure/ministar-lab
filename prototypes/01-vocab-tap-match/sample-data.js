@@ -1,0 +1,30 @@
+// sample-data.js — loaded via <script> tag for the standalone prototype.
+// In a real Living Textbook integration, this data is passed as a JSON object
+// to the game constructor instead.
+window.SAMPLE_DATA = {
+  tenant: {
+    id: "demo-tenant",
+    displayName: "Demo Tenant"
+  },
+  terms: [
+    { id: "t1", term: "apple", emoji: "🍎", definition: "a round red or green fruit", partOfSpeech: "noun", audioUrl: null },
+    { id: "t2", term: "banana", emoji: "🍌", definition: "a long yellow fruit", partOfSpeech: "noun", audioUrl: null },
+    { id: "t3", term: "cherry", emoji: "🍒", definition: "a small round red fruit with a stone inside", partOfSpeech: "noun", audioUrl: null },
+    { id: "t4", term: "grape", emoji: "🍇", definition: "a small sweet fruit that grows in bunches", partOfSpeech: "noun", audioUrl: null },
+    { id: "t5", term: "lemon", emoji: "🍋", definition: "a yellow citrus fruit with a sour taste", partOfSpeech: "noun", audioUrl: null },
+    { id: "t6", term: "mango", emoji: "🥭", definition: "a tropical orange fruit with a sweet taste", partOfSpeech: "noun", audioUrl: null },
+    { id: "t7", term: "orange", emoji: "🍊", definition: "a round citrus fruit with a sweet taste", partOfSpeech: "noun", audioUrl: null },
+    { id: "t8", term: "peach", emoji: "🍑", definition: "a soft round fruit with fuzzy skin", partOfSpeech: "noun", audioUrl: null },
+    { id: "t9", term: "pear", emoji: "🍐", definition: "a sweet fruit shaped like a bell", partOfSpeech: "noun", audioUrl: null },
+    { id: "t10", term: "strawberry", emoji: "🍓", definition: "a small red fruit with seeds on the outside", partOfSpeech: "noun", audioUrl: null }
+  ],
+  sentenceStructures: [
+    { id: "s1", template: "I like {term}.", structure: "SVO", description: "Subject + Verb + Object", audioUrl: null },
+    { id: "s2", template: "I see a {term} on the table.", structure: "SVO + Locative", description: "Subject + Verb + Object + Prepositional Phrase", audioUrl: null }
+  ],
+  config: {
+    roundsPerGame: 8,
+    timePerRoundSec: null,
+    optionsPerRound: 4
+  }
+};

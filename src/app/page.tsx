@@ -99,7 +99,17 @@ export default function Home() {
   const [terms, setTerms] = useState<TermItem[]>(DEFAULT_TERMS);
   const [launch, setLaunch] = useState<GameLaunchConfig | null>(null);
   const [lastBrand, setLastBrand] = useState(brand.subdomain);
-  const [stats, setStats] = useState<StudentStats>(() => loadStats());
+  // Hydration-safe: start with empty defaults on both server AND client,
+  // then load from localStorage in useEffect after mount. This prevents
+  // the SSR/CSR mismatch that was causing "Hydration failed" errors.
+  const [stats, setStats] = useState<StudentStats>({ xp: 0, level: 1, streak: 0, lastPlayed: '', gamesPlayed: 0, bestStreak: 0, streakFreezes: 1, tokens: 0, mysteryBoxesOpened: 0 });
+  const [mounted, setMounted] = useState(false);
+
+  // Load stats from localStorage AFTER mount (client-only)
+  useEffect(() => {
+    setStats(loadStats());
+    setMounted(true);
+  }, []);
 
   // Sync theme when brand changes
   if (brand.subdomain !== lastBrand) {

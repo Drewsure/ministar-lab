@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Vocab Tap Match — Living Textbook Prototype</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #e5e7eb;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    #root { min-height: 100vh; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- Shared framework: event emitter + audio + input validation -->
+  <script src="../_shared/prototype-framework.js"></script>
+
+  <!-- Sample data (in a real integration, this comes from the host app) -->
+  <script src="sample-data.js"></script>
+
+  <!-- Game logic -->
+  <script src="game.js"></script>
+
+  <!-- Bootstrapper -->
+  <script>
+    // Validate input before starting
+    var validation = LTB.InputValidator.validate(SAMPLE_DATA);
+    if (!validation.valid) {
+      document.getElementById('root').innerHTML =
+        '<div style="padding:24px;color:#dc2626;"><h2>Invalid Input</h2><pre>' +
+        validation.errors.join('\n') + '</pre></div>';
+    } else {
+      var eventLogEl;
+      var game = new VocabTapMatch('#root', SAMPLE_DATA, {
+        onEvent: function (event) {
+          // In a real integration, this is where you'd POST to your telemetry endpoint.
+          // For the prototype, we also render the event log below the game.
+          if (eventLogEl) {
+            var line = document.createElement('div');
+            line.style.cssText = 'font-family:monospace;font-size:12px;color:#555;border-top:1px solid #eee;padding:4px 0;';
+            line.textContent = JSON.stringify(event);
+            eventLogEl.appendChild(line);
+          }
+        }
+      });
+      game.start();
+
+      // Add a collapsible event log at the bottom (for prototype debugging only)
+      eventLogEl = document.createElement('div');
+      eventLogEl.style.cssText = 'max-width:480px;margin:24px auto;padding:16px;background:#fff;border-radius:8px;';
+      var header = document.createElement('div');
+      header.style.cssText = 'font-weight:bold;margin-bottom:8px;';
+      header.textContent = 'Event Log (emitted by game):';
+      eventLogEl.appendChild(header);
+      document.querySelector('#root').appendChild(eventLogEl);
+    }
+  </script>
+</body>
+</html>
