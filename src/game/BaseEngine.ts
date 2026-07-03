@@ -177,6 +177,26 @@ export abstract class BaseEngine extends Phaser.Scene {
         console.error('[MiniStar] Update loop error:', e);
       }
     });
+
+    // CRITICAL: Monkey-patch the tween manager to catch "this.ease is not a function"
+    // errors from orphaned tweens. When a tween's target is destroyed but the tween
+    // wasn't killed, Phaser's internal step crashes. This wrapper catches those
+    // crashes, removes the broken tween, and continues — preventing a full game freeze.
+    const tweenManager = this.tweens;
+    if (tweenManager && !(tweenManager as any).__ltb_patched) {
+      const originalStep = tweenManager.step.bind(tweenManager);
+      (tweenManager as any).__ltb_patched = true;
+      (tweenManager as any).step = function (...args: any[]) {
+        try {
+          return originalStep(...args);
+        } catch (e) {
+          // A tween crashed — likely an orphaned tween on a destroyed object.
+          // Kill all tweens to clean up, then continue.
+          console.warn('[MiniStar] Tween crash caught — killing all tweens:', e);
+          try { tweenManager.killAll(); } catch {}
+        }
+      };
+    }
   }
 
   // ===========================================================================
