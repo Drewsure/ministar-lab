@@ -282,6 +282,30 @@ npx tsc --noEmit --skipLibCheck   # TypeScript check (excludes examples/ and ski
 
 ## 7. SESSION LOG (append-only)
 
+### 2026-07-03 — Session: Fill in the Blank prototype (Prototype 03)
+
+**Delivered:**
+- Built Prototype 03: Fill in the Blank (verified working in headless browser — all 6 events fire correctly, 2 target sentences with {blank} placeholder presented in sequence)
+- Answer derivation: compares {blank} sentence to full sentence in audio_cues (kind="sentence") to extract the correct word
+- Shame-free retry language: "Not quite. Try again." (never "wrong", "fail", "incorrect" in UI)
+- Wrote 7-section README for Prototype 03
+- Updated `prototypes/README.md` index
+
+**Key design decisions:**
+- Reuses Schema B (same as Prototype 02) with one addition: `{blank}` placeholder in target_sentences
+- Answer derived from audio_cues (kind="sentence") by regex matching before+after the blank
+- Distractors are deterministic (first 3 vocab words that aren't the answer) per constraint #11
+- Shame-free feedback: UI says "Not quite. Try again.", event payload uses neutral `isCorrect: false`
+- Choice buttons have separate 🔊 listen buttons (constraint #4)
+- Sentence has separate 🔊 listen button that speaks the FULL sentence (answer filled in)
+
+**Learned:**
+- {blank} placeholder is a clean way to mark the missing word in target sentences
+- Answer derivation from audio_cues works well but requires the host app to provide matching sentence cues
+- Shame-free language is both a UI text concern AND a spoken audio concern
+
+**Pushed by user:** Pending
+
 ### 2026-07-03 — Session: Sentence Builder prototype + framework extension
 
 **Delivered:**
@@ -305,7 +329,10 @@ npx tsc --noEmit --skipLibCheck   # TypeScript check (excludes examples/ and ski
 - audio_cues lookup by text+kind is a clean abstraction for "prefer pre-recorded, fall back to TTS"
 - Punctuation-attached words ("Hello," "teacher.") are pedagogically intentional tokens
 
-**Pushed by user:** Pending
+**Pushed by user:** ✅ YES — commit `ad83062` on `main` (2026-07-03)
+- 13 files changed, 2988 insertions(+), 1 deletion(-)
+- Both prototypes (01 + 02) + shared framework + hydration fix + BUILD_REFERENCE.md all live
+- Vercel auto-deploying
 
 ### 2026-07-03 — Session: Prototype pivot + hydration fix
 

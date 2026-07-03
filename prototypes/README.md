@@ -75,7 +75,8 @@ See `_shared/prototype-framework.js` for the exact event payload shapes.
 |---|---|---|---|---|
 | 01 | Vocab Tap Match | Multiple choice — tap the word that completes the sentence | `tenant` + `terms[]` + `sentenceStructures[]` | ✅ Playable |
 | 02 | Sentence Builder | Drag/tap word tiles into order to build the target sentence | `unit_meta` + `pedagogical_payload` + `audio_cues` | ✅ Playable |
-| 03 | _(next)_ | | | ⏳ Planned |
+| 03 | Fill in the Blank | Choose the word that fills the `{blank}` in the sentence | `unit_meta` + `pedagogical_payload` + `audio_cues` (with `{blank}`) | ✅ Playable |
+| 04 | _(next)_ | | | ⏳ Planned |
 
 ## Input schemas
 
