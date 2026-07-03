@@ -323,6 +323,18 @@ export default class MazeChaseScene extends BaseEngine {
       this.targetsGroup = this.physics.add.group();
       this.enemiesGroup = this.physics.add.group();
     } else {
+      // CRITICAL: Kill all tweens on existing targets/enemies BEFORE destroying.
+      // Each target has infinite pulse + glowRing tweens. If we destroy the
+      // targets without killing their tweens, the tweens keep running on
+      // destroyed objects → "this.ease is not a function" crash.
+      this.targetsGroup.getChildren().forEach((child) => {
+        this.tweens.killTweensOf(child);
+        const ring = child.getData('glowRing');
+        if (ring) this.tweens.killTweensOf(ring);
+      });
+      this.enemiesGroup.getChildren().forEach((child) => {
+        this.tweens.killTweensOf(child);
+      });
       // Clear existing children (destroy them) but keep the group + its overlap callbacks
       this.targetsGroup.clear(true, true);
       this.enemiesGroup.clear(true, true);
@@ -655,8 +667,15 @@ export default class MazeChaseScene extends BaseEngine {
     });
 
     if (isCorrect) {
+      // CRITICAL: Kill infinite pulse + glowRing tweens BEFORE adding the
+      // shrink-to-destroy tween. Otherwise the infinite tweens keep running
+      // on the destroyed object → "this.ease is not a function" crash.
+      this.tweens.killTweensOf(t);
+      this.tweens.killTweensOf(label);
+      const ring = t.getData('glowRing');
+      if (ring) this.tweens.killTweensOf(ring);
+
       // CRITICAL: Disable physics body + remove from group BEFORE tween/destroy.
-      // Otherwise physics world crashes on next step: "Cannot read properties of undefined"
       const targetBody = t.body as Phaser.Physics.Arcade.Body;
       if (targetBody) targetBody.enable = false;
       this.targetsGroup.remove(t, false, false); // remove from group, don't destroy yet
@@ -664,7 +683,7 @@ export default class MazeChaseScene extends BaseEngine {
         targets: [t, label],
         scale: 0, alpha: 0,
         duration: 250, ease: 'Back.in',
-        onComplete: () => { try { t.destroy(); label.destroy(); } catch {} },
+        onComplete: () => { try { t.destroy(); label.destroy(); if (ring) ring.destroy(); } catch {} },
       });
       // Speed boost reward (3 seconds)
       this.speedBoostUntil = this.time.now + 3000;
