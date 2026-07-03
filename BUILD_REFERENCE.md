@@ -213,6 +213,48 @@ Create a short README for every prototype explaining:
 - known limitations
 - integration notes for future LivingTextbook migration
 
+### Drama / Antagonist requirement (added 2026-07-03)
+
+**Every game must have dramatic tension — an antagonist, opposition, or pressure mechanic against which the challenge is built.** A game without opposition is a worksheet, not a game.
+
+| Game type | Required antagonist/opposition |
+|---|---|
+| Maze Chase | Chasing enemies (Pac-Man ghosts) that pursue the player |
+| Airplane | Obstacles (clouds, birds) that slow or block the player |
+| Endless Runner | Speed ramp + obstacles in wrong lanes |
+| Physics Puzzler | Limited ammo + moving targets (time pressure) |
+| Snake | Walls + self-collision + shrinking on wrong eat |
+| Quiz / Gameshow | Timer countdown (tension) + wrong-answer penalties |
+| Memory Match | Timer + move counter (efficiency pressure) |
+| Whack-a-Mole | Mole stay-time decreases per level (speed pressure) |
+| Balloon Pop | Balloon rise speed + carrier movement |
+| Spot It | Timer + speed bonus (competition with self) |
+| Anagram | Timer + hint penalty |
+| Word Search | Timer |
+| Bridge Builder | Limited wrong guesses (hangman mechanic) |
+| Crossword | Timer |
+| Flash Cards | Deck countdown + known/review sorting |
+| Spin Wheel | Timer |
+| Group Sort | Timer |
+| Type Answer | Timer |
+| Label It | Timer + wrong-answer lockout |
+| Speak It | Timer + speech recognition accuracy |
+| Training Academy | Timer + command queue |
+| Rescue Quest | Obstacle sequence + timer |
+| Match Up | Timer |
+| Vocab Tap Match (prototype) | Timer + streak pressure |
+| Sentence Builder (prototype) | Timer |
+| Fill in the Blank (prototype) | Timer + retry shame-free |
+| Quiz / TF (prototype) | Timer + streak |
+
+**Check every build:** Does the game have a clear antagonist or pressure mechanic? If not, it's a defect. A timer alone is minimum. Physical enemies (chasers, obstacles) are required for action games.
+
+**The drama curve must be visible:**
+- Early game: low pressure, player learns mechanics
+- Mid game: pressure ramps (faster enemies, shorter timers, more obstacles)
+- Late game: peak tension (close calls, near-misses, urgency)
+- Win/loss: clear resolution with stakes-appropriate feedback
+
 ---
 
 ## 5. PROTOTYPE ARCHITECTURE

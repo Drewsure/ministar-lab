@@ -953,6 +953,9 @@ export class Juice {
         targets: r, alpha: 0, duration: ms, ease: 'Cubic.out',
         onComplete: () => { try { r.destroy(); } catch {} },
       });
+      // SAFETY: Auto-destroy after 2x duration even if tween fails to fire/complete.
+      // This prevents full-screen overlays from getting stuck and blocking all input.
+      this.scene.time.delayedCall(ms * 2 + 50, () => { try { if (r && r.active) r.destroy(); } catch {} });
     } catch {}
   }
 
@@ -992,6 +995,8 @@ export class Juice {
         ease: 'Back.out',
         onComplete: () => { try { popup.destroy(); } catch {} },
       });
+      // SAFETY: Auto-destroy after 1.5s even if tween fails.
+      this.scene.time.delayedCall(1500, () => { try { if (popup && popup.active) popup.destroy(); } catch {} });
     } catch {}
   }
 
@@ -1001,7 +1006,6 @@ export class Juice {
       const ring = this.scene.add.circle(x, y, 8, color, 0)
         .setStrokeStyle(3, color, 1)
         .setDepth(9997);
-      // Use scale tween (reliable on all Phaser versions) instead of radius tween
       this.scene.tweens.add({
         targets: ring,
         scale: { from: 1, to: maxRadius / 8 },
@@ -1010,6 +1014,8 @@ export class Juice {
         ease: 'Cubic.out',
         onComplete: () => { try { ring.destroy(); } catch {} },
       });
+      // SAFETY: Auto-destroy after 1.2s even if tween fails.
+      this.scene.time.delayedCall(1200, () => { try { if (ring && ring.active) ring.destroy(); } catch {} });
     } catch {}
   }
 
@@ -1018,13 +1024,12 @@ export class Juice {
     try {
       const cam = this.scene.cameras.main;
       if (!cam) return;
-      cam.zoomTo(zoomIn, duration * 0.4, 'Quad.out');
-      this.scene.time.delayedCall(duration * 0.4, () => {
-        try {
-          if (this.alive() && cam) {
-            cam.zoomTo(1, duration * 0.6, 'Quad.in');
-          }
-        } catch {}
+      // SIMPLIFIED: Single tween with yoyo. Removed delayedCall to prevent
+      // camera getting stuck zoomed-in if the delayedCall fails to fire.
+      cam.zoomTo(zoomIn, duration / 2, 'Quad.out', true);
+      // Safety: reset zoom after full duration in case tween fails
+      this.scene.time.delayedCall(duration + 100, () => {
+        try { if (this.alive() && cam) cam.setZoom(1); } catch {}
       });
     } catch {}
   }

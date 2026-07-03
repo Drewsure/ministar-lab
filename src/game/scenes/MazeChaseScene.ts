@@ -434,26 +434,60 @@ export default class MazeChaseScene extends BaseEngine {
     const px = this.mazeOffsetX + cell.x * CELL + CELL / 2;
     const py = this.mazeOffsetY + cell.y * CELL + CELL / 2;
 
-    const enemyKey = 'particle-' + this.theme.id;
-    const enemy = this.add.image(px, py, enemyKey);
-    enemy.setTint(this.theme.danger);
-    enemy.setDisplaySize(34, 34);
-    enemy.setDepth(15);
+    // Pac-Man-style ghost: body + eyes + pupil that tracks player
+    const ghostContainer = this.add.container(px, py);
+    ghostContainer.setDepth(15);
+
+    // Ghost body (semicircle top + wavy bottom)
+    const bodyGfx = this.add.graphics();
+    const ghostColor = this.theme.danger;
+    bodyGfx.fillStyle(ghostColor, 1);
+    bodyGfx.beginPath();
+    // Top half-circle
+    bodyGfx.arc(0, -2, 16, Math.PI, 0);
+    // Body sides
+    bodyGfx.lineTo(16, 14);
+    // Wavy bottom (3 humps)
+    bodyGfx.lineTo(10, 10);
+    bodyGfx.lineTo(5, 14);
+    bodyGfx.lineTo(0, 10);
+    bodyGfx.lineTo(-5, 14);
+    bodyGfx.lineTo(-10, 10);
+    bodyGfx.lineTo(-16, 14);
+    bodyGfx.closePath();
+    bodyGfx.fillPath();
+    ghostContainer.add(bodyGfx);
+
+    // White eyes
+    const eyeL = this.add.circle(-5, -4, 5, 0xffffff, 1);
+    const eyeR = this.add.circle(5, -4, 5, 0xffffff, 1);
+    ghostContainer.add(eyeL);
+    ghostContainer.add(eyeR);
+
+    // Pupils (will track player)
+    const pupilL = this.add.circle(-5, -4, 2.5, 0x0000ff, 1);
+    const pupilR = this.add.circle(5, -4, 2.5, 0x0000ff, 1);
+    ghostContainer.add(pupilL);
+    ghostContainer.add(pupilR);
 
     // Pulsing red glow
-    const aura = this.add.circle(px, py, 20, this.theme.danger, 0.22)
+    const aura = this.add.circle(px, py, 22, this.theme.danger, 0.25)
       .setDepth(14);
     this.tweens.add({
       targets: aura,
-      scale: { from: 0.9, to: 1.3 },
-      alpha: { from: 0.25, to: 0 },
-      duration: 600, repeat: -1, ease: 'Sine.out',
+      scale: { from: 0.9, to: 1.4 },
+      alpha: { from: 0.3, to: 0 },
+      duration: 500, repeat: -1, ease: 'Sine.out',
     });
-    enemy.setData('aura', aura);
 
-    this.physics.add.existing(enemy);
-    const body = enemy.body as Phaser.Physics.Arcade.Body;
-    body.setCircle(17, 0, 0)
+    // Store pupil refs for tracking
+    ghostContainer.setData('pupilL', pupilL);
+    ghostContainer.setData('pupilR', pupilR);
+    ghostContainer.setData('aura', aura);
+
+    this.physics.add.existing(ghostContainer);
+    const body = ghostContainer.body as Phaser.Physics.Arcade.Body;
+    body.setCircle(17, -17, -2)
         .setAllowGravity(false)
         .setCollideWorldBounds(true);
     body.setBoundsRectangle(
@@ -462,45 +496,58 @@ export default class MazeChaseScene extends BaseEngine {
       )
     );
 
-    // Patrol AI: change direction every 1.4s, or chase player if in LOS
+    // Patrol AI: change direction every 1.0s (faster), or chase player if in LOS
     this.time.addEvent({
-      delay: 1400, loop: true,
-      callback: () => this.updateEnemyAI(enemy),
+      delay: 1000, loop: true,
+      callback: () => this.updateEnemyAI(ghostContainer),
+    });
+    // Pupil tracking: update every frame to follow player
+    this.time.addEvent({
+      delay: 100, loop: true,
+      callback: () => this.updateEnemyPupils(ghostContainer),
     });
     // Initial impulse
-    this.updateEnemyAI(enemy);
+    this.updateEnemyAI(ghostContainer);
 
-    this.physics.add.collider(enemy, this.wallsGroup);
-    this.enemiesGroup.add(enemy);
+    this.physics.add.collider(ghostContainer, this.wallsGroup);
+    this.enemiesGroup.add(ghostContainer);
   }
 
-  private updateEnemyAI(enemy: Phaser.GameObjects.Image) {
+  private updateEnemyPupils(enemy: Phaser.GameObjects.Container) {
+    if (!enemy.active || this.isFinished) return;
+    const pupilL = enemy.getData('pupilL') as Phaser.GameObjects.Arc;
+    const pupilR = enemy.getData('pupilR') as Phaser.GameObjects.Arc;
+    if (!pupilL || !pupilR) return;
+    const dx = this.player.x - enemy.x;
+    const dy = this.player.y - enemy.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 1) return;
+    const offsetX = (dx / dist) * 2;
+    const offsetY = (dy / dist) * 2;
+    pupilL.setPosition(-5 + offsetX, -4 + offsetY);
+    pupilR.setPosition(5 + offsetX, -4 + offsetY);
+  }
+
+  private updateEnemyAI(enemy: Phaser.GameObjects.Container) {
     if (!enemy.active || this.isFinished) return;
     const body = enemy.body as Phaser.Physics.Arcade.Body;
     if (!body) return;
 
-    // Check line-of-sight to player (same row or column with no wall)
-    if (this.hasLineOfSight(enemy.x, enemy.y, this.player.x, this.player.y)) {
-      // Chase the player
-      const dx = this.player.x - enemy.x;
-      const dy = this.player.y - enemy.y;
-      const dist = Math.hypot(dx, dy);
-      // AAAA — Ghosts slower at start, ramp with level
-      const chaseSpeed = (this.lod.isMobile ? 60 : 80) + (this.level - 1) * 10;
-      if (dist > 1) {
-        body.setVelocity((dx / dist) * chaseSpeed, (dy / dist) * chaseSpeed);
-      }
-      return;
-    }
+    // DRAMA: Enemies always chase the player (Pac-Man style).
+    // Line-of-sight just determines speed — if in LOS, chase fast; otherwise, chase slowly.
+    const dx = this.player.x - enemy.x;
+    const dy = this.player.y - enemy.y;
+    const dist = Math.hypot(dx, dy);
+    const hasLOS = this.hasLineOfSight(enemy.x, enemy.y, this.player.x, this.player.y);
 
-    // Patrol: random cardinal direction (so it stays on corridors)
-    const dirs = [
-      { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 },
-    ];
-    const d = Phaser.Utils.Array.GetRandom(dirs);
-    // AAAA — Patrol speed also ramps with level
-    const patrolSpeed = (this.lod.isMobile ? 40 : 55) + (this.level - 1) * 8;
-    body.setVelocity(d.x * patrolSpeed, d.y * patrolSpeed);
+    // AAAA — Ghosts slower at start, ramp with level. In LOS = faster.
+    const baseChaseSpeed = (this.lod.isMobile ? 50 : 65) + (this.level - 1) * 10;
+    const losChaseSpeed = (this.lod.isMobile ? 70 : 95) + (this.level - 1) * 12;
+    const chaseSpeed = hasLOS ? losChaseSpeed : baseChaseSpeed;
+
+    if (dist > 1) {
+      body.setVelocity((dx / dist) * chaseSpeed, (dy / dist) * chaseSpeed);
+    }
   }
 
   private hasLineOfSight(x1: number, y1: number, x2: number, y2: number): boolean {
@@ -591,13 +638,13 @@ export default class MazeChaseScene extends BaseEngine {
       term: 'enemy',
       response: 'enemy-collision',
       success: false,
-      coordinate: { x: (e as Phaser.GameObjects.Image).x, y: (e as Phaser.GameObjects.Image).y, t: this.time.now },
+      coordinate: { x: (e as Phaser.GameObjects.Container).x, y: (e as Phaser.GameObjects.Container).y, t: this.time.now },
     });
 
-    // Hit-stop: brief physics freeze for impact
-    this.juice.hitStop(100);
+    // DRAMA: Heavy screen shake on enemy collision (no hitStop — that caused freezes)
+    this.juice.shake('heavy');
     this.bouncePlayerBack();
-    this.time.delayedCall(900, () => this.targetHits.delete(e));
+    this.time.delayedCall(900, () => { if (!this.isFinished) this.targetHits.delete(e); });
   }
 
   private bouncePlayerBack() {

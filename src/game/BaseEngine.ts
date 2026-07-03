@@ -236,46 +236,39 @@ export abstract class BaseEngine extends Phaser.Scene {
     if (opts.success) {
       this.score++;
       this.streak++;
-      // Stability: wrap juice calls in try-catch to prevent freezes
+      // STABILITY: Reduced simultaneous effects to prevent tween manager overload.
+      // Prior sessions had 5-6 simultaneous tweens per correct answer + 10+ on
+      // streak milestones. This overwhelmed Phaser's tween manager, causing
+      // tweens to silently fail → flash/scorePopup overlays never destroyed →
+      // screen covered in stacked semi-transparent rectangles → perceived freeze.
+      // FIX: Only fire burst + scorePopup on every correct. Reserve glowRing +
+      // zoomPunch for level-up only (not every streak milestone). Remove hitStop
+      // entirely (it paused physics world and could fail to resume).
       try {
         this.juice.burst(opts.coordinate?.x ?? 400, opts.coordinate?.y ?? 300, this.streak >= 3 ? 'streak' : 'correct');
-        this.juice.shake('light');
-        this.juice.flash(this.theme.success, 0.18, 100);
         this.juice.scorePopup(
           opts.coordinate?.x ?? this.scale.width / 2,
           opts.coordinate?.y ?? this.scale.height / 2,
           this.streak >= 3 ? `STREAK x${this.streak}!` : '+1',
           this.streak >= 3 ? this.theme.warning : this.theme.success
         );
-        if (this.streak === 3 || this.streak === 5 || this.streak === 7) {
-          this.juice.glowRing(
-            opts.coordinate?.x ?? this.scale.width / 2,
-            opts.coordinate?.y ?? this.scale.height / 2,
-            this.theme.warning,
-            120
-          );
-          this.juice.zoomPunch(1.04, 250);
-        }
       } catch (e) { /* ignore juice errors */ }
       // ESL: speak the correct term aloud when answered correctly
-      // (user explicitly tapped — this is user-initiated, not automatic)
       audioBus.speak(opts.term);
       // Pitch-rising streak audio: each correct in a row goes up a semitone
       const baseFreq = 660;
       const streakFreq = baseFreq * Math.pow(2, Math.min(this.streak, 12) / 12);
       audioBus.play('correct', { freq: streakFreq });
-      // Hit-stop on streaks (weighty game feel)
-      if (this.streak >= 3) {
-        try { this.juice.hitStop(60); } catch {}
-      }
-      // Check for level up
+      // REMOVED: hitStop — was pausing physics world and could fail to resume,
+      // causing permanent freeze in all physics-based games.
+      // Check for level up (glowRing + zoomPunch only fire on level-up, not every streak)
       this.checkLevelUp();
     } else {
       this.streak = 0;
+      // STABILITY: Reduced to burst + scorePopup only. Removed shake + flash
+      // to prevent tween manager overload (same root cause as correct-answer freeze).
       try {
         this.juice.burst(opts.coordinate?.x ?? 400, opts.coordinate?.y ?? 300, 'incorrect');
-        this.juice.shake('medium');
-        this.juice.flash(this.theme.danger, 0.25, 140);
         this.juice.scorePopup(
           opts.coordinate?.x ?? this.scale.width / 2,
           opts.coordinate?.y ?? this.scale.height / 2,
