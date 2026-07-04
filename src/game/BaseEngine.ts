@@ -178,30 +178,33 @@ export abstract class BaseEngine extends Phaser.Scene {
       }
     });
 
-    // CRITICAL FIX: Remove Phaser's original tween update listener and replace
-    // with a wrapped version that catches crashes.
+    // CRITICAL FIX: Override GameObject.destroy to automatically kill tweens
+    // targeting the object BEFORE destruction.
     //
-    // Why previous fixes failed:
-    // 1. Patching tweenManager.step → bypassed (update calls original step internally)
-    // 2. Patching tweenManager.update → bypassed (event system stored original reference)
-    // 3. Patching TweenData.prototype → namespace not accessible in minified build
+    // Root cause (confirmed by Phaser community):
+    // "If you destroy the tween target you need to also stop the tween."
+    // — https://phaser.discourse.group/t/problem-in-destroying-a-object/13589
     //
-    // This fix: REMOVE the original event listener, ADD a new wrapped one.
-    // The EventEmitter will now call OUR function, not the original.
-    const tweenManager = this.tweens;
-    if (tweenManager && !(tweenManager as any).__ltb_wrapped) {
-      (tweenManager as any).__ltb_wrapped = true;
-      // Remove the original listener registered by Phaser
-      this.events.off('update', tweenManager.update, tweenManager);
-      // Add our wrapped version
-      this.events.on('update', function () {
-        try {
-          tweenManager.update();
-        } catch (e) {
-          console.warn('[MiniStar] Tween crash caught — killing all tweens:', e);
-          try { tweenManager.killAll(); } catch {}
+    // When a GameObject with an active tween (especially repeat: -1) is
+    // destroyed without killing the tween first, the TweenManager tries to
+    // update the tween on the next frame. The TweenData.ease has been set
+    // to null on destroy → "this.ease is not a function" → crash.
+    //
+    // This prototype override ensures EVERY destroy() call kills tweens first.
+    // No monkey-patching the tween manager. No try-catch wrappers. Just
+    // proper cleanup at the source.
+    const PhaserNS = Phaser as any;
+    if (PhaserNS.GameObjects && PhaserNS.GameObjects.GameObject &&
+        !PhaserNS.GameObjects.GameObject.prototype.__ltb_destroy_patched) {
+      PhaserNS.GameObjects.GameObject.prototype.__ltb_destroy_patched = true;
+      const originalDestroy = PhaserNS.GameObjects.GameObject.prototype.destroy;
+      PhaserNS.GameObjects.GameObject.prototype.destroy = function (fromScene?: boolean) {
+        // Kill all tweens targeting this object BEFORE destroying
+        if (this.scene && this.scene.tweens) {
+          try { this.scene.tweens.killTweensOf(this); } catch {}
         }
-      }, this);
+        return originalDestroy.call(this, fromScene);
+      };
     }
   }
 
