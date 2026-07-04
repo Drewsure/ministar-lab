@@ -178,28 +178,33 @@ export abstract class BaseEngine extends Phaser.Scene {
       }
     });
 
-    // CRITICAL FIX: Override GameObject.destroy to automatically kill tweens
-    // targeting the object BEFORE destruction.
+    // CRITICAL FIX: Kill all tweens + remove all timer events on scene shutdown.
+    // This is the PRODUCTION FIX used by Phaser games in the wild:
+    // https://git.atdunbg.xyz/Super_Z/stellar-drift/commit/0c139f5eeb
     //
-    // Root cause (confirmed by Phaser community):
-    // "If you destroy the tween target you need to also stop the tween."
-    // — https://phaser.discourse.group/t/problem-in-destroying-a-object/13589
+    // Phaser's scene shutdown destroys game objects but leaves their tweens
+    // running in the TweenManager. On the next frame, the TweenManager tries
+    // to update tweens on destroyed objects → this.ease is null → crash.
     //
-    // When a GameObject with an active tween (especially repeat: -1) is
-    // destroyed without killing the tween first, the TweenManager tries to
-    // update the tween on the next frame. The TweenData.ease has been set
-    // to null on destroy → "this.ease is not a function" → crash.
-    //
-    // This prototype override ensures EVERY destroy() call kills tweens first.
-    // No monkey-patching the tween manager. No try-catch wrappers. Just
-    // proper cleanup at the source.
+    // The fix: listen for SHUTDOWN event, kill all tweens + remove all timers
+    // BEFORE Phaser destroys the objects.
+    this.events.once('shutdown', () => {
+      try { this.tweens.killAll(); } catch {}
+      try { this.time.removeAllEvents(); } catch {}
+    });
+    this.events.once('destroy', () => {
+      try { this.tweens.killAll(); } catch {}
+      try { this.time.removeAllEvents(); } catch {}
+    });
+
+    // ALSO: Override GameObject.destroy to kill tweens targeting the object
+    // BEFORE destruction (catches mid-gameplay destroys, not just shutdown).
     const PhaserNS = Phaser as any;
     if (PhaserNS.GameObjects && PhaserNS.GameObjects.GameObject &&
         !PhaserNS.GameObjects.GameObject.prototype.__ltb_destroy_patched) {
       PhaserNS.GameObjects.GameObject.prototype.__ltb_destroy_patched = true;
       const originalDestroy = PhaserNS.GameObjects.GameObject.prototype.destroy;
       PhaserNS.GameObjects.GameObject.prototype.destroy = function (fromScene?: boolean) {
-        // Kill all tweens targeting this object BEFORE destroying
         if (this.scene && this.scene.tweens) {
           try { this.scene.tweens.killTweensOf(this); } catch {}
         }
