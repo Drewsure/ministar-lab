@@ -38,7 +38,7 @@ export abstract class BaseEngine extends Phaser.Scene {
   protected level = 1;
   protected levelBadge?: Phaser.GameObjects.Text;
   protected levelBg?: Phaser.GameObjects.Rectangle;
-  protected termsPerLevel = 3; // every 3 correct answers = level up
+  protected termsPerLevel = 3; // every 3 correct answers = level up (5 levels total: 0-2, 3-5, 6-8, 9-11, 12+)
   // DRAMA: Urgency vignette for time pressure (all 24 games)
   protected urgencyVignette?: Phaser.GameObjects.Graphics;
   protected urgencyActive = false;
@@ -537,6 +537,32 @@ export abstract class BaseEngine extends Phaser.Scene {
       }
     ).setOrigin(0.5).setDepth(501).setAlpha(0.8);
 
+    // DRAMA: Achievement badges — based on Duolingo research
+    // "Badge reward system is a core tactic to improve user retention through achievement"
+    const badges: string[] = [];
+    if (this.score === this.maxScore) badges.push('🏆 PERFECT GAME');
+    if (this.streak >= 5) badges.push('🔥 ON FIRE (5+ streak)');
+    if (this.streak >= 10) badges.push('💎 UNSTOPPABLE (10+ streak)');
+    if (this.level >= 3) badges.push('⭐ LEVEL 3 REACHED');
+    if (this.level >= 5) badges.push('👑 LEVEL 5 MASTER');
+    if (durationMs < 30000 && this.score >= this.maxScore * 0.5) badges.push('⚡ SPEED DEMON');
+    if (this.score === 0 && !won) badges.push('🌱 KEEP TRYING');
+
+    if (badges.length > 0) {
+      const badgeText = this.add.text(
+        this.scale.width / 2, this.scale.height / 2 + 110,
+        badges.join('  ·  '),
+        {
+          fontFamily: 'Inter, sans-serif',
+          fontSize: '13px',
+          color: '#' + this.theme.warning.toString(16).padStart(6, '0'),
+          fontStyle: 'bold',
+          align: 'center',
+          wordWrap: { width: 500 },
+        }
+      ).setOrigin(0.5).setDepth(501);
+    }
+
     const btnBg = this.add.rectangle(
       this.scale.width / 2 - 110, this.scale.height / 2 + 80,
       180, 48, statusColor, 0.9
@@ -784,22 +810,48 @@ export abstract class BaseEngine extends Phaser.Scene {
     }
   }
 
+  // ===========================================================================
+  // DIFFICULTY MULTIPLIER — returns 1.0 at level 1, scaling up to 2.0 at level 5
+  // Scenes use this to adjust speed, timer, enemy count, etc.
+  // Research: "gradually increasing difficulty" is essential for flow state
+  // ===========================================================================
+  protected getDifficultyMultiplier(): number {
+    return 1.0 + (this.level - 1) * 0.2; // L1=1.0, L2=1.2, L3=1.4, L4=1.6, L5=1.8
+  }
+
+  // ===========================================================================
+  // SPEED BONUS — returns bonus XP based on answer speed
+  // Research: Kahoot awards more points for faster answers
+  // ===========================================================================
+  protected getSpeedBonus(roundStartTime: number): number {
+    const responseTime = Date.now() - roundStartTime;
+    if (responseTime < 2000) return 5;  // <2s = +5 bonus
+    if (responseTime < 4000) return 3;  // <4s = +3 bonus
+    if (responseTime < 6000) return 1;  // <6s = +1 bonus
+    return 0;
+  }
+
   protected showLevelUp() {
     if (!this.levelBadge || !this.juice) return;
     try {
       // Update badge text
       this.levelBadge.setText(`LEVEL ${this.level}`);
-      // ESC: speak the level up
+      // DRAMA: Level badge color changes per level (visual progression)
+      // L1=blue, L2=green, L3=yellow, L4=orange, L5=red
+      const levelColors = [0x3b82f6, 0x22c55e, 0xfbbf24, 0xf97316, 0xef4444];
+      const colorIdx = Math.min(this.level - 1, 4);
+      const badgeColor = levelColors[colorIdx];
+      this.levelBadge.setColor('#' + badgeColor.toString(16).padStart(6, '0'));
+      if (this.levelBg) {
+        this.levelBg.setStrokeStyle(2, badgeColor, 0.8);
+      }
+
       audioBus.speak(`Level ${this.level}!`);
-      // SIMPLIFIED: Only scorePopup + badge pulse. Removed zoomPunch + glowRing
-      // + confettiRain — they create 5+ simultaneous tweens at the exact crash
-      // point (level 2 transition). The crash was happening because the tween
-      // manager was overloaded with simultaneous tweens during level-up.
       this.juice.scorePopup(
         this.scale.width / 2,
         this.scale.height / 2 - 50,
         `LEVEL ${this.level}!`,
-        this.theme.warning
+        badgeColor
       );
       // Pulse the badge (finite tween — safe)
       this.tweens.add({
@@ -807,14 +859,9 @@ export abstract class BaseEngine extends Phaser.Scene {
         scale: { from: 1, to: 1.3 },
         duration: 200, yoyo: true, repeat: 2, ease: 'Back.out',
       });
-      // DRAMA: Speed up the timer as levels increase — creates urgency
-      // Each level shaves 30 seconds off the remaining time (min 60s)
-      if (this.hud) {
-        // The HUD timer is real-time based, so we can't directly speed it up.
-        // Instead, we play the countdown sound to signal increasing urgency.
-        if (this.level >= 3) {
-          audioBus.play('countdown');
-        }
+      // DRAMA: Countdown audio at level 3+ (urgency increases)
+      if (this.level >= 3) {
+        audioBus.play('countdown');
       }
     } catch (e) {
       console.error('[MiniStar] showLevelUp error:', e);

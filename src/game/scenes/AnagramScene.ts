@@ -83,7 +83,11 @@ export default class AnagramScene extends BaseEngine {
     // NOTE: per-container pointerdown removed — the global handler in setupGlobalPointer
     // handles hint button taps reliably. Double-listening caused useHint() to fire twice.
 
-    this.rounds = this.pickTerms(this.maxScore);
+    // RESEARCH: Anagram difficulty — longer words are harder to unscramble
+    // Sort terms by length so easier (shorter) words come first, harder (longer) later
+    const sortedTerms = [...this.terms].sort((a, b) => a.term.length - b.term.length);
+    const numRounds = Math.min(this.maxScore, sortedTerms.length);
+    this.rounds = sortedTerms.slice(0, numRounds);
     this.renderRound();
 
     // Global pointer handler for reliable tile clicks.

@@ -383,8 +383,9 @@ export default class MazeChaseScene extends BaseEngine {
       this.spawnTarget(cell, decoys[i % decoys.length], false);
     }
 
-    // Patrolling enemies (1-2 based on LOD)
-    const enemyCount = this.lod.isMobile ? 1 : 2;
+    // Patrolling enemies — RESEARCH: Pac-Man has 4 ghosts with different behaviors.
+    // Level 1-2: 1 ghost. Level 3-4: 2 ghosts. Level 5: 3 ghosts.
+    const enemyCount = this.level >= 5 ? 3 : this.level >= 3 ? 2 : (this.lod.isMobile ? 1 : 2);
     for (let i = 0; i < enemyCount; i++) {
       const cell = interiorCells.shift();
       if (!cell) break;
@@ -584,8 +585,11 @@ export default class MazeChaseScene extends BaseEngine {
     const hasLOS = this.hasLineOfSight(enemy.x, enemy.y, this.player.x, this.player.y);
 
     // AAAA — Ghosts slower at start, ramp with level. In LOS = faster.
-    const baseChaseSpeed = (this.lod.isMobile ? 50 : 65) + (this.level - 1) * 10;
-    const losChaseSpeed = (this.lod.isMobile ? 70 : 95) + (this.level - 1) * 12;
+    // RESEARCH: Difficulty curve — "gradually increasing difficulty" for flow state
+    // Uses getDifficultyMultiplier() from BaseEngine (1.0 at L1, 1.8 at L5)
+    const diffMult = this.getDifficultyMultiplier();
+    const baseChaseSpeed = (this.lod.isMobile ? 50 : 65) * diffMult + (this.level - 1) * 5;
+    const losChaseSpeed = (this.lod.isMobile ? 70 : 95) * diffMult + (this.level - 1) * 8;
     const chaseSpeed = hasLOS ? losChaseSpeed : baseChaseSpeed;
 
     if (dist > 1) {

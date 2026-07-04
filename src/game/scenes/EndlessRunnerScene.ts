@@ -66,7 +66,10 @@ export default class EndlessRunnerScene extends BaseEngine {
     if (cp.y >= this.scale.height - 100) this.checkAnswer();
     this.distance += this.speed * 0.016 * 0.1;
     this.distanceText.setText(`${Math.floor(this.distance)}m`);
-    this.speed = Math.min(200, 60 + this.distance * 0.5);
+    // RESEARCH: Endless runner difficulty — "difficulty increments at same pace as player progresses"
+    // Speed caps increase with level (L1=120, L2=140, L3=160, L4=180, L5=200)
+    const maxSpeed = 120 + (this.level - 1) * 20;
+    this.speed = Math.min(maxSpeed, 60 + this.distance * 0.5);
   }
 
   private switchLane(dir: number) {

@@ -68,7 +68,10 @@ export default class SnakingScene extends BaseEngine {
   protected onTick(_remainingMs: number) {
     if (!this.isMoving || this.isFinished) return;
     this.moveTimer += 16;
-    if (this.moveTimer >= this.moveInterval) { this.moveTimer = 0; this.moveSnake(); }
+    // RESEARCH: Snake game — "difficulty increments at same pace as player progresses"
+    // Move interval decreases with level (faster snake = harder)
+    const targetInterval = Math.max(100, 250 - (this.level - 1) * 30);
+    if (this.moveTimer >= targetInterval) { this.moveTimer = 0; this.moveSnake(); }
   }
 
   private changeDirection(x: number, y: number) {

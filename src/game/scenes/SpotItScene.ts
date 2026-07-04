@@ -47,6 +47,13 @@ export default class SpotItScene extends BaseEngine {
   private card2Center = { x: 580, y: 360 };
   private cardRadius = 130;
   private symbolsPerCard = 5;
+  // RESEARCH: Spot It/Dobble — more symbols per card = harder to find the match
+  // Level 1-2: 4 symbols, Level 3-4: 5 symbols, Level 5: 6 symbols
+  private getSymbolsPerCard(): number {
+    if (this.level >= 5) return 6;
+    if (this.level >= 3) return 5;
+    return 4;
+  }
   private canInteract = true;
   private roundStartTime = 0;
   private promptText!: Phaser.GameObjects.Text;
@@ -191,7 +198,7 @@ export default class SpotItScene extends BaseEngine {
     // K = symbols per card. Cap at 5, but also limited by available terms.
     // Need at least 2K-1 terms. If we have 8 terms, K can be up to 4 (need 7).
     const maxK = Math.floor((pool.length + 1) / 2);
-    const K = Math.min(this.symbolsPerCard, maxK);
+    const K = Math.min(this.getSymbolsPerCard(), maxK);
 
     if (K < 2) {
       // Not enough terms to make a valid round

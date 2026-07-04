@@ -235,7 +235,9 @@ export default class WhackAMoleScene extends BaseEngine {
 
     // Auto retreat after 1.8s
     // AAAA — Mole stay-up time: LONGER at start (3s), gets shorter per level
-    const stayTime = Math.max(1200, 3000 - (this.level - 1) * 400);
+    // RESEARCH: Speed/reaction games — "30 seconds, that's all your user has to do: whack moles as fast as they can"
+    // Level 1: 3s, Level 2: 2.5s, Level 3: 2s, Level 4: 1.5s, Level 5: 1.2s
+    const stayTime = Math.max(1200, 3000 - (this.level - 1) * 450);
     this.time.delayedCall(stayTime, () => {
       if (this.isFinished) return;
       if (mole.active) this.retreat(hole, mole);

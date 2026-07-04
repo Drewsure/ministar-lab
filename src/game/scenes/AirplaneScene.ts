@@ -227,8 +227,10 @@ export default class AirplaneScene extends BaseEngine {
     ];
     Phaser.Utils.Array.Shuffle(row);
 
-    // AAAA — Banner fall speed: SLOWER at start, ramps with speedMultiplier
-    const fallSpeed = (this.lod.isMobile ? 60 : 80) * this.speedMultiplier;
+    // AAAA — Banner fall speed: SLOWER at start, ramps with speedMultiplier AND level
+    // RESEARCH: Difficulty curve — gradual increase for flow state
+    const diffMult = this.getDifficultyMultiplier();
+    const fallSpeed = (this.lod.isMobile ? 60 : 80) * this.speedMultiplier * diffMult;
 
     row.forEach((entry, i) => {
       const x = startX + i * (bannerW + gap);
