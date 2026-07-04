@@ -98,18 +98,20 @@ export default class EndlessRunnerScene extends BaseEngine {
       if (x < this.scale.width / 2) this.switchLane(-1); else this.switchLane(1);
     });
 
-    // DRAMA: On-screen LEFT/RIGHT buttons for mobile
+    // DRAMA: On-screen LEFT/RIGHT buttons for mobile — BIG tap targets
     const leftBtn = this.add.text(80, this.scale.height - 60, '◀', {
-      fontFamily: 'Inter, sans-serif', fontSize: '32px', color: '#ffffff',
-      backgroundColor: '#' + this.theme.card.toString(16).padStart(6, '0'),
-      padding: { x: 20, y: 12 },
+      fontFamily: 'Inter, sans-serif', fontSize: '40px', color: '#ffffff',
+      backgroundColor: '#' + this.theme.accent.toString(16).padStart(6, '0'),
+      padding: { x: 28, y: 16 },
+      fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(400).setInteractive({ useHandCursor: true });
     leftBtn.on('pointerdown', () => this.switchLane(-1));
 
     const rightBtn = this.add.text(this.scale.width - 80, this.scale.height - 60, '▶', {
-      fontFamily: 'Inter, sans-serif', fontSize: '32px', color: '#ffffff',
-      backgroundColor: '#' + this.theme.card.toString(16).padStart(6, '0'),
-      padding: { x: 20, y: 12 },
+      fontFamily: 'Inter, sans-serif', fontSize: '40px', color: '#ffffff',
+      backgroundColor: '#' + this.theme.accent.toString(16).padStart(6, '0'),
+      padding: { x: 28, y: 16 },
+      fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(400).setInteractive({ useHandCursor: true });
     rightBtn.on('pointerdown', () => this.switchLane(1));
 

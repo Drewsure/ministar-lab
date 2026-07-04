@@ -110,18 +110,30 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
       // Load the scene module (only the active one — keeps bundle light)
       const SceneClass = (await sceneLoader()).default;
 
-      // Responsive sizing — use FIT mode so the 800x600 game scales to fit
-      // any screen (mobile portrait, mobile landscape, desktop) without overflow
+      // Responsive sizing — FIT mode scales the 800x600 game to fit any screen
       const container = containerRef.current!;
 
       const bgColor = '#' + (theme?.bg ?? 0x000000).toString(16).padStart(6, '0');
 
+      // Calculate responsive dimensions based on container size
+      const containerWidth = container.clientWidth || window.innerWidth;
+      const containerHeight = container.clientHeight || window.innerHeight;
+      // Use FIT scale mode — Phaser handles the scaling automatically
+      const gameWidth = 800;
+      const gameHeight = 600;
+
       const sceneConfig: Phaser.Types.Core.GameConfig = {
-        type: Phaser.AUTO, // Let Phaser choose — works on real browsers
+        type: Phaser.AUTO,
         parent: container,
-        width: 800,
-        height: 600,
+        width: gameWidth,
+        height: gameHeight,
         backgroundColor: bgColor,
+        scale: {
+          mode: Phaser.Scale.FIT,
+          autoCenter: Phaser.Scale.CENTER_BOTH,
+          width: gameWidth,
+          height: gameHeight,
+        },
         physics: {
           default: 'arcade',
           arcade: { debug: false, gravity: { x: 0, y: 0 } },

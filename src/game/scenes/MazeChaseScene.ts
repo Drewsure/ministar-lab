@@ -84,19 +84,23 @@ export default class MazeChaseScene extends BaseEngine {
     this.mazeOffsetX = (this.scale.width - COLS * CELL) / 2;
     this.mazeOffsetY = HUD_HEIGHT + 10;
 
-    // Prompt + compass
+    // Prompt + compass — DRAMA: Clear, visible, tappable prompt with definition
     this.promptText = this.add.text(
       this.scale.width / 2, 70,
-      'Collect the correct answer!',
+      'Tap here to hear what to find!',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '28px',
+        fontSize: '20px',
         color: this.hex(this.theme.warning),
         fontStyle: 'bold',
         stroke: '#000000',
         strokeThickness: 4,
+        backgroundColor: '#' + this.theme.card.toString(16).padStart(6, '0'),
+        padding: { x: 16, y: 8 },
       }
     ).setOrigin(0.5).setDepth(50);
+    // The speakable text should be the ACTUAL target word's definition
+    // It gets updated in spawnTargetsAndEnemies when the prompt changes
     this.makeSpeakable(this.promptText, 'Tap to hear what to find');
 
     this.compassArrow = this.add.text(
@@ -327,10 +331,18 @@ export default class MazeChaseScene extends BaseEngine {
     // First term is the active correct answer; others are decoys
     this.activeTerm = roundTerms[0];
     const promptLabel = this.activeTerm.emoji
-      ? `Find: ${this.activeTerm.emoji} ${this.activeTerm.term}`
-      : `Find: ${this.activeTerm.term}`;
-    this.promptText.setText(promptLabel);
-    this.promptText.setData('speakText', `Find: ${this.activeTerm.term}`);
+      ? `🎯 Find: ${this.activeTerm.emoji} ${this.activeTerm.term}`
+      : `🎯 Find: ${this.activeTerm.term}`;
+    const defHint = this.activeTerm.definition ? `\n💡 ${this.activeTerm.definition}` : '';
+    this.promptText.setText(promptLabel + defHint);
+    const speakText = `Find: ${this.activeTerm.term}. ${this.activeTerm.definition ?? ''}`;
+    this.promptText.setData('speakText', speakText);
+    this.promptText.off('pointerdown');
+    this.promptText.on('pointerdown', (_p: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
+      if (event) event.stopPropagation();
+      audioBus.speak(speakText);
+    });
+    this.time.delayedCall(500, () => { if (!this.isFinished) audioBus.speak(speakText); });
 
     // Available cells (exclude player start at 0,0)
     const interiorCells: { x: number; y: number }[] = [];
@@ -633,7 +645,14 @@ export default class MazeChaseScene extends BaseEngine {
       ? `Find: ${this.activeTerm.emoji} ${this.activeTerm.term}`
       : `Find: ${this.activeTerm.term}`;
     this.promptText.setText(promptLabel);
-    this.promptText.setData('speakText', `Find: ${this.activeTerm.term}`);
+    const speakText2 = `Find: ${this.activeTerm.term}. ${this.activeTerm.definition ?? ''}`;
+    this.promptText.setData('speakText', speakText2);
+    this.promptText.off('pointerdown');
+    this.promptText.on('pointerdown', (_p: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
+      if (event) event.stopPropagation();
+      audioBus.speak(speakText2);
+    });
+    this.time.delayedCall(500, () => { if (!this.isFinished) audioBus.speak(speakText2); });
     // Regenerate maze + targets for the new round
     this.generateMaze();
     this.renderMaze();
@@ -823,23 +842,23 @@ export default class MazeChaseScene extends BaseEngine {
   // ===========================================================================
   private dpadButtons: Phaser.GameObjects.Text[] = [];
   private _createDPad() {
-    const btnSize = '28px';
-    const baseX = 60;
-    const baseY = this.scale.height - 60;
+    const btnSize = '36px';
+    const baseX = 70;
+    const baseY = this.scale.height - 70;
     const dirs = [
-      { label: '◀', x: baseX - 40, y: baseY, dir: { x: -1, y: 0 } },
-      { label: '▲', x: baseX, y: baseY - 40, dir: { x: 0, y: -1 } },
-      { label: '▼', x: baseX, y: baseY + 40, dir: { x: 0, y: 1 } },
-      { label: '▶', x: baseX + 40, y: baseY, dir: { x: 1, y: 0 } },
+      { label: '◀', x: baseX - 50, y: baseY, dir: { x: -1, y: 0 } },
+      { label: '▲', x: baseX, y: baseY - 50, dir: { x: 0, y: -1 } },
+      { label: '▼', x: baseX, y: baseY + 50, dir: { x: 0, y: 1 } },
+      { label: '▶', x: baseX + 50, y: baseY, dir: { x: 1, y: 0 } },
     ];
     dirs.forEach(d => {
       const btn = this.add.text(d.x, d.y, d.label, {
         fontFamily: 'Inter, sans-serif', fontSize: btnSize, color: '#ffffff',
-        backgroundColor: '#' + this.theme.card.toString(16).padStart(6, '0'),
-        padding: { x: 12, y: 8 },
+        backgroundColor: '#' + this.theme.accent.toString(16).padStart(6, '0'),
+        padding: { x: 16, y: 10 },
+        fontStyle: 'bold',
       }).setOrigin(0.5).setDepth(400).setInteractive({ useHandCursor: true });
       btn.on('pointerdown', () => {
-        // Set direct movement direction (bypass A* pathfinding)
         this.path = [];
         this.pathIdx = 0;
         const body = this.player.body as Phaser.Physics.Arcade.Body;
