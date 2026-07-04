@@ -1340,6 +1340,14 @@ export class Hud {
     const newStreakStr = streak >= 3 ? `🔥${streak} x${mult}!` : `🔥 ${streak}`;
     if (this.streakText.text !== newStreakStr) {
       this.streakText.setText(newStreakStr);
+      // DRAMA: Streak milestone visual feedback — change text size based on streak
+      if (streak >= 5) {
+        this.streakText.setFontSize('22px');
+      } else if (streak >= 3) {
+        this.streakText.setFontSize('20px');
+      } else {
+        this.streakText.setFontSize('18px');
+      }
     }
     if (streak >= 3) {
       this.streakText.setColor('#' + this.theme.warning.toString(16).padStart(6, '0'));

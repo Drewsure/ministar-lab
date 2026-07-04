@@ -293,7 +293,7 @@ export default class MazeChaseScene extends BaseEngine {
       targets: this.playerGlow,
       scale: { from: 1, to: 1.25 },
       alpha: { from: 0.18, to: 0.32 },
-      duration: 700, yoyo: true, repeat: 999, ease: 'Sine.inOut',
+      duration: 700, yoyo: true, repeat: 50, ease: 'Sine.inOut',
     });
 
     this.player = this.physics.add.sprite(startX, startY, playerKey);
@@ -416,7 +416,7 @@ export default class MazeChaseScene extends BaseEngine {
         targets: ring,
         scale: { from: 1, to: 1.5 },
         alpha: { from: 0.5, to: 0.1 },
-        duration: 700, repeat: 999, ease: 'Sine.out',
+        duration: 700, repeat: 50, ease: 'Sine.out',
       });
       orb.setData('glowRing', ring);
     }
@@ -442,7 +442,7 @@ export default class MazeChaseScene extends BaseEngine {
     this.tweens.add({
       targets: [orb, label],
       scale: { from: 1, to: isCorrect ? 1.2 : 1.08 },
-      duration: isCorrect ? 500 : 800, yoyo: true, repeat: 999, ease: 'Sine.inOut',
+      duration: isCorrect ? 500 : 800, yoyo: true, repeat: 50, ease: 'Sine.inOut',
     });
 
     // Physics body — use a circular body sized to the orb
@@ -477,7 +477,7 @@ export default class MazeChaseScene extends BaseEngine {
       targets: aura,
       scale: { from: 0.9, to: 1.4 },
       alpha: { from: 0.3, to: 0 },
-      duration: 500, repeat: 999, ease: 'Sine.out',
+      duration: 500, repeat: 50, ease: 'Sine.out',
     });
 
     // Ghost body (semicircle top + wavy bottom)

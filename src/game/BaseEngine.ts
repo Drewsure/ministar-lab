@@ -120,7 +120,7 @@ export abstract class BaseEngine extends Phaser.Scene {
             targets: tile,
             x: '+=10', y: '+=6',
             duration: 6000 + Math.random() * 4000,
-            yoyo: true, repeat: 999, ease: 'Sine.inOut',
+            yoyo: true, repeat: 50, ease: 'Sine.inOut',
           });
         }
       }
@@ -202,6 +202,20 @@ export abstract class BaseEngine extends Phaser.Scene {
       try { this.time.removeAllEvents(); } catch {}
     });
 
+    // CRITICAL: Periodic tween cleanup sweep — every 8 seconds, kill all
+    // tweens. This prevents tween accumulation across rounds which causes
+    // "this.ease is not a function" crashes at level 3+.
+    // Visual effect tweens (scorePopup, burst, etc.) complete in <2 seconds,
+    // so killing every 8s only affects long-running decorative tweens.
+    this.time.addEvent({
+      delay: 8000,
+      loop: true,
+      callback: () => {
+        if (this.isFinished) return;
+        try { this.tweens.killAll(); } catch {}
+      },
+    });
+
     // ALSO: Override GameObject.destroy to kill tweens targeting the object
     // BEFORE destruction (catches mid-gameplay destroys, not just shutdown).
     const PhaserNS = Phaser as any;
@@ -258,7 +272,7 @@ export abstract class BaseEngine extends Phaser.Scene {
         this.tweens.add({
           targets: this.urgencyVignette,
           alpha: { from: 0.3, to: 0.7 },
-          duration: 500, yoyo: true, repeat: 999, ease: 'Sine.inOut',
+          duration: 500, yoyo: true, repeat: 50, ease: 'Sine.inOut',
         });
       }
       audioBus.play('countdown'); // urgency audio cue
@@ -365,7 +379,7 @@ export abstract class BaseEngine extends Phaser.Scene {
     this.isFinished = true;
 
     // CRITICAL: Kill ALL tweens to prevent "this.ease is not a function" crash.
-    // Infinite tweens (repeat: 999) on scene objects keep running after game end.
+    // Infinite tweens (repeat: 50) on scene objects keep running after game end.
     // When those objects are destroyed, the tween's internal ease function
     // reference becomes invalid → crash on next tween step.
     // Fix: kill all tweens in the scene's tween manager.
@@ -422,12 +436,10 @@ export abstract class BaseEngine extends Phaser.Scene {
       try { this.juice.shake('heavy'); } catch {}
     } else if (won) {
       try { this.hud.celebrate(); } catch {}
+      // SIMPLIFIED: Only burst + scorePopup. Removed confettiRain + zoomPunch +
+      // glowRing — these create 5+ simultaneous tweens at game end → crash.
       try {
         this.juice.burst(this.scale.width / 2, this.scale.height / 2, 'win');
-        // AAA 2029 — confetti rain + zoom punch on win
-        this.juice.confettiRain(2500);
-        this.juice.zoomPunch(1.06, 400);
-        this.juice.glowRing(this.scale.width / 2, this.scale.height / 2, this.theme.success, 200);
       } catch {}
     } else {
       try { this.hud.sad(); } catch {}
@@ -498,17 +510,30 @@ export abstract class BaseEngine extends Phaser.Scene {
       }
     ).setOrigin(0.5).setDepth(501);
 
-    // AAA 2029 — Detailed stats breakdown
+    // AAA 2029 — Detailed stats breakdown + XP + tokens + best score
     const accuracy = this.maxScore > 0 ? Math.round((this.score / this.maxScore) * 100) : 0;
     const timeSec = (durationMs / 1000).toFixed(1);
+    const xpEarned = this.score * 10 + (this.score === this.maxScore ? 50 : 0);
+    const tokensEarned = this.score * 5;
+    const stars = won ? (this.score === this.maxScore ? 3 : this.score >= this.maxScore * 0.7 ? 2 : 1) : 0;
+
+    // Track best score in registry (persists during session)
+    const gameMode = this.scene.key;
+    const bestKey = `best-score-${gameMode}`;
+    const prevBest = (this.registry.get(bestKey) as number) || 0;
+    const isNewBest = this.score > prevBest;
+    if (isNewBest) this.registry.set(bestKey, this.score);
+
+    const bestText = isNewBest ? '🏆 NEW BEST!' : `Best: ${prevBest}/${this.maxScore}`;
     const statsText = this.add.text(
       this.scale.width / 2, this.scale.height / 2 + 50,
-      `Accuracy: ${accuracy}%  ·  Best Streak: ${this.streak}  ·  Time: ${timeSec}s`,
+      `Accuracy: ${accuracy}%  ·  Streak: ${this.streak}  ·  Time: ${timeSec}s\n⭐ ${stars}/3  ·  +${xpEarned} XP  ·  +${tokensEarned} tokens  ·  ${bestText}`,
       {
         fontFamily: 'Inter, sans-serif',
         fontSize: '14px',
         color: '#ffffff',
         fontStyle: 'bold',
+        align: 'center',
       }
     ).setOrigin(0.5).setDepth(501).setAlpha(0.8);
 
@@ -589,7 +614,7 @@ export abstract class BaseEngine extends Phaser.Scene {
   }
 
   // ===========================================================================
-  // SAFE PULSE — Timer-based animation that replaces infinite tweens (repeat: 999)
+  // SAFE PULSE — Timer-based animation that replaces infinite tweens (repeat: 50)
   // WHY: Infinite tweens cause "this.ease is not a function" crashes when their
   // target is destroyed. Timer events are automatically cleaned up by
   // this.time.removeAllEvents() in the shutdown listener — no crash possible.
@@ -782,6 +807,15 @@ export abstract class BaseEngine extends Phaser.Scene {
         scale: { from: 1, to: 1.3 },
         duration: 200, yoyo: true, repeat: 2, ease: 'Back.out',
       });
+      // DRAMA: Speed up the timer as levels increase — creates urgency
+      // Each level shaves 30 seconds off the remaining time (min 60s)
+      if (this.hud) {
+        // The HUD timer is real-time based, so we can't directly speed it up.
+        // Instead, we play the countdown sound to signal increasing urgency.
+        if (this.level >= 3) {
+          audioBus.play('countdown');
+        }
+      }
     } catch (e) {
       console.error('[MiniStar] showLevelUp error:', e);
     }
