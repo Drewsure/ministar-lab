@@ -55,6 +55,9 @@ function FillInTheBlank(rootSelector, inputData, options) {
   // Extract pedagogical payload
   this.vocab = this.data.pedagogical_payload.vocabulary_terms;
   this.targetSentences = this.data.pedagogical_payload.target_sentences;
+  // CRITICAL FIX: Use explicit answers array if provided. Fall back to
+  // audio_cues derivation only if answers array is missing (backward compat).
+  this.answers = this.data.pedagogical_payload.answers || null;
   this.audioCues = this.data.audio_cues || [];
   this.unitMeta = this.data.unit_meta || {};
 
@@ -119,7 +122,6 @@ FillInTheBlank.prototype._parseSentence = function (sentenceWithBlank) {
   // Find the {blank} placeholder
   var blankIdx = sentenceWithBlank.indexOf('{blank}');
   if (blankIdx === -1) {
-    // No placeholder — shouldn't happen if data is valid, but handle gracefully
     return {
       before: sentenceWithBlank,
       answer: '',
@@ -131,13 +133,23 @@ FillInTheBlank.prototype._parseSentence = function (sentenceWithBlank) {
   var before = sentenceWithBlank.slice(0, blankIdx);
   var after = sentenceWithBlank.slice(blankIdx + 7); // 7 = '{blank}'.length
 
-  // Find the answer by looking up the full sentence in audio_cues
-  // The audio_cues with kind="sentence" should contain the full sentence
-  // with the blank filled in.
+  // CRITICAL FIX: Use explicit answers array first (1:1 mapping with target_sentences).
+  // This replaces the fragile regex-matching approach that silently fell back to
+  // the first vocab word if audio_cues lacked a matching sentence cue.
+  if (this.answers && this.answers.length > this.currentRoundIndex) {
+    var explicitAnswer = this.answers[this.currentRoundIndex];
+    return {
+      before: before,
+      answer: explicitAnswer,
+      after: after,
+      display: before + '_____' + after,
+      blankWord: '_____'
+    };
+  }
+
+  // FALLBACK: Derive answer from audio_cues (backward compatibility)
   var self = this;
-  var fullSentence = null;
   if (this.audioCues && this.audioCues.length) {
-    // Try to find a sentence cue that matches the pattern (before + * + after)
     var pattern = before.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') +
                   '(.+?)' +
                   after.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

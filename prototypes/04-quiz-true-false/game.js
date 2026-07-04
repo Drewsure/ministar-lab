@@ -168,7 +168,27 @@ QuizTrueFalse.prototype._renderStartScreen = function () {
 QuizTrueFalse.prototype._startGame = function (mode) {
   var self = this;
   this.mode = mode;
-  this.questions = QuizQuestionGenerator.generate(this.data.pedagogical_payload, mode);
+  // CRITICAL FIX: Check for explicit questions array in pedagogical_payload
+  // before falling back to generated questions. The README claimed this override
+  // existed but the code didn't check for it — now it does.
+  if (this.data.pedagogical_payload.questions &&
+      Array.isArray(this.data.pedagogical_payload.questions) &&
+      this.data.pedagogical_payload.questions.length > 0) {
+    // Filter questions by mode if the question has a type field
+    this.questions = this.data.pedagogical_payload.questions.filter(function (q) {
+      if (!q.type) return true; // no type = include in all modes
+      if (mode === 'multiple-choice') return q.type === 'multiple-choice';
+      if (mode === 'true-false') return q.type === 'true-false';
+      return true; // mixed mode
+    });
+    // If no questions match the mode, fall back to generation
+    if (this.questions.length === 0) {
+      this.questions = QuizQuestionGenerator.generate(this.data.pedagogical_payload, mode);
+    }
+  } else {
+    // No explicit questions — generate from payload
+    this.questions = QuizQuestionGenerator.generate(this.data.pedagogical_payload, mode);
+  }
   this.currentQuestionIndex = 0;
   this.score = 0;
   this.attempts = 0;

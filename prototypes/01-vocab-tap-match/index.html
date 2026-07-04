@@ -29,7 +29,7 @@
   <!-- Bootstrapper -->
   <script>
     // Validate input before starting
-    var validation = LTB.InputValidator.validate(SAMPLE_DATA);
+    var validation = LTB.InputValidator.validateSentenceBuilder(SAMPLE_DATA);
     if (!validation.valid) {
       document.getElementById('root').innerHTML =
         '<div style="padding:24px;color:#dc2626;"><h2>Invalid Input</h2><pre>' +

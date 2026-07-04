@@ -30,7 +30,8 @@ window.SAMPLE_DATA = {
     "target_sentences": [
       "I {blank} a story every night.",
       "The {blank} writes on the whiteboard."
-    ]
+    ],
+    "answers": ["read", "teacher"]
   },
   "audio_cues": [
     { "kind": "term", "text": "book", "language": "en" },

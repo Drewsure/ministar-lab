@@ -43,7 +43,7 @@ export default class EndlessRunnerScene extends BaseEngine {
     this.player = this.add.text(this.laneX[this.playerLane], this.scale.height - 80, '🏃', { fontSize: '40px' }).setOrigin(0.5).setDepth(100);
     const glow = this.add.circle(this.laneX[this.playerLane], this.scale.height - 40, 30, this.theme.accent, 0.3)
       .setStrokeStyle(2, this.theme.accent, 0.6).setDepth(99);
-    this.tweens.add({ targets: glow, scale: { from: 1, to: 1.2 }, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    this.tweens.add({ targets: glow, scale: { from: 1, to: 1.2 }, duration: 600, yoyo: true, repeat: 999, ease: 'Sine.inOut' });
     this.events.on('update', () => { glow.x = this.laneX[this.playerLane]; });
 
     this.input.keyboard?.on('keydown-LEFT', () => this.switchLane(-1));

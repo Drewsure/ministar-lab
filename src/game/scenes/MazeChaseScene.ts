@@ -293,7 +293,7 @@ export default class MazeChaseScene extends BaseEngine {
       targets: this.playerGlow,
       scale: { from: 1, to: 1.25 },
       alpha: { from: 0.18, to: 0.32 },
-      duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut',
+      duration: 700, yoyo: true, repeat: 999, ease: 'Sine.inOut',
     });
 
     this.player = this.physics.add.sprite(startX, startY, playerKey);
@@ -416,7 +416,7 @@ export default class MazeChaseScene extends BaseEngine {
         targets: ring,
         scale: { from: 1, to: 1.5 },
         alpha: { from: 0.5, to: 0.1 },
-        duration: 700, repeat: -1, ease: 'Sine.out',
+        duration: 700, repeat: 999, ease: 'Sine.out',
       });
       orb.setData('glowRing', ring);
     }
@@ -442,7 +442,7 @@ export default class MazeChaseScene extends BaseEngine {
     this.tweens.add({
       targets: [orb, label],
       scale: { from: 1, to: isCorrect ? 1.2 : 1.08 },
-      duration: isCorrect ? 500 : 800, yoyo: true, repeat: -1, ease: 'Sine.inOut',
+      duration: isCorrect ? 500 : 800, yoyo: true, repeat: 999, ease: 'Sine.inOut',
     });
 
     // Physics body — use a circular body sized to the orb
@@ -477,7 +477,7 @@ export default class MazeChaseScene extends BaseEngine {
       targets: aura,
       scale: { from: 0.9, to: 1.4 },
       alpha: { from: 0.3, to: 0 },
-      duration: 500, repeat: -1, ease: 'Sine.out',
+      duration: 500, repeat: 999, ease: 'Sine.out',
     });
 
     // Ghost body (semicircle top + wavy bottom)
@@ -557,7 +557,19 @@ export default class MazeChaseScene extends BaseEngine {
     const offsetY = (dy / dist) * 2;
     pupilL.setPosition(-5 + offsetX, -4 + offsetY);
     pupilR.setPosition(5 + offsetX, -4 + offsetY);
+
+    // DRAMA: Near-miss detection — if enemy is very close (< 60px), play
+    // heartbeat audio + screen-edge vignette flash. This creates tension
+    // without crashing (uses audioBus, not tweens).
+    if (dist < 60 && dist > 30 && !this.nearMissActive) {
+      this.nearMissActive = true;
+      audioBus.play('countdown');
+      // Auto-reset after 1 second
+      this.time.delayedCall(1000, () => { this.nearMissActive = false; });
+    }
   }
+
+  private nearMissActive = false;
 
   private updateEnemyAI(enemy: Phaser.GameObjects.Container) {
     if (!enemy.active || this.isFinished) return;

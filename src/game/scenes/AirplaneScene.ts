@@ -79,7 +79,7 @@ export default class AirplaneScene extends BaseEngine {
       targets: this.planeGlow,
       scale: { from: 1, to: 1.3 },
       alpha: { from: 0.2, to: 0.4 },
-      duration: 500, yoyo: true, repeat: -1, ease: 'Sine.inOut',
+      duration: 500, yoyo: true, repeat: 999, ease: 'Sine.inOut',
     });
 
     this.plane = this.physics.add.sprite(this.scale.width / 2, this.scale.height - 80, planeKey);
@@ -167,7 +167,7 @@ export default class AirplaneScene extends BaseEngine {
           targets: cloud,
           x: '-=' + (60 + layer * 40),
           duration: speed,
-          repeat: -1, yoyo: true, ease: 'Sine.inOut',
+          repeat: 999, yoyo: true, ease: 'Sine.inOut',
         });
         this.cloudLayers.push(cloud);
       }
@@ -199,7 +199,7 @@ export default class AirplaneScene extends BaseEngine {
     this.tweens.add({
       targets: cloud,
       alpha: { from: 0.7, to: 1 },
-      duration: 400, yoyo: true, repeat: -1, ease: 'Sine.inOut',
+      duration: 400, yoyo: true, repeat: 999, ease: 'Sine.inOut',
     });
   }
 

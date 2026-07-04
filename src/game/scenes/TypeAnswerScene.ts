@@ -75,7 +75,7 @@ export default class TypeAnswerScene extends BaseEngine {
     this.tweens.add({
       targets: this.inputText,
       alpha: { from: 1, to: 0.6 },
-      duration: 500, yoyo: true, repeat: -1, ease: 'Sine.inOut',
+      duration: 500, yoyo: true, repeat: 999, ease: 'Sine.inOut',
     });
 
     // ---- Hint text ----

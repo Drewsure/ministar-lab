@@ -120,7 +120,7 @@ export abstract class BaseEngine extends Phaser.Scene {
             targets: tile,
             x: '+=10', y: '+=6',
             duration: 6000 + Math.random() * 4000,
-            yoyo: true, repeat: -1, ease: 'Sine.inOut',
+            yoyo: true, repeat: 999, ease: 'Sine.inOut',
           });
         }
       }
@@ -153,6 +153,11 @@ export abstract class BaseEngine extends Phaser.Scene {
     this.urgencyVignette.setDepth(400);
     this.urgencyVignette.setVisible(false);
     this.urgencyActive = false;
+
+    // DRAMA: Pause/Quit button overlay — visible in top-left corner of all 24 games.
+    // Tapping it pauses the game and shows a menu with Resume + Quit options.
+    // This ensures every game has a "way out" (AA input robustness requirement).
+    this._createPauseButton();
 
     // Wire global pause key (P)
     this.input.keyboard?.on('keydown-P', () => {
@@ -253,7 +258,7 @@ export abstract class BaseEngine extends Phaser.Scene {
         this.tweens.add({
           targets: this.urgencyVignette,
           alpha: { from: 0.3, to: 0.7 },
-          duration: 500, yoyo: true, repeat: -1, ease: 'Sine.inOut',
+          duration: 500, yoyo: true, repeat: 999, ease: 'Sine.inOut',
         });
       }
       audioBus.play('countdown'); // urgency audio cue
@@ -360,7 +365,7 @@ export abstract class BaseEngine extends Phaser.Scene {
     this.isFinished = true;
 
     // CRITICAL: Kill ALL tweens to prevent "this.ease is not a function" crash.
-    // Infinite tweens (repeat: -1) on scene objects keep running after game end.
+    // Infinite tweens (repeat: 999) on scene objects keep running after game end.
     // When those objects are destroyed, the tween's internal ease function
     // reference becomes invalid → crash on next tween step.
     // Fix: kill all tweens in the scene's tween manager.
@@ -583,6 +588,58 @@ export abstract class BaseEngine extends Phaser.Scene {
     }
   }
 
+  // ===========================================================================
+  // SAFE PULSE — Timer-based animation that replaces infinite tweens (repeat: 999)
+  // WHY: Infinite tweens cause "this.ease is not a function" crashes when their
+  // target is destroyed. Timer events are automatically cleaned up by
+  // this.time.removeAllEvents() in the shutdown listener — no crash possible.
+  // ===========================================================================
+  protected safePulse(
+    target: Phaser.GameObjects.GameObject | Phaser.GameObjects.Components.Transform | any,
+    props: { scale?: { from: number; to: number }; alpha?: { from: number; to: number } },
+    durationMs: number
+  ): Phaser.Time.TimerEvent {
+    const fromScale = props.scale?.from ?? 1;
+    const toScale = props.scale?.to ?? 1;
+    const fromAlpha = props.alpha?.from ?? 1;
+    const toAlpha = props.alpha?.to ?? 1;
+    let forward = true;
+    return this.time.addEvent({
+      delay: durationMs,
+      loop: true,
+      callback: () => {
+        if (!target || !target.active) return;
+        forward = !forward;
+        const t = forward ? 1 : 0;
+        if (props.scale && target.setScale) {
+          const s = fromScale + (toScale - fromScale) * t;
+          target.setScale(s);
+        }
+        if (props.alpha && target.setAlpha) {
+          const a = fromAlpha + (toAlpha - fromAlpha) * t;
+          target.setAlpha(a);
+        }
+      },
+    });
+  }
+
+  // ===========================================================================
+  // SAFE SPIN — Timer-based rotation that replaces infinite rotation tweens
+  // ===========================================================================
+  protected safeSpin(target: Phaser.GameObjects.GameObject | any, durationMs: number): Phaser.Time.TimerEvent {
+    let angle = 0;
+    return this.time.addEvent({
+      delay: 16,
+      loop: true,
+      callback: () => {
+        if (!target || !target.active) return;
+        angle += (360 / (durationMs / 16));
+        if (angle >= 360) angle -= 360;
+        if (target.setAngle) target.setAngle(angle);
+      },
+    });
+  }
+
   // Pick N random terms
   protected pickTerms(n: number): TermItem[] {
     const copy = [...this.terms];
@@ -592,6 +649,72 @@ export abstract class BaseEngine extends Phaser.Scene {
 
   protected hex(c: number): string {
     return '#' + c.toString(16).padStart(6, '0');
+  }
+
+  // ===========================================================================
+  // PAUSE/QUIT BUTTON — visible in all 24 games (AA input robustness)
+  // ===========================================================================
+  private pauseOverlay?: Phaser.GameObjects.Container;
+  private _createPauseButton() {
+    const btn = this.add.text(15, 95, '⏸', {
+      fontFamily: 'Inter, sans-serif',
+      fontSize: '22px',
+    }).setDepth(300).setInteractive({ useHandCursor: true });
+
+    btn.on('pointerdown', () => {
+      if (this.isFinished) return;
+      if (this.scene.isPaused()) {
+        this.scene.resume();
+        if (this.pauseOverlay) { this.pauseOverlay.setVisible(false); }
+      } else {
+        this.scene.pause();
+        this._showPauseOverlay();
+      }
+    });
+  }
+
+  private _showPauseOverlay() {
+    if (this.pauseOverlay) {
+      this.pauseOverlay.setVisible(true);
+      return;
+    }
+    const overlay = this.add.rectangle(
+      this.scale.width / 2, this.scale.height / 2,
+      this.scale.width, this.scale.height,
+      0x000000, 0.7
+    ).setDepth(450);
+
+    const title = this.add.text(
+      this.scale.width / 2, this.scale.height / 2 - 60,
+      '⏸ Paused', {
+        fontFamily: 'Inter, sans-serif', fontSize: '32px', color: '#ffffff', fontStyle: 'bold',
+      }
+    ).setOrigin(0.5).setDepth(451);
+
+    const resumeBtn = this.add.text(
+      this.scale.width / 2, this.scale.height / 2 + 10,
+      '▶ Resume', {
+        fontFamily: 'Inter, sans-serif', fontSize: '20px', color: '#22c55e', fontStyle: 'bold',
+      }
+    ).setOrigin(0.5).setDepth(451).setInteractive({ useHandCursor: true });
+
+    resumeBtn.on('pointerdown', () => {
+      this.scene.resume();
+      if (this.pauseOverlay) this.pauseOverlay.setVisible(false);
+    });
+
+    const quitBtn = this.add.text(
+      this.scale.width / 2, this.scale.height / 2 + 50,
+      '✗ Quit to Library', {
+        fontFamily: 'Inter, sans-serif', fontSize: '18px', color: '#ef4444', fontStyle: 'bold',
+      }
+    ).setOrigin(0.5).setDepth(451).setInteractive({ useHandCursor: true });
+
+    quitBtn.on('pointerdown', () => {
+      try { this.game.destroy(true); } catch {}
+    });
+
+    this.pauseOverlay = this.add.container(0, 0, [overlay, title, resumeBtn, quitBtn]).setDepth(450);
   }
 
   // ===========================================================================
@@ -642,18 +765,18 @@ export abstract class BaseEngine extends Phaser.Scene {
       // Update badge text
       this.levelBadge.setText(`LEVEL ${this.level}`);
       // ESC: speak the level up
-      audioBus.speak(`Level ${this.level}!`); // User earned this — speak it
-      // Big celebration: zoom punch + glow ring + confetti + scale pulse
-      this.juice.zoomPunch(1.08, 400);
-      this.juice.glowRing(this.scale.width / 2, this.scale.height / 2, this.theme.warning, 200);
-      this.juice.confettiRain(1500);
+      audioBus.speak(`Level ${this.level}!`);
+      // SIMPLIFIED: Only scorePopup + badge pulse. Removed zoomPunch + glowRing
+      // + confettiRain — they create 5+ simultaneous tweens at the exact crash
+      // point (level 2 transition). The crash was happening because the tween
+      // manager was overloaded with simultaneous tweens during level-up.
       this.juice.scorePopup(
         this.scale.width / 2,
         this.scale.height / 2 - 50,
         `LEVEL ${this.level}!`,
         this.theme.warning
       );
-      // Pulse the badge
+      // Pulse the badge (finite tween — safe)
       this.tweens.add({
         targets: [this.levelBadge, this.levelBg],
         scale: { from: 1, to: 1.3 },

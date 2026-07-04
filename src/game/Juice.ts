@@ -1117,6 +1117,8 @@ export class MascotController {
   private currentTween?: Phaser.Tweens.Tween;
   private secondaryTween?: Phaser.Tweens.Tween;
   private stateTimer?: Phaser.Time.TimerEvent;
+  private idleTimer?: Phaser.Time.TimerEvent;
+  private secondaryTimer?: Phaser.Time.TimerEvent;
 
   constructor(
     private scene: Phaser.Scene,
@@ -1148,36 +1150,62 @@ export class MascotController {
   }
 
   private enterState(s: MascotState) {
+    // CRITICAL: Use timer events instead of infinite tweens (repeat: -1).
+    // Infinite tweens cause "this.ease is not a function" crashes when
+    // the mascot sprite is destroyed. Timer events are cleaned up by
+    // this.time.removeAllEvents() in BaseEngine's shutdown listener.
     if (this.currentTween) { this.currentTween.stop(); this.currentTween = undefined!; }
     if (this.secondaryTween) { this.secondaryTween.stop(); this.secondaryTween = undefined!; }
     if (this.stateTimer) { this.stateTimer.remove(); this.stateTimer = undefined!; }
+    // Kill any existing timer-based animations
+    if (this.idleTimer) { this.idleTimer.remove(); this.idleTimer = undefined!; }
+    if (this.secondaryTimer) { this.secondaryTimer.remove(); this.secondaryTimer = undefined!; }
     const sp = this.sprite;
     sp.setScale(1.2);
     sp.setAngle(0);
     sp.setAlpha(1);
-    sp.setPosition(sp.x, sp.y); // reset drift
+    const baseY = sp.y;
+    const baseX = sp.x;
     switch (s) {
       case 'idle':
-        this.currentTween = this.scene.tweens.add({
-          targets: sp, y: '-=6', duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut',
+        // Gentle floating — timer-based (no infinite tween)
+        this.idleTimer = this.scene.time.addEvent({
+          delay: 900, loop: true, callback: () => {
+            if (!sp.active) return;
+            this.scene.tweens.add({ targets: sp, y: sp.y === baseY ? baseY - 6 : baseY, duration: 450, ease: 'Sine.inOut' });
+          },
         });
         break;
       case 'hype':
         audioBus.play('streak');
-        this.currentTween = this.scene.tweens.add({
-          targets: sp, scale: 1.6, y: '-=20', duration: 180, yoyo: true, repeat: -1, ease: 'Quad.out',
+        // Bouncing + tilting — finite tweens on timer
+        this.idleTimer = this.scene.time.addEvent({
+          delay: 180, loop: true, callback: () => {
+            if (!sp.active) return;
+            this.scene.tweens.add({ targets: sp, scale: sp.scaleX > 1.3 ? 1.2 : 1.6, y: sp.y < baseY - 5 ? baseY : baseY - 20, duration: 90, ease: 'Quad.out' });
+          },
         });
-        this.secondaryTween = this.scene.tweens.add({
-          targets: sp, angle: 12, duration: 90, yoyo: true, repeat: -1,
+        this.secondaryTimer = this.scene.time.addEvent({
+          delay: 90, loop: true, callback: () => {
+            if (!sp.active) return;
+            this.scene.tweens.add({ targets: sp, angle: sp.angle > 0 ? -12 : 12, duration: 45 });
+          },
         });
         this.stateTimer = this.scene.time.delayedCall(4000, () => this.setState('idle'));
         break;
       case 'urgent':
-        this.currentTween = this.scene.tweens.add({
-          targets: sp, x: '+=4', duration: 60, yoyo: true, repeat: -1,
+        // Shaking — finite tweens on timer
+        this.idleTimer = this.scene.time.addEvent({
+          delay: 60, loop: true, callback: () => {
+            if (!sp.active) return;
+            this.scene.tweens.add({ targets: sp, x: sp.x > baseX ? baseX - 4 : baseX + 4, duration: 30 });
+          },
         });
-        this.secondaryTween = this.scene.tweens.add({
-          targets: sp, alpha: 0.6, duration: 200, yoyo: true, repeat: -1,
+        this.secondaryTimer = this.scene.time.addEvent({
+          delay: 200, loop: true, callback: () => {
+            if (!sp.active) return;
+            this.scene.tweens.add({ targets: sp, alpha: sp.alpha < 0.8 ? 1 : 0.6, duration: 100 });
+          },
         });
         break;
       case 'celebrate':
@@ -1190,8 +1218,12 @@ export class MascotController {
         break;
       case 'sad':
         audioBus.play('lose');
-        this.currentTween = this.scene.tweens.add({
-          targets: sp, y: '+=8', angle: -10, duration: 400, yoyo: true, repeat: -1, ease: 'Sine.inOut',
+        // Swaying — finite tweens on timer
+        this.idleTimer = this.scene.time.addEvent({
+          delay: 400, loop: true, callback: () => {
+            if (!sp.active) return;
+            this.scene.tweens.add({ targets: sp, y: sp.y > baseY ? baseY : baseY + 8, angle: sp.angle < 0 ? 0 : -10, duration: 200, ease: 'Sine.inOut' });
+          },
         });
         this.stateTimer = this.scene.time.delayedCall(3000, () => this.setState('idle'));
         break;
@@ -1200,6 +1232,8 @@ export class MascotController {
 
   setVisible(v: boolean) { this.sprite.setVisible(v); }
   destroy() {
+    if (this.idleTimer) { this.idleTimer.remove(); this.idleTimer = undefined; }
+    if (this.secondaryTimer) { this.secondaryTimer.remove(); this.secondaryTimer = undefined; }
     this.sprite.destroy();
   }
 }
