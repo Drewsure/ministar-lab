@@ -178,22 +178,32 @@ export abstract class BaseEngine extends Phaser.Scene {
       }
     });
 
-    // CRITICAL: Monkey-patch the tween manager's UPDATE method (not step).
-    // Phaser's Scene UPDATE event calls tweenManager.update(), which internally
-    // calls this.step(). Patching step() doesn't work because update() calls
-    // the original step via internal binding. We must patch update() directly.
-    const tweenManager = this.tweens;
-    if (tweenManager && !(tweenManager as any).__ltb_patched) {
-      const originalUpdate = tweenManager.update.bind(tweenManager);
-      (tweenManager as any).__ltb_patched = true;
-      (tweenManager as any).update = function () {
+    // CRITICAL FIX: Patch Phaser.Tweens.TweenData.prototype.update to guard
+    // against this.ease being null (set to null on destroy at TweenData.js:410).
+    // 
+    // Previous attempts patched tweenManager.update/step — but Phaser's event
+    // system stores a REFERENCE to the original function at registration time
+    // (TweenManager.js:237: events.on('update', this.update, this)). Replacing
+    // the property after registration is useless — the stored reference still
+    // points to the original function.
+    //
+    // This patch goes to the SOURCE: the individual TweenData.update() method
+    // where `this.ease(progress)` is called (TweenData.js:343). When a
+    // TweenData is destroyed, this.ease = null. If the parent Tween still
+    // tries to update it, this guard catches it and returns 0 instead of
+    // crashing with "this.ease is not a function".
+    const PhaserNS = Phaser as any;
+    if (PhaserNS.Tweens && PhaserNS.Tweens.TweenData && !PhaserNS.Tweens.TweenData.prototype.__ltb_guarded) {
+      PhaserNS.Tweens.TweenData.prototype.__ltb_guarded = true;
+      const origTweenDataUpdate = PhaserNS.Tweens.TweenData.prototype.update;
+      PhaserNS.Tweens.TweenData.prototype.update = function (delta: number) {
+        if (typeof this.ease !== 'function') return 0;
         try {
-          return originalUpdate();
+          return origTweenDataUpdate.call(this, delta);
         } catch (e) {
-          // A tween crashed — likely an orphaned tween on a destroyed object.
-          // Kill all tweens to clean up, then continue.
-          console.warn('[MiniStar] Tween crash caught — killing all tweens:', e);
-          try { tweenManager.killAll(); } catch {}
+          // TweenData crashed — mark ease as null to skip future updates
+          this.ease = null;
+          return 0;
         }
       };
     }
