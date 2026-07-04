@@ -168,8 +168,6 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
           const canvas = container.querySelector('canvas');
           if (canvas) {
             canvas.setAttribute('tabindex', '0');
-            canvas.setAttribute('role', 'application');
-            canvas.setAttribute('aria-label', `Educational game: ${config.mode}. Use arrow keys or tap to play. Press P to pause.`);
             canvas.style.outline = 'none';
             canvas.style.touchAction = 'none';
             canvas.style.pointerEvents = 'auto';
