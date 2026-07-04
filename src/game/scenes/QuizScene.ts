@@ -32,6 +32,7 @@ export default class QuizScene extends BaseEngine {
   private promptBg!: Phaser.GameObjects.Rectangle;
   private progressBar!: Phaser.GameObjects.Rectangle;
   private canAnswer = true;
+  private timeBar!: Phaser.GameObjects.Rectangle;
   private lifelinesUsed = { fiftyFifty: false, skip: false };
   private questionTimer = 10;
   private questionTimerEvent?: Phaser.Time.TimerEvent;
@@ -125,6 +126,9 @@ export default class QuizScene extends BaseEngine {
 
     // ---- Lifeline buttons (bottom) ----
     this.createLifelineButtons();
+
+    // DRAMA: Timer pressure bar — shrinks + turns red when time is low
+    this.timeBar = this.add.rectangle(this.scale.width / 2, 240, this.scale.width - 60, 6, this.theme.success, 1).setDepth(48);
 
     this.renderRound();
 
@@ -296,6 +300,14 @@ export default class QuizScene extends BaseEngine {
       callback: () => {
         this.questionTimer--;
         this.timerText.setText(String(this.questionTimer));
+        // DRAMA: Update timer pressure bar
+        if (this.timeBar) {
+          const pct = this.questionTimer / 10;
+          this.timeBar.width = (this.scale.width - 60) * pct;
+          if (pct < 0.3) this.timeBar.setFillStyle(this.theme.danger, 1);
+          else if (pct < 0.6) this.timeBar.setFillStyle(this.theme.warning, 1);
+          else this.timeBar.setFillStyle(this.theme.success, 1);
+        }
         // Color shift as time runs out
         if (this.questionTimer <= 3) {
           this.timerText.setColor(this.hex(this.theme.danger));

@@ -1298,6 +1298,20 @@ export class Hud {
     else this.progressBar.setFillStyle(this.theme.accent, 1);
 
     if (streak >= 3) this.mascot.setState('hype');
+    // DRAMA: Streak fire visual — streak text grows + changes color at milestones
+    if (streak >= 10) {
+      this.streakText.setFontSize('24px');
+      this.streakText.setColor('#ef4444'); // red fire
+    } else if (streak >= 5) {
+      this.streakText.setFontSize('22px');
+      this.streakText.setColor('#f97316'); // orange fire
+    } else if (streak >= 3) {
+      this.streakText.setFontSize('20px');
+      this.streakText.setColor('#fbbf24'); // yellow fire
+    } else {
+      this.streakText.setFontSize('18px');
+      this.streakText.setColor('#' + this.theme.accent.toString(16).padStart(6, '0'));
+    }
     this.onUpdate({ score, streak, remainingMs });
     return { remainingMs };
   }

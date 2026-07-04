@@ -128,6 +128,9 @@ export default class MazeChaseScene extends BaseEngine {
       this.handleTap(p.x, p.y);
     });
 
+    // DRAMA: On-screen D-pad controls for mobile (bottom-left corner)
+    this._createDPad();
+
     // Trail emitter (LOD-aware)
     const trailKey = 'particle-' + this.theme.id;
     if (this.textures.exists(trailKey) && this.lod.particleMultiplier > 0.3) {
@@ -353,7 +356,8 @@ export default class MazeChaseScene extends BaseEngine {
     }
 
     // Patrolling enemies (1-2 based on LOD)
-    const enemyCount = this.lod.isMobile ? 1 : 2;
+    // DRAMA: Level-based enemy count + BOSS ghost at level 5
+    let enemyCount = this.level >= 5 ? 3 : this.level >= 3 ? 2 : (this.lod.isMobile ? 1 : 2);
     for (let i = 0; i < enemyCount; i++) {
       const cell = interiorCells.shift();
       if (!cell) break;
@@ -812,5 +816,39 @@ export default class MazeChaseScene extends BaseEngine {
         try { this.trailEmitter.emitting = false; } catch {}
       }
     }
+  }
+
+  // ===========================================================================
+  // ON-SCREEN D-PAD — mobile controls for Maze Chase
+  // ===========================================================================
+  private dpadButtons: Phaser.GameObjects.Text[] = [];
+  private _createDPad() {
+    const btnSize = '28px';
+    const baseX = 60;
+    const baseY = this.scale.height - 60;
+    const dirs = [
+      { label: '◀', x: baseX - 40, y: baseY, dir: { x: -1, y: 0 } },
+      { label: '▲', x: baseX, y: baseY - 40, dir: { x: 0, y: -1 } },
+      { label: '▼', x: baseX, y: baseY + 40, dir: { x: 0, y: 1 } },
+      { label: '▶', x: baseX + 40, y: baseY, dir: { x: 1, y: 0 } },
+    ];
+    dirs.forEach(d => {
+      const btn = this.add.text(d.x, d.y, d.label, {
+        fontFamily: 'Inter, sans-serif', fontSize: btnSize, color: '#ffffff',
+        backgroundColor: '#' + this.theme.card.toString(16).padStart(6, '0'),
+        padding: { x: 12, y: 8 },
+      }).setOrigin(0.5).setDepth(400).setInteractive({ useHandCursor: true });
+      btn.on('pointerdown', () => {
+        // Set direct movement direction (bypass A* pathfinding)
+        this.path = [];
+        this.pathIdx = 0;
+        const body = this.player.body as Phaser.Physics.Arcade.Body;
+        if (body) {
+          const speed = this.lod.isMobile ? 110 : 140;
+          body.setVelocity(d.dir.x * speed, d.dir.y * speed);
+        }
+      });
+      this.dpadButtons.push(btn);
+    });
   }
 }
