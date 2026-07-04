@@ -178,34 +178,30 @@ export abstract class BaseEngine extends Phaser.Scene {
       }
     });
 
-    // CRITICAL FIX: Patch Phaser.Tweens.TweenData.prototype.update to guard
-    // against this.ease being null (set to null on destroy at TweenData.js:410).
-    // 
-    // Previous attempts patched tweenManager.update/step — but Phaser's event
-    // system stores a REFERENCE to the original function at registration time
-    // (TweenManager.js:237: events.on('update', this.update, this)). Replacing
-    // the property after registration is useless — the stored reference still
-    // points to the original function.
+    // CRITICAL FIX: Remove Phaser's original tween update listener and replace
+    // with a wrapped version that catches crashes.
     //
-    // This patch goes to the SOURCE: the individual TweenData.update() method
-    // where `this.ease(progress)` is called (TweenData.js:343). When a
-    // TweenData is destroyed, this.ease = null. If the parent Tween still
-    // tries to update it, this guard catches it and returns 0 instead of
-    // crashing with "this.ease is not a function".
-    const PhaserNS = Phaser as any;
-    if (PhaserNS.Tweens && PhaserNS.Tweens.TweenData && !PhaserNS.Tweens.TweenData.prototype.__ltb_guarded) {
-      PhaserNS.Tweens.TweenData.prototype.__ltb_guarded = true;
-      const origTweenDataUpdate = PhaserNS.Tweens.TweenData.prototype.update;
-      PhaserNS.Tweens.TweenData.prototype.update = function (delta: number) {
-        if (typeof this.ease !== 'function') return 0;
+    // Why previous fixes failed:
+    // 1. Patching tweenManager.step → bypassed (update calls original step internally)
+    // 2. Patching tweenManager.update → bypassed (event system stored original reference)
+    // 3. Patching TweenData.prototype → namespace not accessible in minified build
+    //
+    // This fix: REMOVE the original event listener, ADD a new wrapped one.
+    // The EventEmitter will now call OUR function, not the original.
+    const tweenManager = this.tweens;
+    if (tweenManager && !(tweenManager as any).__ltb_wrapped) {
+      (tweenManager as any).__ltb_wrapped = true;
+      // Remove the original listener registered by Phaser
+      this.events.off('update', tweenManager.update, tweenManager);
+      // Add our wrapped version
+      this.events.on('update', function () {
         try {
-          return origTweenDataUpdate.call(this, delta);
+          tweenManager.update();
         } catch (e) {
-          // TweenData crashed — mark ease as null to skip future updates
-          this.ease = null;
-          return 0;
+          console.warn('[MiniStar] Tween crash caught — killing all tweens:', e);
+          try { tweenManager.killAll(); } catch {}
         }
-      };
+      }, this);
     }
   }
 
