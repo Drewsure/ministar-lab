@@ -47,13 +47,6 @@ export default class SpotItScene extends BaseEngine {
   private card2Center = { x: 580, y: 360 };
   private cardRadius = 130;
   private symbolsPerCard = 5;
-  // RESEARCH: Spot It/Dobble — more symbols per card = harder to find the match
-  // Level 1-2: 4 symbols, Level 3-4: 5 symbols, Level 5: 6 symbols
-  private getSymbolsPerCard(): number {
-    if (this.level >= 5) return 6;
-    if (this.level >= 3) return 5;
-    return 4;
-  }
   private canInteract = true;
   private roundStartTime = 0;
   private promptText!: Phaser.GameObjects.Text;
@@ -198,7 +191,7 @@ export default class SpotItScene extends BaseEngine {
     // K = symbols per card. Cap at 5, but also limited by available terms.
     // Need at least 2K-1 terms. If we have 8 terms, K can be up to 4 (need 7).
     const maxK = Math.floor((pool.length + 1) / 2);
-    const K = Math.min(this.getSymbolsPerCard(), maxK);
+    const K = Math.min(this.symbolsPerCard, maxK);
 
     if (K < 2) {
       // Not enough terms to make a valid round
@@ -229,7 +222,7 @@ export default class SpotItScene extends BaseEngine {
 
     // ESL: speak the prompt (synchronous with user gesture if this is round 1+
     // and they've already tapped to start. If pre-gesture, browser may block.)
-    this.time.delayedCall(400, () => { if (this.isFinished) return;
+    this.time.delayedCall(400, () => {
       if (!this.isFinished) {
         audioBus.speak('Find the matching symbol!', { isQuestion: true });
       }
@@ -277,7 +270,7 @@ export default class SpotItScene extends BaseEngine {
       this.tweens.add({
         targets: container,
         scale: { from: 1, to: 1.06 },
-        duration: 1000 + i * 80, yoyo: true, repeat: 50, ease: 'Sine.inOut',
+        duration: 1000 + i * 80, yoyo: true, repeat: -1, ease: 'Sine.inOut',
       });
 
       const sym: SpotItSymbol = {
@@ -355,7 +348,7 @@ export default class SpotItScene extends BaseEngine {
       });
 
       // Cards flip away animation → next round
-      this.time.delayedCall(1000, () => { if (this.isFinished) return;
+      this.time.delayedCall(1000, () => {
         this.tweens.add({
           targets: this.symbols.map(s => s.container),
           scaleX: 0, scaleY: 0,
@@ -391,7 +384,7 @@ export default class SpotItScene extends BaseEngine {
       });
 
       // Reset the wrong symbol after a moment
-      this.time.delayedCall(700, () => { if (this.isFinished) return;
+      this.time.delayedCall(700, () => {
         if (sym && sym.container && sym.container.active) {
           sym.circle.setFillStyle(this.theme.card, 0.98);
           sym.circle.setStrokeStyle(3, this.theme.accent, 0.8);

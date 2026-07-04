@@ -194,11 +194,9 @@ export default class WhackAMoleScene extends BaseEngine {
 
     // 50% correct, 50% decoy
     const isCorrect = Math.random() < 0.5;
-    const prompt = this.activePrompt;
-    if (!prompt) return;
     const term = isCorrect
-      ? prompt
-      : Phaser.Utils.Array.GetRandom(this.terms.filter(t => t.id !== prompt.id));
+      ? this.activePrompt
+      : Phaser.Utils.Array.GetRandom(this.terms.filter(t => t.id !== this.activePrompt!.id));
     if (!term) return;
 
     // Mole body (using generated texture)
@@ -235,17 +233,14 @@ export default class WhackAMoleScene extends BaseEngine {
 
     // Auto retreat after 1.8s
     // AAAA — Mole stay-up time: LONGER at start (3s), gets shorter per level
-    // RESEARCH: Speed/reaction games — "30 seconds, that's all your user has to do: whack moles as fast as they can"
-    // Level 1: 3s, Level 2: 2.5s, Level 3: 2s, Level 4: 1.5s, Level 5: 1.2s
-    const stayTime = Math.max(1200, 3000 - (this.level - 1) * 450);
+    const stayTime = Math.max(1200, 3000 - (this.level - 1) * 400);
     this.time.delayedCall(stayTime, () => {
-      if (this.isFinished) return;
       if (mole.active) this.retreat(hole, mole);
     });
   }
 
   private whack(hole: Hole, mole: Mole) {
-    if (!mole.active || this.isFinished) return;
+    if (!mole.active) return;
     mole.active = false;
     this.swingHammer();
 
@@ -259,7 +254,7 @@ export default class WhackAMoleScene extends BaseEngine {
     this.lastWhackTime = now;
 
     this.recordAnswer({
-      term: this.activePrompt?.term ?? '',
+      term: this.activePrompt!.term,
       response: mole.term.term,
       success: mole.isCorrect,
       coordinate: { x: mole.container.x, y: mole.container.y, t: now },
@@ -281,8 +276,7 @@ export default class WhackAMoleScene extends BaseEngine {
         });
       }
       // Advance prompt
-      const currentPromptId = this.activePrompt?.id;
-      const remaining = this.terms.filter(t => t.id !== currentPromptId);
+      const remaining = this.terms.filter(t => t.id !== this.activePrompt!.id);
       if (remaining.length > 0) {
         this.activePrompt = Phaser.Utils.Array.GetRandom(remaining);
         this.updatePrompt();

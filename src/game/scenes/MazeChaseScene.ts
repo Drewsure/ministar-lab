@@ -58,7 +58,6 @@ export default class MazeChaseScene extends BaseEngine {
   private wallsGroup!: Phaser.Physics.Arcade.StaticGroup;
   private targetsGroup!: Phaser.Physics.Arcade.Group;
   private enemiesGroup!: Phaser.Physics.Arcade.Group;
-  private overlapsRegistered = false; // CRITICAL: only register overlaps ONCE
 
   // --- Game state ---
   private activeTerm?: TermItem;
@@ -222,14 +221,10 @@ export default class MazeChaseScene extends BaseEngine {
   }
 
   private renderMaze() {
-    // CRITICAL FIX: Don't destroy/recreate wallsGroup — that orphans the player
-    // collider registered in buildWorld(). Instead, create once, clear on subsequent rounds.
-    if (!this.wallsGroup) {
-      this.wallsGroup = this.physics.add.staticGroup();
-    } else {
-      this.wallsGroup.clear(true, true);
-    }
+    // Clean up previous round's walls + floor
+    if (this.wallsGroup) this.wallsGroup.destroy(true);
     if (this.floorLayer) this.floorLayer.destroy(true);
+    this.wallsGroup = this.physics.add.staticGroup();
     this.floorLayer = this.add.container(0, 0).setDepth(-1);
 
     const wallColor = this.theme.card;
@@ -293,7 +288,7 @@ export default class MazeChaseScene extends BaseEngine {
       targets: this.playerGlow,
       scale: { from: 1, to: 1.25 },
       alpha: { from: 0.18, to: 0.32 },
-      duration: 700, yoyo: true, repeat: 50, ease: 'Sine.inOut',
+      duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut',
     });
 
     this.player = this.physics.add.sprite(startX, startY, playerKey);
@@ -317,37 +312,11 @@ export default class MazeChaseScene extends BaseEngine {
   // TARGETS + ENEMIES
   // ===========================================================================
   private spawnTargetsAndEnemies() {
-    // CRITICAL FIX: Don't destroy/recreate groups — that orphans overlap callbacks.
-    // Instead, create groups once, clear them on subsequent rounds.
-    if (!this.targetsGroup) {
-      this.targetsGroup = this.physics.add.group();
-      this.enemiesGroup = this.physics.add.group();
-    } else {
-      // CRITICAL: Kill all tweens on existing targets/enemies BEFORE destroying.
-      // Each target has infinite pulse + glowRing tweens. If we destroy the
-      // targets without killing their tweens, the tweens keep running on
-      // destroyed objects → "this.ease is not a function" crash.
-      this.targetsGroup.getChildren().forEach((child) => {
-        this.tweens.killTweensOf(child);
-        const ring = child.getData('glowRing');
-        if (ring) this.tweens.killTweensOf(ring);
-      });
-      this.enemiesGroup.getChildren().forEach((child) => {
-        this.tweens.killTweensOf(child);
-      });
-      // Clear existing children (destroy them) but keep the group + its overlap callbacks
-      this.targetsGroup.clear(true, true);
-      this.enemiesGroup.clear(true, true);
-    }
+    if (this.targetsGroup) this.targetsGroup.destroy(true);
+    if (this.enemiesGroup) this.enemiesGroup.destroy(true);
+    this.targetsGroup = this.physics.add.group();
+    this.enemiesGroup = this.physics.add.group();
     this.targetHits.clear();
-
-    // CRITICAL: Only register overlap callbacks ONCE. Re-registering creates
-    // duplicate colliders that reference old destroyed groups → crash.
-    if (!this.overlapsRegistered) {
-      this.physics.add.overlap(this.player, this.targetsGroup, this.handleTargetCollision, undefined, this);
-      this.physics.add.overlap(this.player, this.enemiesGroup, this.handleEnemyCollision, undefined, this);
-      this.overlapsRegistered = true;
-    }
 
     const roundTerms = this.pickTerms(this.maxScore);
     if (roundTerms.length === 0) return;
@@ -383,17 +352,17 @@ export default class MazeChaseScene extends BaseEngine {
       this.spawnTarget(cell, decoys[i % decoys.length], false);
     }
 
-    // Patrolling enemies — RESEARCH: Pac-Man has 4 ghosts with different behaviors.
-    // Level 1-2: 1 ghost. Level 3-4: 2 ghosts. Level 5: 3 ghosts.
-    const enemyCount = this.level >= 5 ? 3 : this.level >= 3 ? 2 : (this.lod.isMobile ? 1 : 2);
+    // Patrolling enemies (1-2 based on LOD)
+    const enemyCount = this.lod.isMobile ? 1 : 2;
     for (let i = 0; i < enemyCount; i++) {
       const cell = interiorCells.shift();
       if (!cell) break;
       this.spawnEnemy(cell);
     }
 
-    // NOTE: Overlap callbacks registered ONCE above (overlapsRegistered flag).
-    // Previous code re-registered them every round → orphaned callbacks → crash.
+    // Collisions
+    this.physics.add.overlap(this.player, this.targetsGroup, this.handleTargetCollision, undefined, this);
+    this.physics.add.overlap(this.player, this.enemiesGroup, this.handleEnemyCollision, undefined, this);
   }
 
   private spawnTarget(cell: { x: number; y: number }, term: TermItem, isCorrect: boolean) {
@@ -417,7 +386,7 @@ export default class MazeChaseScene extends BaseEngine {
         targets: ring,
         scale: { from: 1, to: 1.5 },
         alpha: { from: 0.5, to: 0.1 },
-        duration: 700, repeat: 50, ease: 'Sine.out',
+        duration: 700, repeat: -1, ease: 'Sine.out',
       });
       orb.setData('glowRing', ring);
     }
@@ -443,7 +412,7 @@ export default class MazeChaseScene extends BaseEngine {
     this.tweens.add({
       targets: [orb, label],
       scale: { from: 1, to: isCorrect ? 1.2 : 1.08 },
-      duration: isCorrect ? 500 : 800, yoyo: true, repeat: 50, ease: 'Sine.inOut',
+      duration: isCorrect ? 500 : 800, yoyo: true, repeat: -1, ease: 'Sine.inOut',
     });
 
     // Physics body — use a circular body sized to the orb
@@ -465,58 +434,26 @@ export default class MazeChaseScene extends BaseEngine {
     const px = this.mazeOffsetX + cell.x * CELL + CELL / 2;
     const py = this.mazeOffsetY + cell.y * CELL + CELL / 2;
 
-    // Pac-Man-style ghost: body + eyes + pupil that tracks player
-    // ALL children added to container so they're destroyed together on round cleanup
-    const ghostContainer = this.add.container(px, py);
-    ghostContainer.setDepth(15);
+    const enemyKey = 'particle-' + this.theme.id;
+    const enemy = this.add.image(px, py, enemyKey);
+    enemy.setTint(this.theme.danger);
+    enemy.setDisplaySize(34, 34);
+    enemy.setDepth(15);
 
-    // Pulsing red glow — CHILD of container (was separate, causing leak)
-    const aura = this.add.circle(0, 0, 22, this.theme.danger, 0.25);
-    aura.setDepth(-1); // behind body within container
-    ghostContainer.add(aura);
+    // Pulsing red glow
+    const aura = this.add.circle(px, py, 20, this.theme.danger, 0.22)
+      .setDepth(14);
     this.tweens.add({
       targets: aura,
-      scale: { from: 0.9, to: 1.4 },
-      alpha: { from: 0.3, to: 0 },
-      duration: 500, repeat: 50, ease: 'Sine.out',
+      scale: { from: 0.9, to: 1.3 },
+      alpha: { from: 0.25, to: 0 },
+      duration: 600, repeat: -1, ease: 'Sine.out',
     });
+    enemy.setData('aura', aura);
 
-    // Ghost body (semicircle top + wavy bottom)
-    const bodyGfx = this.add.graphics();
-    const ghostColor = this.theme.danger;
-    bodyGfx.fillStyle(ghostColor, 1);
-    bodyGfx.beginPath();
-    bodyGfx.arc(0, -2, 16, Math.PI, 0);
-    bodyGfx.lineTo(16, 14);
-    bodyGfx.lineTo(10, 10);
-    bodyGfx.lineTo(5, 14);
-    bodyGfx.lineTo(0, 10);
-    bodyGfx.lineTo(-5, 14);
-    bodyGfx.lineTo(-10, 10);
-    bodyGfx.lineTo(-16, 14);
-    bodyGfx.closePath();
-    bodyGfx.fillPath();
-    ghostContainer.add(bodyGfx);
-
-    // White eyes
-    const eyeL = this.add.circle(-5, -4, 5, 0xffffff, 1);
-    const eyeR = this.add.circle(5, -4, 5, 0xffffff, 1);
-    ghostContainer.add(eyeL);
-    ghostContainer.add(eyeR);
-
-    // Pupils (will track player)
-    const pupilL = this.add.circle(-5, -4, 2.5, 0x0000ff, 1);
-    const pupilR = this.add.circle(5, -4, 2.5, 0x0000ff, 1);
-    ghostContainer.add(pupilL);
-    ghostContainer.add(pupilR);
-
-    // Store pupil refs for tracking
-    ghostContainer.setData('pupilL', pupilL);
-    ghostContainer.setData('pupilR', pupilR);
-
-    this.physics.add.existing(ghostContainer);
-    const body = ghostContainer.body as Phaser.Physics.Arcade.Body;
-    body.setCircle(17, -17, -2)
+    this.physics.add.existing(enemy);
+    const body = enemy.body as Phaser.Physics.Arcade.Body;
+    body.setCircle(17, 0, 0)
         .setAllowGravity(false)
         .setCollideWorldBounds(true);
     body.setBoundsRectangle(
@@ -525,108 +462,45 @@ export default class MazeChaseScene extends BaseEngine {
       )
     );
 
-    // Patrol AI: change direction every 1.0s (faster), or chase player if in LOS
+    // Patrol AI: change direction every 1.4s, or chase player if in LOS
     this.time.addEvent({
-      delay: 1000, loop: true,
-      callback: () => this.updateEnemyAI(ghostContainer),
-    });
-    // Pupil tracking: update every frame to follow player
-    this.time.addEvent({
-      delay: 100, loop: true,
-      callback: () => this.updateEnemyPupils(ghostContainer),
+      delay: 1400, loop: true,
+      callback: () => this.updateEnemyAI(enemy),
     });
     // Initial impulse
-    this.updateEnemyAI(ghostContainer);
+    this.updateEnemyAI(enemy);
 
-    // CRITICAL: Do NOT add per-enemy colliders here. Previous code called
-    // this.physics.add.collider(ghostContainer, this.wallsGroup) every spawn,
-    // creating orphaned colliders that referenced destroyed enemies/walls → crash.
-    // Instead, enemies use manual wall-bounce logic in updateEnemyAI.
-    this.enemiesGroup.add(ghostContainer);
+    this.physics.add.collider(enemy, this.wallsGroup);
+    this.enemiesGroup.add(enemy);
   }
 
-  private updateEnemyPupils(enemy: Phaser.GameObjects.Container) {
-    if (!enemy.active || this.isFinished || !this.player || !this.player.active) return;
-    const pupilL = enemy.getData('pupilL') as Phaser.GameObjects.Arc;
-    const pupilR = enemy.getData('pupilR') as Phaser.GameObjects.Arc;
-    if (!pupilL || !pupilR) return;
-    const dx = this.player.x - enemy.x;
-    const dy = this.player.y - enemy.y;
-    const dist = Math.hypot(dx, dy);
-    if (dist < 1) return;
-    const offsetX = (dx / dist) * 2;
-    const offsetY = (dy / dist) * 2;
-    pupilL.setPosition(-5 + offsetX, -4 + offsetY);
-    pupilR.setPosition(5 + offsetX, -4 + offsetY);
-
-    // DRAMA: Near-miss detection — if enemy is very close (< 60px), play
-    // heartbeat audio + screen-edge vignette flash. This creates tension
-    // without crashing (uses audioBus, not tweens).
-    if (dist < 60 && dist > 30 && !this.nearMissActive) {
-      this.nearMissActive = true;
-      audioBus.play('countdown');
-      // Auto-reset after 1 second
-      this.time.delayedCall(1000, () => { this.nearMissActive = false; });
-    }
-  }
-
-  private nearMissActive = false;
-
-  private updateEnemyAI(enemy: Phaser.GameObjects.Container) {
+  private updateEnemyAI(enemy: Phaser.GameObjects.Image) {
     if (!enemy.active || this.isFinished) return;
     const body = enemy.body as Phaser.Physics.Arcade.Body;
     if (!body) return;
 
-    // DRAMA: Enemies always chase the player (Pac-Man style).
-    // Line-of-sight just determines speed — if in LOS, chase fast; otherwise, chase slowly.
-    const dx = this.player.x - enemy.x;
-    const dy = this.player.y - enemy.y;
-    const dist = Math.hypot(dx, dy);
-    const hasLOS = this.hasLineOfSight(enemy.x, enemy.y, this.player.x, this.player.y);
-
-    // AAAA — Ghosts slower at start, ramp with level. In LOS = faster.
-    // RESEARCH: Difficulty curve — "gradually increasing difficulty" for flow state
-    // Uses getDifficultyMultiplier() from BaseEngine (1.0 at L1, 1.8 at L5)
-    const diffMult = this.getDifficultyMultiplier();
-    const baseChaseSpeed = (this.lod.isMobile ? 50 : 65) * diffMult + (this.level - 1) * 5;
-    const losChaseSpeed = (this.lod.isMobile ? 70 : 95) * diffMult + (this.level - 1) * 8;
-    const chaseSpeed = hasLOS ? losChaseSpeed : baseChaseSpeed;
-
-    if (dist > 1) {
-      body.setVelocity((dx / dist) * chaseSpeed, (dy / dist) * chaseSpeed);
+    // Check line-of-sight to player (same row or column with no wall)
+    if (this.hasLineOfSight(enemy.x, enemy.y, this.player.x, this.player.y)) {
+      // Chase the player
+      const dx = this.player.x - enemy.x;
+      const dy = this.player.y - enemy.y;
+      const dist = Math.hypot(dx, dy);
+      // AAAA — Ghosts slower at start, ramp with level
+      const chaseSpeed = (this.lod.isMobile ? 60 : 80) + (this.level - 1) * 10;
+      if (dist > 1) {
+        body.setVelocity((dx / dist) * chaseSpeed, (dy / dist) * chaseSpeed);
+      }
+      return;
     }
 
-    // MANUAL WALL BOUNCE: Check if enemy is inside a wall and push out.
-    // (Replaces the per-enemy physics collider that caused orphaned-collider crashes.)
-    const cell = this.pixelToCell(enemy.x, enemy.y);
-    if (cell) {
-      // If enemy is moving into a wall, reverse velocity
-      const vx = body.velocity.x;
-      const vy = body.velocity.y;
-      // Check cell ahead in X direction
-      const aheadX = this.pixelToCell(enemy.x + Math.sign(vx) * 20, enemy.y);
-      if (aheadX && aheadX.x !== cell.x) {
-        // Moving to a new cell horizontally — check if wall blocks
-        if (vx > 0 && this.maze[cell.y][cell.x].walls.right) {
-          body.setVelocityX(-Math.abs(vx));
-        } else if (vx < 0 && this.maze[cell.y][cell.x].walls.left) {
-          body.setVelocityX(Math.abs(vx));
-        }
-      }
-      // Check cell ahead in Y direction
-      const aheadY = this.pixelToCell(enemy.x, enemy.y + Math.sign(vy) * 20);
-      if (aheadY && aheadY.y !== cell.y) {
-        if (vy > 0 && this.maze[cell.y][cell.x].walls.bottom) {
-          body.setVelocityY(-Math.abs(vy));
-        } else if (vy < 0 && this.maze[cell.y][cell.x].walls.top) {
-          body.setVelocityY(Math.abs(vy));
-        }
-      }
-    }
-
-    // Keep enemy in bounds
-    enemy.x = Phaser.Math.Clamp(enemy.x, this.mazeOffsetX + 10, this.mazeOffsetX + COLS * CELL - 10);
-    enemy.y = Phaser.Math.Clamp(enemy.y, this.mazeOffsetY + 10, this.mazeOffsetY + ROWS * CELL - 10);
+    // Patrol: random cardinal direction (so it stays on corridors)
+    const dirs = [
+      { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 },
+    ];
+    const d = Phaser.Utils.Array.GetRandom(dirs);
+    // AAAA — Patrol speed also ramps with level
+    const patrolSpeed = (this.lod.isMobile ? 40 : 55) + (this.level - 1) * 8;
+    body.setVelocity(d.x * patrolSpeed, d.y * patrolSpeed);
   }
 
   private hasLineOfSight(x1: number, y1: number, x2: number, y2: number): boolean {
@@ -683,23 +557,11 @@ export default class MazeChaseScene extends BaseEngine {
     });
 
     if (isCorrect) {
-      // CRITICAL: Kill infinite pulse + glowRing tweens BEFORE adding the
-      // shrink-to-destroy tween. Otherwise the infinite tweens keep running
-      // on the destroyed object → "this.ease is not a function" crash.
-      this.tweens.killTweensOf(t);
-      this.tweens.killTweensOf(label);
-      const ring = t.getData('glowRing');
-      if (ring) this.tweens.killTweensOf(ring);
-
-      // CRITICAL: Disable physics body + remove from group BEFORE tween/destroy.
-      const targetBody = t.body as Phaser.Physics.Arcade.Body;
-      if (targetBody) targetBody.enable = false;
-      this.targetsGroup.remove(t, false, false); // remove from group, don't destroy yet
       this.tweens.add({
         targets: [t, label],
         scale: 0, alpha: 0,
         duration: 250, ease: 'Back.in',
-        onComplete: () => { try { t.destroy(); label.destroy(); if (ring) ring.destroy(); } catch {} },
+        onComplete: () => { t.destroy(); label.destroy(); },
       });
       // Speed boost reward (3 seconds)
       this.speedBoostUntil = this.time.now + 3000;
@@ -707,7 +569,7 @@ export default class MazeChaseScene extends BaseEngine {
         targets: this.playerGlow,
         scale: 1.6, duration: 200, yoyo: true, ease: 'Quad.out',
       });
-      if (!this.isFinished) this.time.delayedCall(350, () => this.advanceRound());
+      this.time.delayedCall(350, () => this.advanceRound());
       this.checkWin();
     } else {
       // Wrong target: fade it out, bounce player back
@@ -729,13 +591,13 @@ export default class MazeChaseScene extends BaseEngine {
       term: 'enemy',
       response: 'enemy-collision',
       success: false,
-      coordinate: { x: (e as Phaser.GameObjects.Container).x, y: (e as Phaser.GameObjects.Container).y, t: this.time.now },
+      coordinate: { x: (e as Phaser.GameObjects.Image).x, y: (e as Phaser.GameObjects.Image).y, t: this.time.now },
     });
 
-    // DRAMA: Heavy screen shake on enemy collision (no hitStop — that caused freezes)
-    this.juice.shake('heavy');
+    // Hit-stop: brief physics freeze for impact
+    this.juice.hitStop(100);
     this.bouncePlayerBack();
-    this.time.delayedCall(900, () => { if (!this.isFinished) this.targetHits.delete(e); });
+    this.time.delayedCall(900, () => this.targetHits.delete(e));
   }
 
   private bouncePlayerBack() {
@@ -743,7 +605,7 @@ export default class MazeChaseScene extends BaseEngine {
     const targetX = this.mazeOffsetX + CELL / 2;
     const targetY = this.mazeOffsetY + CELL / 2;
     this.physics.moveTo(this.player, targetX, targetY, 600);
-    this.time.delayedCall(280, () => { if (this.isFinished) return;
+    this.time.delayedCall(280, () => {
       if (this.player && this.player.active) this.player.setVelocity(0, 0);
     });
     // Clear any active path

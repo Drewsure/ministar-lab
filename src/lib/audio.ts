@@ -101,14 +101,6 @@ class AudioBus {
     try { gain.connect(this.master); } catch { return; }
     osc.start(now);
     osc.stop(now + dur + 0.02);
-    // CRITICAL: Disconnect nodes after oscillator stops to prevent WebAudio
-    // graph accumulation. Without this, every SFX call leaks 2 nodes (osc + gain)
-    // that stay connected to the master gain forever. After 50+ correct answers,
-    // the audio graph becomes so large that the main thread freezes.
-    osc.onended = () => {
-      try { osc.disconnect(); } catch {}
-      try { gain.disconnect(); } catch {}
-    };
   }
 
   // Used by Phaser scenes to "play" a term — in production, this would

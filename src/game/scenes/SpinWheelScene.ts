@@ -116,7 +116,7 @@ export default class SpinWheelScene extends BaseEngine {
         alpha: { from: 1, to: 0.3 },
         duration: 400 + i * 30,
         yoyo: true,
-        repeat: 50,
+        repeat: -1,
         ease: 'Sine.inOut',
       });
     }
@@ -137,7 +137,7 @@ export default class SpinWheelScene extends BaseEngine {
     this.tweens.add({
       targets: this.pointer,
       y: wheelY - wheelRadius - 5,
-      duration: 600, yoyo: true, repeat: 50, ease: 'Sine.inOut',
+      duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut',
     });
 
     // ---- Spin button ----
@@ -242,18 +242,17 @@ export default class SpinWheelScene extends BaseEngine {
   }
 
   private showDefinitionOptions() {
-    const landed = this.landedTerm;
-    if (!landed) return;
-    this.promptText.setText(`Match: ${landed.emoji ?? ''} ${landed.term}`);
+    if (!this.landedTerm) return;
+    this.promptText.setText(`Match: ${this.landedTerm.emoji ?? ''} ${this.landedTerm.term}`);
 
     // 4 options: 1 correct (landed term's definition), 3 decoys
-    const decoys = this.terms.filter(t => t.id !== landed.id && t.definition);
+    const decoys = this.terms.filter(t => t.id !== this.landedTerm!.id && t.definition);
     Phaser.Utils.Array.Shuffle(decoys);
     const options = [
-      { term: landed, isCorrect: true },
-      { term: decoys[0] ?? landed, isCorrect: false },
-      { term: decoys[1] ?? landed, isCorrect: false },
-      { term: decoys[2] ?? landed, isCorrect: false },
+      { term: this.landedTerm, isCorrect: true },
+      { term: decoys[0] ?? this.landedTerm, isCorrect: false },
+      { term: decoys[1] ?? this.landedTerm, isCorrect: false },
+      { term: decoys[2] ?? this.landedTerm, isCorrect: false },
     ];
     Phaser.Utils.Array.Shuffle(options);
 
@@ -283,11 +282,8 @@ export default class SpinWheelScene extends BaseEngine {
   }
 
   private selectOption(isCorrect: boolean, term: TermItem, btn: Phaser.GameObjects.Container) {
-    if (this.isFinished) return;
-    const landed = this.landedTerm;
-    if (!landed) return;
     this.recordAnswer({
-      term: landed.term,
+      term: this.landedTerm!.term,
       response: term.term,
       success: isCorrect,
       coordinate: { x: btn.x, y: btn.y, t: this.time.now },
@@ -298,7 +294,6 @@ export default class SpinWheelScene extends BaseEngine {
     bg.setFillStyle(isCorrect ? this.theme.success : this.theme.danger, 1);
 
     this.time.delayedCall(800, () => {
-      if (this.isFinished) return;
       // Reset for next spin
       this.promptText.setText('🎡 Spin the Wheel!');
       this.answerButtons.forEach(b => b.destroy());

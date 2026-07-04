@@ -181,7 +181,7 @@ export default class GameshowScene extends BaseEngine {
       x: startX + 200 * (index % 2 === 0 ? 1 : -1),
       angle: index % 2 === 0 ? 15 : -15,
       duration: 5000 + index * 2000,
-      yoyo: true, repeat: 50, ease: 'Sine.inOut',
+      yoyo: true, repeat: -1, ease: 'Sine.inOut',
     });
     this.spotlights.push(beam);
   }
@@ -203,7 +203,7 @@ export default class GameshowScene extends BaseEngine {
       this.tweens.add({
         targets: heart,
         scale: { from: 1, to: 1.1 },
-        duration: 800 + i * 200, yoyo: true, repeat: 50, ease: 'Sine.inOut',
+        duration: 800 + i * 200, yoyo: true, repeat: -1, ease: 'Sine.inOut',
       });
     }
   }
@@ -362,7 +362,7 @@ export default class GameshowScene extends BaseEngine {
         // Green glow ring
         this.juice.glowRing(correctBtn.x, correctBtn.y, this.theme.success, 80);
         // Speak the correct answer
-        this.time.delayedCall(300, () => { if (this.isFinished) return;
+        this.time.delayedCall(300, () => {
           audioBus.speak(`The answer is ${this.rounds[this.round].options[correctIndex].term}`);
         });
         this.juice.shake('heavy');
@@ -372,7 +372,7 @@ export default class GameshowScene extends BaseEngine {
     }
 
     // Always advance to next round after delay (prevents freezing)
-    this.time.delayedCall(1200, () => { if (this.isFinished) return;
+    this.time.delayedCall(1200, () => {
       this.round++;
       this.renderRound();
     });

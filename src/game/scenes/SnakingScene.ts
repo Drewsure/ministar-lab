@@ -43,7 +43,7 @@ export default class SnakingScene extends BaseEngine {
     this.startHint = this.add.text(this.scale.width / 2, this.scale.height / 2 + 80, 'Tap arrow keys or swipe to start!', {
       fontFamily: 'Inter, sans-serif', fontSize: '16px', color: this.hex(this.theme.warning),
     }).setOrigin(0.5).setDepth(50).setAlpha(0);
-    this.tweens.add({ targets: this.startHint, alpha: { from: 0.4, to: 1 }, duration: 800, yoyo: true, repeat: 50 });
+    this.tweens.add({ targets: this.startHint, alpha: { from: 0.4, to: 1 }, duration: 800, yoyo: true, repeat: -1 });
 
     const startX = 120;
     const startY = Math.floor(this.scale.height / 2 / this.gridStep) * this.gridStep;
@@ -68,10 +68,7 @@ export default class SnakingScene extends BaseEngine {
   protected onTick(_remainingMs: number) {
     if (!this.isMoving || this.isFinished) return;
     this.moveTimer += 16;
-    // RESEARCH: Snake game — "difficulty increments at same pace as player progresses"
-    // Move interval decreases with level (faster snake = harder)
-    const targetInterval = Math.max(100, 250 - (this.level - 1) * 30);
-    if (this.moveTimer >= targetInterval) { this.moveTimer = 0; this.moveSnake(); }
+    if (this.moveTimer >= this.moveInterval) { this.moveTimer = 0; this.moveSnake(); }
   }
 
   private changeDirection(x: number, y: number) {
@@ -101,14 +98,11 @@ export default class SnakingScene extends BaseEngine {
   }
 
   private spawnFood() {
-    if (this.isFinished) return;
     if (this.score >= this.maxScore) { this.finishGame(true); return; }
     this.foods.forEach(f => f.text.destroy()); this.foods = [];
     const pool = [...this.terms]; Phaser.Utils.Array.Shuffle(pool);
     this.currentPrompt = pool[0];
-    const prompt = this.currentPrompt;
-    if (!prompt) return;
-    const def = prompt.definition ?? prompt.emoji ?? prompt.term;
+    const def = this.currentPrompt.definition ?? this.currentPrompt.emoji ?? this.currentPrompt.term;
     this.promptText.setText(`Eat the word for: "${def}"`);
     this.promptText.setData('speakText', `Eat the word for: ${def}`);
     this.promptBg.setData('speakText', `Eat the word for: ${def}`);
@@ -120,16 +114,13 @@ export default class SnakingScene extends BaseEngine {
         backgroundColor: '#' + this.theme.card.toString(16).padStart(6, '0'), padding: { x: 10, y: 6 },
       }).setOrigin(0.5).setDepth(50);
       txt.setData('speakText', term.term);
-      this.foods.push({ term, isCorrect: term.id === prompt.id, text: txt, x: gx, y: gy });
+      this.foods.push({ term, isCorrect: term.id === this.currentPrompt!.id, text: txt, x: gx, y: gy });
     });
   }
 
   private handleEat(food: FoodItem) {
-    if (this.isFinished) return;
     food.text.destroy(); this.foods = this.foods.filter(f => f !== food);
-    const prompt = this.currentPrompt;
-    if (!prompt) return;
-    this.recordAnswer({ term: prompt.term, response: food.term.term, success: food.isCorrect,
+    this.recordAnswer({ term: this.currentPrompt!.term, response: food.term.term, success: food.isCorrect,
       coordinate: { x: food.x, y: food.y, t: this.time.now } });
     if (food.isCorrect) {
       audioBus.play('correct'); this.juice.burst(food.x, food.y, 'correct');

@@ -306,7 +306,7 @@ export default class FlashCardsScene extends BaseEngine {
     this.juice.burst(this.scale.width / 2, this.scale.height / 2, known ? 'correct' : 'incorrect');
 
     // Auto-advance after short delay
-    this.time.delayedCall(400, () => { if (this.isFinished) return;
+    this.time.delayedCall(400, () => {
       if (this.currentIdx < this.cards.length - 1) {
         this.nextCard();
       } else {

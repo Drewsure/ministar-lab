@@ -130,7 +130,7 @@ export default class BalloonPopScene extends BaseEngine {
       targets: glow,
       scale: { from: 1, to: 1.3 },
       alpha: { from: 0.2, to: 0.4 },
-      duration: 600, yoyo: true, repeat: 50, ease: 'Sine.inOut',
+      duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut',
     });
   }
 
@@ -148,7 +148,7 @@ export default class BalloonPopScene extends BaseEngine {
       this.tweens.add({
         targets: light,
         alpha: { from: 1, to: 0.3 },
-        duration: 400 + i * 50, yoyo: true, repeat: 50,
+        duration: 400 + i * 50, yoyo: true, repeat: -1,
       });
     }
     c.add([body, dome]);
@@ -179,7 +179,7 @@ export default class BalloonPopScene extends BaseEngine {
     w1.setStrokeStyle(2, 0x64748b, 0.8);
     w2.setStrokeStyle(2, 0x64748b, 0.8);
     // Spokes (rotating)
-    this.tweens.add({ targets: [w1, w2], angle: 360, duration: 1000, repeat: 50, ease: 'Linear' });
+    this.tweens.add({ targets: [w1, w2], angle: 360, duration: 1000, repeat: -1, ease: 'Linear' });
     c.add([body, w1, w2]);
   }
 
@@ -209,7 +209,7 @@ export default class BalloonPopScene extends BaseEngine {
     // Propellers (spinning)
     const prop1 = this.add.ellipse(-22, -6, 18, 4, 0x22d3ee, 0.5);
     const prop2 = this.add.ellipse(22, -6, 18, 4, 0x22d3ee, 0.5);
-    this.tweens.add({ targets: [prop1, prop2], angle: 360, duration: 100, repeat: 50, ease: 'Linear' });
+    this.tweens.add({ targets: [prop1, prop2], angle: 360, duration: 100, repeat: -1, ease: 'Linear' });
     c.add([body, arm1, arm2, prop1, prop2]);
   }
 
@@ -223,7 +223,7 @@ export default class BalloonPopScene extends BaseEngine {
     // Wheels
     const w1 = this.add.circle(-25, 10, 10, 0xfde047, 1);
     const w2 = this.add.circle(25, 10, 10, 0xfde047, 1);
-    this.tweens.add({ targets: [w1, w2], angle: 360, duration: 1000, repeat: 50, ease: 'Linear' });
+    this.tweens.add({ targets: [w1, w2], angle: 360, duration: 1000, repeat: -1, ease: 'Linear' });
     c.add([body, lolli, w1, w2]);
   }
 
@@ -244,7 +244,7 @@ export default class BalloonPopScene extends BaseEngine {
     this.tweens.add({
       targets: c,
       y: c.y - 8,
-      duration: 1200, yoyo: true, repeat: 50, ease: 'Sine.inOut',
+      duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.inOut',
     });
   }
 
@@ -260,7 +260,7 @@ export default class BalloonPopScene extends BaseEngine {
     // Wheels
     const w1 = this.add.circle(-25, 12, 10, 0x1e293b, 1);
     const w2 = this.add.circle(25, 12, 10, 0x1e293b, 1);
-    this.tweens.add({ targets: [w1, w2], angle: 360, duration: 1000, repeat: 50, ease: 'Linear' });
+    this.tweens.add({ targets: [w1, w2], angle: 360, duration: 1000, repeat: -1, ease: 'Linear' });
     c.add([body, w1, w2]);
   }
 
@@ -318,11 +318,9 @@ export default class BalloonPopScene extends BaseEngine {
 
     // 40% chance correct, 60% decoy
     const isCorrect = Math.random() < 0.4;
-    const prompt = this.activePrompt;
-    if (!prompt) return;
     const term = isCorrect
-      ? prompt
-      : Phaser.Utils.Array.GetRandom(this.terms.filter(t => t.id !== prompt.id)) ?? prompt;
+      ? this.activePrompt
+      : Phaser.Utils.Array.GetRandom(this.terms.filter(t => t.id !== this.activePrompt!.id)) ?? this.activePrompt;
     if (!term) return;
 
     const startX = this.carrierX + Phaser.Math.Between(-30, 30);
@@ -413,7 +411,7 @@ export default class BalloonPopScene extends BaseEngine {
       targets: container,
       x: `+=${Phaser.Math.Between(15, 30)}`,
       duration: 800 + Math.random() * 400,
-      yoyo: true, repeat: 50, ease: 'Sine.inOut',
+      yoyo: true, repeat: -1, ease: 'Sine.inOut',
     });
 
     // NOTE: per-container pointerdown removed — the global handler in
@@ -425,13 +423,13 @@ export default class BalloonPopScene extends BaseEngine {
   // POP — burst animation with confetti
   // ===========================================================================
   private popBalloon(b: Balloon) {
-    if (b.hit || this.isFinished) return;
+    if (b.hit) return;
     b.hit = true;
 
     const isCorrect = b.isCorrect;
     audioBus.play('pop');
     this.recordAnswer({
-      term: this.activePrompt?.term ?? '',
+      term: this.activePrompt!.term,
       response: b.term.term,
       success: isCorrect,
       coordinate: { x: b.container.x, y: b.container.y, t: this.time.now },
@@ -464,8 +462,7 @@ export default class BalloonPopScene extends BaseEngine {
       this.lastCorrectTime = now;
 
       // Advance to next prompt
-      const currentPromptId = this.activePrompt?.id;
-      const remaining = this.terms.filter(t => t.id !== currentPromptId);
+      const remaining = this.terms.filter(t => t.id !== this.activePrompt!.id);
       if (remaining.length > 0) {
         this.activePrompt = Phaser.Utils.Array.GetRandom(remaining);
         this.updatePrompt();

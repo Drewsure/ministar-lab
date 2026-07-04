@@ -75,7 +75,7 @@ export default class TypeAnswerScene extends BaseEngine {
     this.tweens.add({
       targets: this.inputText,
       alpha: { from: 1, to: 0.6 },
-      duration: 500, yoyo: true, repeat: 50, ease: 'Sine.inOut',
+      duration: 500, yoyo: true, repeat: -1, ease: 'Sine.inOut',
     });
 
     // ---- Hint text ----
@@ -290,7 +290,7 @@ export default class TypeAnswerScene extends BaseEngine {
       this.inputBg.setFillStyle(this.theme.success, 0.8);
       this.juice.burst(this.scale.width / 2, 240, 'correct');
       audioBus.speak(this.currentTerm.term);
-      this.time.delayedCall(1200, () => { if (this.isFinished) return;
+      this.time.delayedCall(1200, () => {
         this.round++;
         this.inputBg.setFillStyle(this.theme.card, 0.8);
         this.showRound();
@@ -299,7 +299,7 @@ export default class TypeAnswerScene extends BaseEngine {
       // Red flash + show correct answer
       this.inputBg.setFillStyle(this.theme.danger, 0.8);
       this.hintText.setText(`Correct answer: ${this.currentTerm.term}`);
-      this.time.delayedCall(2000, () => { if (this.isFinished) return;
+      this.time.delayedCall(2000, () => {
         this.round++;
         this.inputBg.setFillStyle(this.theme.card, 0.8);
         this.showRound();

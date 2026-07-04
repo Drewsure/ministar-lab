@@ -83,11 +83,7 @@ export default class AnagramScene extends BaseEngine {
     // NOTE: per-container pointerdown removed — the global handler in setupGlobalPointer
     // handles hint button taps reliably. Double-listening caused useHint() to fire twice.
 
-    // RESEARCH: Anagram difficulty — longer words are harder to unscramble
-    // Sort terms by length so easier (shorter) words come first, harder (longer) later
-    const sortedTerms = [...this.terms].sort((a, b) => a.term.length - b.term.length);
-    const numRounds = Math.min(this.maxScore, sortedTerms.length);
-    this.rounds = sortedTerms.slice(0, numRounds);
+    this.rounds = this.pickTerms(this.maxScore);
     this.renderRound();
 
     // Global pointer handler for reliable tile clicks.
@@ -284,7 +280,7 @@ export default class AnagramScene extends BaseEngine {
     const target = this.rounds[this.round].term.toUpperCase().replace(/[^A-Z]/g, '');
     if (this.answer.length === target.length) {
       this.canInteract = false;
-      if (!this.isFinished) this.time.delayedCall(400, this.checkAnswer, [], this);
+      this.time.delayedCall(400, this.checkAnswer, [], this);
     }
   }
 
@@ -338,7 +334,6 @@ export default class AnagramScene extends BaseEngine {
       this.juice.confettiRain(1000);
 
       this.time.delayedCall(800, () => {
-        if (this.isFinished) return;
         this.round++;
         this.renderRound();
         this.canInteract = true;

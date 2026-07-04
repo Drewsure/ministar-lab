@@ -38,21 +38,24 @@ export default class AirplaneScene extends BaseEngine {
   private promptText!: Phaser.GameObjects.Text;
   private promptBg!: Phaser.GameObjects.Rectangle;
   private spawnTimer?: Phaser.Time.TimerEvent;
-  private obstacleTimer?: Phaser.Time.TimerEvent;
-  private obstacles: Phaser.GameObjects.Text[] = [];
-  private planeSlowUntil = 0;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
-  private speedMultiplier = 0.6; // AAAA — Start SLOW (was 1.0), ramps to 2.5
+  private speedMultiplier = 0.4; // FIX: Start VERY SLOW (was 0.6), ramps to 2.0
   private catches = 0;
+  private instructionsText!: Phaser.GameObjects.Text;
 
   protected maxQuestions() { return Math.min(this.terms.length, 8); }
 
   protected buildWorld() {
+    // ---- Title ----
+    this.add.text(this.scale.width / 2, 30, '✈️ Airplane', {
+      fontFamily: 'Inter, sans-serif', fontSize: '20px', color: this.hex(this.theme.accent), fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(50);
+
     // ---- Prompt banner at top ----
     this.promptBg = this.add.rectangle(
       this.scale.width / 2, 80,
-      this.scale.width - 40, 60,
+      this.scale.width - 40, 50,
       this.theme.card, 0.85
     ).setStrokeStyle(2, this.theme.accent, 0.6).setDepth(48);
 
@@ -61,20 +64,32 @@ export default class AirplaneScene extends BaseEngine {
       'Catch: ...',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '28px',
+        fontSize: '20px',
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
       }
     ).setOrigin(0.5).setDepth(49);
 
+    // ---- Clear instructions ----
+    this.instructionsText = this.add.text(
+      this.scale.width / 2, 130,
+      'Move LEFT or RIGHT to catch the correct banner!\nUse arrow keys, A/D, or tap left/right side of screen!',
+      {
+        fontFamily: 'Inter, sans-serif', fontSize: '13px', color: this.hex(this.theme.warning),
+        align: 'center',
+      }
+    ).setOrigin(0.5).setDepth(50).setAlpha(0.7);
+    this.makeSpeakable(this.instructionsText, 'Move left or right to catch the correct banner! Use arrow keys or tap left or right side of screen!');
+
     // ---- Parallax clouds (3 layers, different speeds) ----
     this.spawnClouds();
 
-    // ---- Plane (use the AAA spaceship sprite, tinted + scaled to look like a plane) ----
+    // ---- Plane ----
     const planeKey = 'player-' + this.theme.id;
     this.planeGlow = this.add.circle(
       this.scale.width / 2, this.scale.height - 80, 30, this.theme.accent, 0.2
     ).setDepth(28);
+    // FIX: Finite tween (was repeat: 50)
     this.tweens.add({
       targets: this.planeGlow,
       scale: { from: 1, to: 1.3 },
@@ -85,7 +100,7 @@ export default class AirplaneScene extends BaseEngine {
     this.plane = this.physics.add.sprite(this.scale.width / 2, this.scale.height - 80, planeKey);
     this.plane.setCollideWorldBounds(true).setDepth(30);
     this.plane.setScale(1.4);
-    this.plane.setRotation(0); // Rocket faces UP (default sprite orientation)
+    this.plane.setRotation(0);
     this.plane.setCircle(16, 0, 0);
 
     // ---- Exhaust particle trail ----
@@ -120,14 +135,6 @@ export default class AirplaneScene extends BaseEngine {
     this.spawnTimer = this.time.addEvent({
       delay: 1800, loop: true,
       callback: this.spawnBannerRow,
-      callbackScope: this,
-    });
-
-    // DRAMA: Obstacle clouds — spawn every 2.5s, slow the plane on contact
-    // These are the "enemies" that create tension in the airplane game
-    this.obstacleTimer = this.time.addEvent({
-      delay: 2500, loop: true,
-      callback: this.spawnObstacleCloud,
       callbackScope: this,
     });
 
@@ -175,35 +182,6 @@ export default class AirplaneScene extends BaseEngine {
   }
 
   // ===========================================================================
-  // DRAMA: Obstacle clouds — storm clouds that slow the plane on contact
-  // ===========================================================================
-  private spawnObstacleCloud() {
-    if (this.isFinished) return;
-    const x = Math.random() * (this.scale.width - 80) + 40;
-    const cloud = this.add.text(x, -40, '⛈️', {
-      fontFamily: 'Inter, sans-serif', fontSize: '40px',
-    }).setOrigin(0.5).setDepth(25);
-    this.obstacles.push(cloud);
-    // Fall down the screen
-    this.tweens.add({
-      targets: cloud,
-      y: this.scale.height + 40,
-      duration: 4000 + Math.random() * 2000,
-      ease: 'Linear',
-      onComplete: () => {
-        try { cloud.destroy(); } catch {}
-        this.obstacles = this.obstacles.filter(o => o !== cloud);
-      },
-    });
-    // Pulsing dark aura
-    this.tweens.add({
-      targets: cloud,
-      alpha: { from: 0.7, to: 1 },
-      duration: 400, yoyo: true, repeat: 50, ease: 'Sine.inOut',
-    });
-  }
-
-  // ===========================================================================
   // BANNER SPAWN — with unfurl animation + sparkle
   // ===========================================================================
   private spawnBannerRow() {
@@ -216,9 +194,7 @@ export default class AirplaneScene extends BaseEngine {
     const startX = (this.scale.width - totalW) / 2 + bannerW / 2;
 
     // Build 3 banners: 1 correct, 2 wrong (decoys from other terms)
-    const prompt = this.activePrompt;
-    if (!prompt) return;
-    const decoys = this.terms.filter(t => t.id !== prompt.id);
+    const decoys = this.terms.filter(t => t.id !== this.activePrompt!.id);
     Phaser.Utils.Array.Shuffle(decoys);
     const row: { term: TermItem; isCorrect: boolean }[] = [
       { term: this.activePrompt, isCorrect: true },
@@ -227,10 +203,8 @@ export default class AirplaneScene extends BaseEngine {
     ];
     Phaser.Utils.Array.Shuffle(row);
 
-    // AAAA — Banner fall speed: SLOWER at start, ramps with speedMultiplier AND level
-    // RESEARCH: Difficulty curve — gradual increase for flow state
-    const diffMult = this.getDifficultyMultiplier();
-    const fallSpeed = (this.lod.isMobile ? 60 : 80) * this.speedMultiplier * diffMult;
+    // AAAA — Banner fall speed: SLOWER at start, ramps with speedMultiplier
+    const fallSpeed = (this.lod.isMobile ? 60 : 80) * this.speedMultiplier;
 
     row.forEach((entry, i) => {
       const x = startX + i * (bannerW + gap);
@@ -330,7 +304,7 @@ export default class AirplaneScene extends BaseEngine {
     const coord = { x: container.x, y: container.y, t: this.time.now };
 
     this.recordAnswer({
-      term: this.activePrompt?.term ?? '',
+      term: this.activePrompt!.term,
       response: banner.term.term,
       success: isCorrect,
       coordinate: coord,
@@ -346,17 +320,12 @@ export default class AirplaneScene extends BaseEngine {
       onComplete: () => ripple.destroy(),
     });
 
-    // Banner poof — disable physics body FIRST, then visual tween, then destroy
-    // CRITICAL: If we destroy without disabling body, physics world crashes on
-    // next step with "Cannot read properties of undefined (reading 'contains')"
-    const bannerBody = container.body as Phaser.Physics.Arcade.Body;
-    if (bannerBody) bannerBody.enable = false;
-    this.bannerGroup.remove(container, false, true); // remove from group, don't destroy yet
+    // Banner poof
     this.tweens.add({
       targets: container,
       scale: 1.4, alpha: 0,
       duration: 250, ease: 'Back.in',
-      onComplete: () => { try { container.destroy(); } catch {} },
+      onComplete: () => container.destroy(),
     });
     this.banners = this.banners.filter(b => b !== banner);
 
@@ -368,8 +337,7 @@ export default class AirplaneScene extends BaseEngine {
         this.juice.zoomPunch(1.05, 250);
       }
       // Advance prompt to next term
-      const currentPromptId = this.activePrompt?.id;
-      const remaining = this.terms.filter(t => t.id !== currentPromptId);
+      const remaining = this.terms.filter(t => t.id !== this.activePrompt!.id);
       if (remaining.length > 0) {
         this.activePrompt = Phaser.Utils.Array.GetRandom(remaining);
       } else {
@@ -395,27 +363,7 @@ export default class AirplaneScene extends BaseEngine {
   private updateAirplane() {
     // AAAA — Plane speed: SLOWER at start (200 was too fast for level 1)
     const baseSpeed = 200; // was 340
-    let speed = baseSpeed * this.speedMultiplier;
-
-    // DRAMA: Check obstacle collisions — slow plane if hit
-    const now = Date.now();
-    if (now < this.planeSlowUntil) {
-      speed *= 0.3; // 70% slowdown when hit by obstacle
-    }
-    for (const obs of this.obstacles) {
-      if (!obs.active) continue;
-      const dist = Phaser.Math.Distance.Between(this.plane.x, this.plane.y, obs.x, obs.y);
-      if (dist < 35 && now >= this.planeSlowUntil) {
-        // Hit! Slow the plane for 1.5 seconds
-        this.planeSlowUntil = now + 1500;
-        audioBus.play('incorrect');
-        this.juice.shake('light');
-        // Visual feedback — flash the obstacle
-        this.tweens.add({ targets: obs, alpha: 0.3, duration: 200, yoyo: true });
-        break;
-      }
-    }
-
+    const speed = baseSpeed * this.speedMultiplier;
     const pointer = this.input.activePointer;
 
     let vx = 0;

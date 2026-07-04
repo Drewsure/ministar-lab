@@ -874,19 +874,9 @@ export class Juice {
     }
   }
 
-  // Track active particle emitters to cap concurrency (prevents GPU overload freeze)
-  private activeEmitters: Phaser.GameObjects.Particles.ParticleEmitter[] = [];
-  private maxConcurrentEmitters = 5;
-
   burst(x: number, y: number, kind: 'correct' | 'incorrect' | 'streak' | 'win' = 'correct') {
     if (!this.alive()) return;
     try {
-      // CAP: If too many emitters active, destroy the oldest before creating new
-      while (this.activeEmitters.length >= this.maxConcurrentEmitters) {
-        const oldest = this.activeEmitters.shift();
-        if (oldest && oldest.active) { try { oldest.destroy(); } catch {} }
-      }
-
       const palette = this.theme.particles[kind === 'win' ? 'streak' : kind];
       if (!palette || palette.length === 0) return;
       const count = Math.round((kind === 'win' ? 50 : 24) * this.lod.particleMultiplier);
@@ -906,12 +896,7 @@ export class Juice {
         emitting: false,
       });
       emitter.explode(count);
-      this.activeEmitters.push(emitter);
-      this.scene.time.delayedCall(1100, () => {
-        try { emitter.destroy(); } catch {}
-        const idx = this.activeEmitters.indexOf(emitter);
-        if (idx !== -1) this.activeEmitters.splice(idx, 1);
-      });
+      this.scene.time.delayedCall(1100, () => { try { emitter.destroy(); } catch {} });
 
       if ((kind === 'streak' || kind === 'win') && this.lod.blendAdd) {
         const streakKey = 'streak-' + this.theme.id;
@@ -968,9 +953,6 @@ export class Juice {
         targets: r, alpha: 0, duration: ms, ease: 'Cubic.out',
         onComplete: () => { try { r.destroy(); } catch {} },
       });
-      // SAFETY: Auto-destroy after 2x duration even if tween fails to fire/complete.
-      // This prevents full-screen overlays from getting stuck and blocking all input.
-      this.scene.time.delayedCall(ms * 2 + 50, () => { try { if (r && r.active) r.destroy(); } catch {} });
     } catch {}
   }
 
@@ -1010,8 +992,6 @@ export class Juice {
         ease: 'Back.out',
         onComplete: () => { try { popup.destroy(); } catch {} },
       });
-      // SAFETY: Auto-destroy after 1.5s even if tween fails.
-      this.scene.time.delayedCall(1500, () => { try { if (popup && popup.active) popup.destroy(); } catch {} });
     } catch {}
   }
 
@@ -1021,6 +1001,7 @@ export class Juice {
       const ring = this.scene.add.circle(x, y, 8, color, 0)
         .setStrokeStyle(3, color, 1)
         .setDepth(9997);
+      // Use scale tween (reliable on all Phaser versions) instead of radius tween
       this.scene.tweens.add({
         targets: ring,
         scale: { from: 1, to: maxRadius / 8 },
@@ -1029,8 +1010,6 @@ export class Juice {
         ease: 'Cubic.out',
         onComplete: () => { try { ring.destroy(); } catch {} },
       });
-      // SAFETY: Auto-destroy after 1.2s even if tween fails.
-      this.scene.time.delayedCall(1200, () => { try { if (ring && ring.active) ring.destroy(); } catch {} });
     } catch {}
   }
 
@@ -1039,12 +1018,13 @@ export class Juice {
     try {
       const cam = this.scene.cameras.main;
       if (!cam) return;
-      // SIMPLIFIED: Single tween with yoyo. Removed delayedCall to prevent
-      // camera getting stuck zoomed-in if the delayedCall fails to fire.
-      cam.zoomTo(zoomIn, duration / 2, 'Quad.out', true);
-      // Safety: reset zoom after full duration in case tween fails
-      this.scene.time.delayedCall(duration + 100, () => {
-        try { if (this.alive() && cam) cam.setZoom(1); } catch {}
+      cam.zoomTo(zoomIn, duration * 0.4, 'Quad.out');
+      this.scene.time.delayedCall(duration * 0.4, () => {
+        try {
+          if (this.alive() && cam) {
+            cam.zoomTo(1, duration * 0.6, 'Quad.in');
+          }
+        } catch {}
       });
     } catch {}
   }
@@ -1117,8 +1097,6 @@ export class MascotController {
   private currentTween?: Phaser.Tweens.Tween;
   private secondaryTween?: Phaser.Tweens.Tween;
   private stateTimer?: Phaser.Time.TimerEvent;
-  private idleTimer?: Phaser.Time.TimerEvent;
-  private secondaryTimer?: Phaser.Time.TimerEvent;
 
   constructor(
     private scene: Phaser.Scene,
@@ -1150,62 +1128,36 @@ export class MascotController {
   }
 
   private enterState(s: MascotState) {
-    // CRITICAL: Use timer events instead of infinite tweens (repeat: -1).
-    // Infinite tweens cause "this.ease is not a function" crashes when
-    // the mascot sprite is destroyed. Timer events are cleaned up by
-    // this.time.removeAllEvents() in BaseEngine's shutdown listener.
     if (this.currentTween) { this.currentTween.stop(); this.currentTween = undefined!; }
     if (this.secondaryTween) { this.secondaryTween.stop(); this.secondaryTween = undefined!; }
     if (this.stateTimer) { this.stateTimer.remove(); this.stateTimer = undefined!; }
-    // Kill any existing timer-based animations
-    if (this.idleTimer) { this.idleTimer.remove(); this.idleTimer = undefined!; }
-    if (this.secondaryTimer) { this.secondaryTimer.remove(); this.secondaryTimer = undefined!; }
     const sp = this.sprite;
     sp.setScale(1.2);
     sp.setAngle(0);
     sp.setAlpha(1);
-    const baseY = sp.y;
-    const baseX = sp.x;
+    sp.setPosition(sp.x, sp.y); // reset drift
     switch (s) {
       case 'idle':
-        // Gentle floating — timer-based (no infinite tween)
-        this.idleTimer = this.scene.time.addEvent({
-          delay: 900, loop: true, callback: () => {
-            if (!sp.active) return;
-            this.scene.tweens.add({ targets: sp, y: sp.y === baseY ? baseY - 6 : baseY, duration: 450, ease: 'Sine.inOut' });
-          },
+        this.currentTween = this.scene.tweens.add({
+          targets: sp, y: '-=6', duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut',
         });
         break;
       case 'hype':
         audioBus.play('streak');
-        // Bouncing + tilting — finite tweens on timer
-        this.idleTimer = this.scene.time.addEvent({
-          delay: 180, loop: true, callback: () => {
-            if (!sp.active) return;
-            this.scene.tweens.add({ targets: sp, scale: sp.scaleX > 1.3 ? 1.2 : 1.6, y: sp.y < baseY - 5 ? baseY : baseY - 20, duration: 90, ease: 'Quad.out' });
-          },
+        this.currentTween = this.scene.tweens.add({
+          targets: sp, scale: 1.6, y: '-=20', duration: 180, yoyo: true, repeat: -1, ease: 'Quad.out',
         });
-        this.secondaryTimer = this.scene.time.addEvent({
-          delay: 90, loop: true, callback: () => {
-            if (!sp.active) return;
-            this.scene.tweens.add({ targets: sp, angle: sp.angle > 0 ? -12 : 12, duration: 45 });
-          },
+        this.secondaryTween = this.scene.tweens.add({
+          targets: sp, angle: 12, duration: 90, yoyo: true, repeat: -1,
         });
         this.stateTimer = this.scene.time.delayedCall(4000, () => this.setState('idle'));
         break;
       case 'urgent':
-        // Shaking — finite tweens on timer
-        this.idleTimer = this.scene.time.addEvent({
-          delay: 60, loop: true, callback: () => {
-            if (!sp.active) return;
-            this.scene.tweens.add({ targets: sp, x: sp.x > baseX ? baseX - 4 : baseX + 4, duration: 30 });
-          },
+        this.currentTween = this.scene.tweens.add({
+          targets: sp, x: '+=4', duration: 60, yoyo: true, repeat: -1,
         });
-        this.secondaryTimer = this.scene.time.addEvent({
-          delay: 200, loop: true, callback: () => {
-            if (!sp.active) return;
-            this.scene.tweens.add({ targets: sp, alpha: sp.alpha < 0.8 ? 1 : 0.6, duration: 100 });
-          },
+        this.secondaryTween = this.scene.tweens.add({
+          targets: sp, alpha: 0.6, duration: 200, yoyo: true, repeat: -1,
         });
         break;
       case 'celebrate':
@@ -1218,12 +1170,8 @@ export class MascotController {
         break;
       case 'sad':
         audioBus.play('lose');
-        // Swaying — finite tweens on timer
-        this.idleTimer = this.scene.time.addEvent({
-          delay: 400, loop: true, callback: () => {
-            if (!sp.active) return;
-            this.scene.tweens.add({ targets: sp, y: sp.y > baseY ? baseY : baseY + 8, angle: sp.angle < 0 ? 0 : -10, duration: 200, ease: 'Sine.inOut' });
-          },
+        this.currentTween = this.scene.tweens.add({
+          targets: sp, y: '+=8', angle: -10, duration: 400, yoyo: true, repeat: -1, ease: 'Sine.inOut',
         });
         this.stateTimer = this.scene.time.delayedCall(3000, () => this.setState('idle'));
         break;
@@ -1232,8 +1180,6 @@ export class MascotController {
 
   setVisible(v: boolean) { this.sprite.setVisible(v); }
   destroy() {
-    if (this.idleTimer) { this.idleTimer.remove(); this.idleTimer = undefined; }
-    if (this.secondaryTimer) { this.secondaryTimer.remove(); this.secondaryTimer = undefined; }
     this.sprite.destroy();
   }
 }
@@ -1311,13 +1257,7 @@ export class Hud {
     const sec = Math.floor(remainingMs / 1000);
     const mm = Math.floor(sec / 60);
     const ss = (sec % 60).toString().padStart(2, '0');
-
-    // PERF: Only update timer text when the second changes (not every frame)
-    // setText() re-renders the text texture — calling it 60x/sec is wasteful
-    const newTimerStr = `⏱ ${mm}:${ss}`;
-    if (this.timerText.text !== newTimerStr) {
-      this.timerText.setText(newTimerStr);
-    }
+    this.timerText.setText(`⏱ ${mm}:${ss}`);
 
     const isUrgent = remainingMs < this.initialTimeMs * 0.2;
     if (isUrgent && !this.lastUrgentTick) {
@@ -1329,26 +1269,10 @@ export class Hud {
       this.lastUrgentTick = false;
     }
 
-    // PERF: Only update score text when score changes
-    const newScoreStr = `Score: ${score}/${maxScore}`;
-    if (this.scoreText.text !== newScoreStr) {
-      this.scoreText.setText(newScoreStr);
-    }
-
-    // PERF: Only update streak text when streak changes
+    this.scoreText.setText(`Score: ${score}/${maxScore}`);
+    // Combo multiplier display — shows x2, x3 etc. when on streak
     const mult = streak >= 5 ? 3 : streak >= 3 ? 2 : 1;
-    const newStreakStr = streak >= 3 ? `🔥${streak} x${mult}!` : `🔥 ${streak}`;
-    if (this.streakText.text !== newStreakStr) {
-      this.streakText.setText(newStreakStr);
-      // DRAMA: Streak milestone visual feedback — change text size based on streak
-      if (streak >= 5) {
-        this.streakText.setFontSize('22px');
-      } else if (streak >= 3) {
-        this.streakText.setFontSize('20px');
-      } else {
-        this.streakText.setFontSize('18px');
-      }
-    }
+    this.streakText.setText(streak >= 3 ? `🔥${streak} x${mult}!` : `🔥 ${streak}`);
     if (streak >= 3) {
       this.streakText.setColor('#' + this.theme.warning.toString(16).padStart(6, '0'));
       // Pulse the streak text on streak
