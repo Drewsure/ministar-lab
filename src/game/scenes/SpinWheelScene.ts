@@ -116,7 +116,7 @@ export default class SpinWheelScene extends BaseEngine {
         alpha: { from: 1, to: 0.3 },
         duration: 400 + i * 30,
         yoyo: true,
-        repeat: -1,
+        repeat: 999,
         ease: 'Sine.inOut',
       });
     }
@@ -137,7 +137,7 @@ export default class SpinWheelScene extends BaseEngine {
     this.tweens.add({
       targets: this.pointer,
       y: wheelY - wheelRadius - 5,
-      duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut',
+      duration: 600, yoyo: true, repeat: 999, ease: 'Sine.inOut',
     });
 
     // ---- Spin button ----

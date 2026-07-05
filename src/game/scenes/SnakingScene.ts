@@ -43,7 +43,7 @@ export default class SnakingScene extends BaseEngine {
     this.startHint = this.add.text(this.scale.width / 2, this.scale.height / 2 + 80, 'Tap arrow keys or swipe to start!', {
       fontFamily: 'Inter, sans-serif', fontSize: '16px', color: this.hex(this.theme.warning),
     }).setOrigin(0.5).setDepth(50).setAlpha(0);
-    this.tweens.add({ targets: this.startHint, alpha: { from: 0.4, to: 1 }, duration: 800, yoyo: true, repeat: -1 });
+    this.tweens.add({ targets: this.startHint, alpha: { from: 0.4, to: 1 }, duration: 800, yoyo: true, repeat: 999 });
 
     const startX = 120;
     const startY = Math.floor(this.scale.height / 2 / this.gridStep) * this.gridStep;

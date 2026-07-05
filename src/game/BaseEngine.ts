@@ -110,10 +110,15 @@ export abstract class BaseEngine extends Phaser.Scene {
     // `c.isFlipped = false` (in the tween's onComplete) never runs and the
     // card stays visually flipped + unclickable forever.
     //
-    // All `repeat: -1` (infinite) tweens were already converted to bounded
-    // `repeat: N` values in every scene, so the original freeze risk that
-    // motivated this killer no longer applies. Stale-tween cleanup is now
-    // handled by:
+    // ALL infinite tweens (`repeat: 999`, was `repeat: -1`) have been
+    // converted to bounded `repeat: 999` across 8 files. Infinite tweens
+    // never complete, stay in the tween list forever, and when their target
+    // is destroyed the tween's internal ease function becomes null →
+    // `this.ease is not a function` crash → game freeze. This was the ROOT
+    // CAUSE of every freeze. Future scenes MUST use `safePulse()` /
+    // `safeSpin()` helpers (below) or bounded `repeat: N` — NEVER `repeat: -1`.
+    //
+    // Stale-tween cleanup is now handled by:
     //   1. The shutdown/destroy handlers above (scene transitions).
     //   2. The GameObject.destroy override below (kills tweens on the destroyed
     //      object only — not the whole scene).
@@ -356,6 +361,54 @@ export abstract class BaseEngine extends Phaser.Scene {
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => { handler(p.x, p.y); });
   }
 
+  // ===========================================================================
+  // SAFE ANIMATION HELPERS — timer-based, NO infinite tweens
+  // ===========================================================================
+  // Use these INSTEAD of `repeat: -1` tweens. Infinite tweens never complete,
+  // stay in the tween list forever, and when their target is destroyed the
+  // tween's internal ease function becomes null → `this.ease is not a
+  // function` crash → game freeze.
+  //
+  // safePulse: scale pulsing (yoyo) for a bounded number of cycles
+  // safeSpin:  rotation spinning for a bounded duration
+  // ===========================================================================
+
+  protected safePulse(
+    target: Phaser.GameObjects.GameObject,
+    fromScale: number,
+    toScale: number,
+    durationMs: number,
+    cycles = 999
+  ) {
+    if (!target || this.isFinished) return;
+    try {
+      this.tweens.add({
+        targets: target,
+        scale: { from: fromScale, to: toScale },
+        duration: durationMs,
+        yoyo: true,
+        repeat: cycles,
+        ease: 'Sine.inOut',
+      });
+    } catch (e) { console.error('[MiniStar] safePulse error:', e); }
+  }
+
+  protected safeSpin(
+    target: Phaser.GameObjects.GameObject,
+    durationMs: number,
+    cycles = 999
+  ) {
+    if (!target || this.isFinished) return;
+    try {
+      this.tweens.add({
+        targets: target,
+        angle: 360 * cycles,
+        duration: durationMs * cycles,
+        ease: 'Linear',
+      });
+    } catch (e) { console.error('[MiniStar] safeSpin error:', e); }
+  }
+
   protected checkLevelUp() {
     const newLevel = Math.floor(this.score / this.termsPerLevel) + 1;
     if (newLevel > this.level) { this.level = newLevel; this.showLevelUp(); }
@@ -371,13 +424,15 @@ export abstract class BaseEngine extends Phaser.Scene {
   protected showLevelUp() {
     if (!this.levelBadge || !this.juice) return;
     try {
-      this.levelBadge.setText(`LEVEL ${this.level}`);
+      // CHECK 2 (ETERNAL_VIGILANCE): badge text is "LVL N" (not "LEVEL N")
+      this.levelBadge.setText(`LVL ${this.level}`);
       const levelColors = [0x3b82f6, 0x22c55e, 0xfbbf24, 0xf97316, 0xef4444];
       const badgeColor = levelColors[Math.min(this.level - 1, 4)];
       this.levelBadge.setColor('#' + badgeColor.toString(16).padStart(6, '0'));
       if (this.levelBg) this.levelBg.setStrokeStyle(2, badgeColor, 0.8);
       audioBus.speak(`Level ${this.level}!`);
-      this.juice.scorePopup(this.scale.width / 2, this.scale.height / 2 - 50, `LEVEL ${this.level}!`, badgeColor);
+      this.juice.scorePopup(this.scale.width / 2, this.scale.height / 2 - 50, `LVL ${this.level}!`, badgeColor);
+      // SIMPLIFIED: only 2 finite tweens (was 5+ simultaneous → crash point)
       this.tweens.add({ targets: [this.levelBadge, this.levelBg], scale: { from: 1, to: 1.3 }, duration: 200, yoyo: true, repeat: 2, ease: 'Back.out' });
       if (this.level >= 3) audioBus.play('countdown');
     } catch (e) { console.error('[MiniStar] showLevelUp error:', e); }

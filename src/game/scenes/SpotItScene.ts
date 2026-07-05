@@ -318,29 +318,36 @@ export default class SpotItScene extends BaseEngine {
     this.timerEvent = this.time.addEvent({
       delay: 100, loop: true,
       callback: () => {
-        if (this.isFinished) { if (this.timerEvent) this.timerEvent.remove(); return; }
-        this.timeLeft -= 0.1;
-        if (this.timeLeft <= 5 && this.timeLeft > 0) {
-          // Tick sound at < 5s
-          if (Math.floor(this.timeLeft * 10) % 10 === 0) {
-            try { audioBus.play('tap', { freq: 660 }); } catch {}
+        // SHUTDOWN-SAFE: wrap entire callback in try-catch. If the scene is
+        // shutting down, this.roundPreviewText or this.tweens may be undefined
+        // → throw → scene time freezes → game stuck.
+        try {
+          if (this.isFinished) { if (this.timerEvent) this.timerEvent.remove(); return; }
+          this.timeLeft -= 0.1;
+          if (this.timeLeft <= 5 && this.timeLeft > 0) {
+            // Tick sound at < 5s
+            if (Math.floor(this.timeLeft * 10) % 10 === 0) {
+              try { audioBus.play('tap', { freq: 660 }); } catch {}
+            }
           }
-        }
-        if (this.timeLeft <= 2 && this.timeLeft > 0) {
-          // "Hurry!" banner
-          if (this.roundPreviewText && this.roundPreviewText.alpha === 0) {
-            this.roundPreviewText.setText('⚡ HURRY! ⚡');
-            this.roundPreviewText.setColor('#' + this.theme.danger.toString(16).padStart(6, '0'));
-            this.tweens.add({
-              targets: this.roundPreviewText,
-              alpha: { from: 0, to: 0.8 }, scale: { from: 0.5, to: 1 },
-              duration: 200, yoyo: true, hold: 200,
-            });
+          if (this.timeLeft <= 2 && this.timeLeft > 0) {
+            // "Hurry!" banner
+            if (this.roundPreviewText && this.roundPreviewText.alpha === 0) {
+              this.roundPreviewText.setText('⚡ HURRY! ⚡');
+              this.roundPreviewText.setColor('#' + this.theme.danger.toString(16).padStart(6, '0'));
+              this.tweens.add({
+                targets: this.roundPreviewText,
+                alpha: { from: 0, to: 0.8 }, scale: { from: 0.5, to: 1 },
+                duration: 200, yoyo: true, hold: 200,
+              });
+            }
           }
-        }
-        if (this.timeLeft <= 0) {
-          if (this.timerEvent) this.timerEvent.remove();
-          this._handleTimeout();
+          if (this.timeLeft <= 0) {
+            if (this.timerEvent) this.timerEvent.remove();
+            this._handleTimeout();
+          }
+        } catch (e) {
+          console.error('[MiniStar] SpotIt timer error (suppressed):', e);
         }
       },
     });

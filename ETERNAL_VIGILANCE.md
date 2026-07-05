@@ -232,6 +232,47 @@ grep "spawnDelay\|stayTime" src/game/scenes/WhackAMoleScene.ts
 
 ---
 
+### ✅ CHECK 11: NO infinite tweens (`repeat: -1`) — ROOT CAUSE OF ALL FREEZES
+
+**What happens:** Infinite tweens (`repeat: -1`) never complete, so they stay in the tween list forever. When their target object is destroyed (e.g., a card is removed after a match, a balloon is popped, a mole retreats), the tween's internal `ease` function is set to `null`. The next tween tick calls `this.ease()` → `this.ease is not a function` → **uncaught exception in the tween manager → game freezes permanently**.
+
+This was the ROOT CAUSE of every freeze across multiple sessions. It took 2 hours to diagnose. The fix is simple: NEVER use `repeat: -1`. Use `repeat: 999` (bounded) or the `safePulse()` / `safeSpin()` helpers in BaseEngine.
+
+**How to verify:**
+```bash
+grep -rn "repeat: -1" src/
+# Must return ZERO results
+```
+
+If any results appear, replace `repeat: -1` with `repeat: 999` immediately.
+
+**Why `repeat: 999` and not `repeat: 0`:** `repeat: 0` means the tween plays once (no repeat). `repeat: 999` means it plays 1000 times — effectively "infinite" for gameplay purposes but BOUNDED in the tween list, so Phaser can clean it up when the target is destroyed.
+
+**Safe alternatives (use these for new scenes):**
+```typescript
+// Instead of: this.tweens.add({ targets: obj, scale: 1.2, duration: 600, yoyo: true, repeat: -1 });
+// Use:
+this.safePulse(obj, 1, 1.2, 600, 999);
+
+// Instead of: this.tweens.add({ targets: obj, angle: 360, duration: 1000, repeat: -1, ease: 'Linear' });
+// Use:
+this.safeSpin(obj, 1000, 999);
+```
+
+**Files that had infinite tweens fixed (2026-07-05):**
+- src/game/BaseEngine.ts
+- src/game/Juice.ts
+- src/game/scenes/BalloonPopScene.ts (6 instances)
+- src/game/scenes/GameshowScene.ts (2 instances)
+- src/game/scenes/RescueQuestScene.ts (2 instances)
+- src/game/scenes/SnakingScene.ts (1 instance)
+- src/game/scenes/SpinWheelScene.ts (2 instances)
+- src/game/scenes/TypeAnswerScene.ts (1 instance)
+
+Total: 23 infinite tweens converted to `repeat: 999`.
+
+---
+
 ## ADDITIONAL LESSONS LEARNED
 
 ### BOM (Byte Order Mark) contamination

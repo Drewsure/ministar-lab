@@ -81,6 +81,7 @@ export default class MazeChaseScene extends BaseEngine {
   private path: { x: number; y: number }[] = [];
   private pathIdx = 0;
   private speedBoostUntil = 0;
+  private _lastHeartbeat = 0;
 
   protected maxQuestions() { return Math.min(this.terms.length, 6); }
 
@@ -316,21 +317,12 @@ export default class MazeChaseScene extends BaseEngine {
     const startX = this.mazeOffsetX + CELL / 2;
     const startY = this.mazeOffsetY + CELL / 2;
 
-    // CHECK 3 (ETERNAL_VIGILANCE): Player MUST be visible. We use a simple
-    // approach: create a physics body from a generated white circle texture,
-    // then render the Pac-Man emoji ON TOP as a text object that follows
-    // the physics body each frame. This guarantees the player is ALWAYS
-    // visible regardless of ThemeAtlas texture generation.
-
-    // Generate a 1x1 white pixel texture for the physics body (if not exists)
-    if (!this.textures.exists('mazechase-player-body')) {
-      const g = this.add.graphics();
-      g.fillStyle(0xffffff, 0);
-      g.fillCircle(13, 13, 13);
-      g.generateTexture('mazechase-player-body', 26, 26);
-      g.destroy();
-    }
-
+    // CHECK 3 (ETERNAL_VIGILANCE): Player MUST be visible. Previous approach
+    // used physics.add.sprite with a generated texture — if texture generation
+    // fails (WebGL context loss), the sprite creation throws → scene crash →
+    // game freeze. The ROBUST approach (same as ghosts) is to use a physics-
+    // enabled TEXT object with the Pac-Man emoji. No texture dependency =
+    // no freeze risk.
     this.playerGlow = this.add.circle(startX, startY, 22, this.theme.accent, 0.18)
       .setDepth(19);
     this.tweens.add({
@@ -340,19 +332,19 @@ export default class MazeChaseScene extends BaseEngine {
       duration: 700, yoyo: true, repeat: 50, ease: 'Sine.inOut',
     });
 
-    // Physics body (invisible — used for collision + velocity)
-    this.player = this.physics.add.sprite(startX, startY, 'mazechase-player-body');
-    this.player.setCollideWorldBounds(true);
-    this.player.setCircle(13, 0, 0);
-    this.player.setDepth(20);
-    this.player.setScale(1);
-    this.player.setAlpha(0); // invisible — emoji is the visual
-
-    // Player emoji (visible, follows physics body each frame in update)
-    this.playerEmoji = this.add.text(startX, startY, '😋', {
+    // Player = physics-enabled emoji text (no texture generation needed)
+    const playerText = this.add.text(startX, startY, '😋', {
       fontFamily: 'Inter, sans-serif',
       fontSize: '32px',
     }).setOrigin(0.5).setDepth(20);
+    this.physics.add.existing(playerText);
+    const pBody = playerText.body as Phaser.Physics.Arcade.Body;
+    pBody.setCircle(14, 2, 2)
+         .setAllowGravity(false)
+         .setCollideWorldBounds(true);
+    // Cast to satisfy the typed `player` field — at runtime it's a Text with a physics body
+    this.player = playerText as unknown as Phaser.Physics.Arcade.Sprite;
+    this.playerEmoji = playerText; // alias — no separate emoji needed
 
     // Directional indicator (a small arrow that rotates)
     this.playerDirIndicator = this.add.text(startX, startY, '▶', {
@@ -1021,10 +1013,8 @@ export default class MazeChaseScene extends BaseEngine {
     this.playerDirIndicator.setRotation(rotMap[this.playerDir]);
     this.playerDirIndicator.setPosition(this.player.x, this.player.y);
     this.playerGlow.setPosition(this.player.x, this.player.y);
-    // Sync the emoji visual with the physics body position
-    if (this.playerEmoji) {
-      this.playerEmoji.setPosition(this.player.x, this.player.y);
-    }
+    // NOTE: playerEmoji IS the player (physics-enabled text), so it moves
+    // with its own physics body — no manual position sync needed.
 
     // Trail emitter follows the player
     if (this.trailEmitter) {
@@ -1042,6 +1032,26 @@ export default class MazeChaseScene extends BaseEngine {
         try { this.trailEmitter.emitting = false; } catch {}
       }
     }
+
+    // NEAR-MISS HEARTBEAT — when a ghost is within 60px of the player, play
+    // a heartbeat audio cue every 400ms. Creates tension WITHOUT tweens
+    // (timer-based, safe from the infinite-tween freeze bug).
+    try {
+      if (this.enemiesGroup && this.enemiesGroup.getChildren().length > 0) {
+        let nearestDist = Infinity;
+        for (const e of this.enemiesGroup.getChildren()) {
+          const ex = (e as Phaser.GameObjects.Text).x;
+          const ey = (e as Phaser.GameObjects.Text).y;
+          const d = Math.hypot(ex - this.player.x, ey - this.player.y);
+          if (d < nearestDist) nearestDist = d;
+        }
+        const now = this.time.now;
+        if (nearestDist < 60 && now - this._lastHeartbeat > 400) {
+          this._lastHeartbeat = now;
+          try { audioBus.play('tap', { freq: 110 }); } catch {} // low heartbeat thump
+        }
+      }
+    } catch {}
   }
 
   // ===========================================================================
