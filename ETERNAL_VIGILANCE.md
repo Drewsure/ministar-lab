@@ -325,6 +325,38 @@ See PACING_AUDIT.md for full per-game audit.
 
 ---
 
+### ✅ CHECK 13: Black screen prevention + feedback on every answer
+
+**What happens (black screen):** When a scene's `buildWorld()` throws an uncaught error, Phaser's scene boot fails silently → black canvas. The user sees nothing and can't tell why.
+
+**Fix:** `BaseEngine.create()` wraps `this.buildWorld()` in try-catch. On crash, calls `_showBuildError(e)` which displays a visible error message + "← Back to Library" button. The error is visible ON SCREEN, not just in console.
+
+**How to verify:**
+```bash
+grep -n "_showBuildError\|try { this.buildWorld" src/game/BaseEngine.ts
+# Must have: try-catch around buildWorld() + _showBuildError method
+```
+
+**What happens (no feedback):** Selection games (Spin Wheel, etc.) that only highlight the button green/red but don't show a "✅ Correct!" / "❌ Try again!" popup leave the user unsure if their answer was registered.
+
+**Rule:** Every selection/answer game MUST show:
+1. A scorePopup with "✅ Correct!" or "❌ Try again!" at screen center
+2. A flash (green for correct, red for wrong)
+3. An audio cue (correct/incorrect sound + TTS)
+4. A burst (particle effect)
+
+**How to verify:**
+```bash
+# For each selection game, check for all 4 feedback elements:
+grep -l "scorePopup.*Correct\|scorePopup.*Try again" src/game/scenes/*.ts
+# Should include: SpinWheelScene, QuizScene, GameshowScene, LabelItScene, etc.
+```
+
+**Games fixed for missing feedback (2026-07-05):**
+- SpinWheelScene: added "✅ Correct!" / "❌ Try again!" popup + flash + audio + burst
+
+---
+
 ## ADDITIONAL LESSONS LEARNED
 
 ### BOM (Byte Order Mark) contamination

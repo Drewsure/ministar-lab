@@ -85,7 +85,14 @@ export abstract class BaseEngine extends Phaser.Scene {
     // Pause key
     this.input.keyboard?.on('keydown-P', () => { if (this.scene.isPaused()) this.scene.resume(); else this.scene.pause(); });
 
-    this.buildWorld();
+    // BUILD WORLD — wrapped in try-catch so a crash in any scene's buildWorld
+    // shows a friendly error message instead of a black screen.
+    try {
+      this.buildWorld();
+    } catch (e) {
+      console.error('[MiniStar] buildWorld crash in', this.scene.key, e);
+      this._showBuildError(e);
+    }
 
     // Spoken instructions on entry
     this.time.delayedCall(800, () => { if (!this.isFinished) this.speakGameInstructions(); });
@@ -456,6 +463,34 @@ export abstract class BaseEngine extends Phaser.Scene {
       if (this.isFinished) return;
       if (this.scene.isPaused()) { this.scene.resume(); if (this.pauseOverlay) this.pauseOverlay.setVisible(false); }
       else { this.scene.pause(); this._showPauseOverlay(); }
+    });
+  }
+
+  // BLACK SCREEN PREVENTION: if buildWorld crashes, show a visible error
+  // message + exit button instead of a blank canvas. This makes debugging
+  // possible (the error is visible on screen, not just in console).
+  private _showBuildError(e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    this.add.rectangle(this.scale.width / 2, this.scale.height / 2,
+      this.scale.width, this.scale.height, 0x000000, 0.9).setDepth(500);
+    this.add.text(this.scale.width / 2, this.scale.height / 2 - 40,
+      '⚠️ Game failed to load', {
+        fontFamily: 'Inter, sans-serif', fontSize: '24px',
+        color: '#ef4444', fontStyle: 'bold',
+      }).setOrigin(0.5).setDepth(501);
+    this.add.text(this.scale.width / 2, this.scale.height / 2 + 10,
+      `${this.scene.key}: ${msg.slice(0, 100)}`, {
+        fontFamily: 'Inter, sans-serif', fontSize: '14px',
+        color: '#ffffff', align: 'center', wordWrap: { width: 500 },
+      }).setOrigin(0.5).setDepth(501);
+    const exitBtn = this.add.text(this.scale.width / 2, this.scale.height / 2 + 80,
+      '← Back to Library', {
+        fontFamily: 'Inter, sans-serif', fontSize: '18px',
+        color: '#22c55e', fontStyle: 'bold',
+      }).setOrigin(0.5).setDepth(501).setInteractive({ useHandCursor: true });
+    exitBtn.on('pointerdown', () => {
+      try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ministar-exit-game')); } catch {}
+      try { this.game.destroy(true); } catch {}
     });
   }
 

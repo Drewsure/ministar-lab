@@ -1165,7 +1165,8 @@ export default class MazeChaseScene extends BaseEngine {
         this.pathIdx = 0;
         const body = this.player.body as Phaser.Physics.Arcade.Body;
         if (body) {
-          const speed = this.lod.isMobile ? 110 : 140;
+          // PACING FIX: Match the new player speed (190/150), was old 140/110
+          const speed = this.lod.isMobile ? 150 : 190;
           body.setVelocity(d.dir.x * speed, d.dir.y * speed);
         }
       });

@@ -64,9 +64,13 @@ export default class AirplaneScene extends BaseEngine {
       'Catch: ...',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '20px',
-        color: this.hex(this.theme.text),
+        fontSize: '24px',
+        color: this.hex(this.theme.warning),
         fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 4,
+        backgroundColor: '#' + this.theme.card.toString(16).padStart(6, '0'),
+        padding: { x: 16, y: 8 },
       }
     ).setOrigin(0.5).setDepth(49);
 
@@ -132,10 +136,13 @@ export default class AirplaneScene extends BaseEngine {
     this.updatePromptText();
 
     // ---- Spawn loop ----
+    // PACING FIX: Delay first spawn by 1.5s so player can read the clue
+    // before banners appear. Then spawn every 2.2s (was 1.8s — too fast).
     this.spawnTimer = this.time.addEvent({
-      delay: 1800, loop: true,
+      delay: 2200, loop: true,
       callback: this.spawnBannerRow,
       callbackScope: this,
+      startAt: 1500, // first spawn after 1.5s
     });
 
     // ---- Keyboard input (created ONCE) ----
@@ -224,78 +231,88 @@ export default class AirplaneScene extends BaseEngine {
     ];
     Phaser.Utils.Array.Shuffle(row);
 
-    // AAAA — Banner fall speed: SLOWER at start, ramps with speedMultiplier
+    // PACING FIX: Stagger banner spawns — spawn one every 400ms instead of
+    // all 3 at once. Prevents the "massive connected wall" effect.
+    // Also, the prompt (clue) is already shown via updatePromptText() BEFORE
+    // banners spawn, so the player has time to read it.
+    row.forEach((entry, i) => {
+      this.time.delayedCall(i * 400, () => {
+        if (this.isFinished) return;
+        this._spawnSingleBanner(entry, startX + i * (bannerW + gap), bannerW, bannerH);
+      });
+    });
+  }
+
+  private _spawnSingleBanner(entry: { term: TermItem; isCorrect: boolean }, x: number, bannerW: number, bannerH: number) {
+    const y = -bannerH;
+
+    // Banner background with rounded look
+    const bg = this.add.rectangle(0, 0, bannerW, bannerH, entry.isCorrect ? this.theme.success : this.theme.card, 0.95)
+      .setStrokeStyle(3, this.theme.accent, 0.8);
+    const strip = this.add.rectangle(0, -bannerH / 2 + 6, bannerW - 6, 4, this.theme.accent2, 0.9);
+    const txt = this.add.text(0, 4, entry.term.emoji ?? entry.term.term.slice(0, 10), {
+      fontFamily: 'Inter, sans-serif',
+      fontSize: '23px',
+      color: '#ffffff',
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
+    const label = this.add.text(0, -8, entry.term.term.slice(0, 12), {
+      fontFamily: 'Inter, sans-serif',
+      fontSize: '18px',
+      color: '#ffffff',
+      fontStyle: 'bold',
+    }).setOrigin(0.5).setAlpha(0.8);
+
+    const container = this.add.container(x, y, [bg, strip, txt, label]).setSize(bannerW, bannerH);
+    this.physics.add.existing(container);
+    const body = container.body as Phaser.Physics.Arcade.Body;
+    body.setSize(bannerW, bannerH);
+    body.setOffset(-bannerW / 2, -bannerH / 2);
+    body.setAllowGravity(false);
+    body.setImmovable(false);
+
+    // PACING FIX: Banner fall speed — SLOWER at start, ramps with speedMultiplier
     const fallSpeed = (this.lod.isMobile ? 60 : 80) * this.speedMultiplier;
 
-    row.forEach((entry, i) => {
-      const x = startX + i * (bannerW + gap);
-      const y = -bannerH;
+    // Sparkle that appears when banner enters view
+    const sparkle = this.add.circle(x, 30, 8, this.theme.accent2, 0)
+      .setDepth(40);
 
-      // Banner background with rounded look
-      const bg = this.add.rectangle(0, 0, bannerW, bannerH, entry.isCorrect ? this.theme.success : this.theme.card, 0.95)
-        .setStrokeStyle(3, this.theme.accent, 0.8);
-      const strip = this.add.rectangle(0, -bannerH / 2 + 6, bannerW - 6, 4, this.theme.accent2, 0.9);
-      const txt = this.add.text(0, 4, entry.term.emoji ?? entry.term.term.slice(0, 10), {
-        fontFamily: 'Inter, sans-serif',
-        fontSize: '23px',
-        color: '#ffffff',
-        fontStyle: 'bold',
-      }).setOrigin(0.5);
-      const label = this.add.text(0, -8, entry.term.term.slice(0, 12), {
-        fontFamily: 'Inter, sans-serif',
-        fontSize: '18px',
-        color: '#ffffff',
-        fontStyle: 'bold',
-      }).setOrigin(0.5).setAlpha(0.8);
+    const banner: Banner = { container, body, term: entry.term, isCorrect: entry.isCorrect, hit: false, sparkle };
+    container.setData('banner', banner);
+    this.banners.push(banner);
+    this.bannerGroup.add(container);
 
-      const container = this.add.container(x, y, [bg, strip, txt, label]).setSize(bannerW, bannerH);
-      this.physics.add.existing(container);
-      const body = container.body as Phaser.Physics.Arcade.Body;
-      body.setSize(bannerW, bannerH);
-      body.setOffset(-bannerW / 2, -bannerH / 2);
-      body.setAllowGravity(false);
-      body.setImmovable(false);
+    // Move banner via tween (physics body velocity is unreliable on containers)
+    const fallDuration = ((this.scale.height + bannerH + 100) / fallSpeed) * 1000;
+    this.tweens.add({
+      targets: container,
+      y: this.scale.height + bannerH + 20,
+      duration: fallDuration,
+      ease: 'Linear',
+      onComplete: () => {
+        if (container.active) {
+          container.destroy();
+          this.banners = this.banners.filter(b => b !== banner);
+        }
+      },
+    });
 
-      // Sparkle that appears when banner enters view
-      const sparkle = this.add.circle(x, 30, 8, this.theme.accent2, 0)
-        .setDepth(40);
+    this.tweens.add({
+      targets: sparkle,
+      alpha: { from: 0, to: 0.6 },
+      scale: { from: 0.5, to: 2 },
+      duration: 400,
+      yoyo: true,
+      onComplete: () => sparkle.destroy(),
+    });
 
-      const banner: Banner = { container, body, term: entry.term, isCorrect: entry.isCorrect, hit: false, sparkle };
-      container.setData('banner', banner);
-      this.banners.push(banner);
-      this.bannerGroup.add(container);
-
-      // AAA fix: move banner via tween (physics body velocity is unreliable on containers in Phaser 4)
-      const fallDuration = ((this.scale.height + bannerH + 100) / fallSpeed) * 1000;
-      this.tweens.add({
-        targets: container,
-        y: this.scale.height + bannerH + 20,
-        duration: fallDuration,
-        ease: 'Linear',
-        onComplete: () => {
-          if (container.active) {
-            container.destroy();
-            this.banners = this.banners.filter(b => b !== banner);
-          }
-        },
-      });
-
-      this.tweens.add({
-        targets: sparkle,
-        alpha: { from: 0, to: 0.6 },
-        scale: { from: 0.5, to: 2 },
-        duration: 400,
-        yoyo: true,
-        onComplete: () => sparkle.destroy(),
-      });
-
-      // Unfurl animation (scale 0 → 1 with slight rotation)
-      container.setScale(0).setRotation(-0.3);
-      this.tweens.add({
-        targets: container,
-        scale: 1, rotation: 0,
-        duration: 300, ease: 'Back.out',
-      });
+    // Unfurl animation (scale 0 → 1 with slight rotation)
+    container.setScale(0).setRotation(-0.3);
+    this.tweens.add({
+      targets: container,
+      scale: 1, rotation: 0,
+      duration: 300, ease: 'Back.out',
     });
   }
 

@@ -293,7 +293,22 @@ export default class SpinWheelScene extends BaseEngine {
     const bg = btn.getAt(0) as Phaser.GameObjects.Rectangle;
     bg.setFillStyle(isCorrect ? this.theme.success : this.theme.danger, 1);
 
-    this.time.delayedCall(800, () => {
+    // FEEDBACK: Flash "Correct!" or "Try again!" so the user knows the result
+    const feedbackMsg = isCorrect ? '✅ Correct!' : '❌ Try again!';
+    const feedbackColor = isCorrect ? this.theme.success : this.theme.danger;
+    this.juice.scorePopup(this.scale.width / 2, this.scale.height / 2 - 40, feedbackMsg, feedbackColor);
+    this.juice.flash(feedbackColor, 0.3, 250);
+    if (isCorrect) {
+      audioBus.play('correct');
+      audioBus.speak(`Correct! ${this.landedTerm!.term}`);
+      this.juice.burst(btn.x, btn.y, 'correct');
+    } else {
+      audioBus.play('incorrect');
+      audioBus.speak('Try again!');
+      this.juice.shake('light');
+    }
+
+    this.time.delayedCall(1200, () => {
       // Reset for next spin
       this.promptText.setText('🎡 Spin the Wheel!');
       this.answerButtons.forEach(b => b.destroy());
