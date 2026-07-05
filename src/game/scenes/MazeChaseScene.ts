@@ -82,6 +82,11 @@ export default class MazeChaseScene extends BaseEngine {
   private pathIdx = 0;
   private speedBoostUntil = 0;
   private _lastHeartbeat = 0;
+  // SCATTER MODE (Pac-Man research): every 12s, ghosts retreat to their
+  // assigned corner for 5s. Gives the player a breathing-room break.
+  // Without this, ghosts chase relentlessly → game feels impossible.
+  private _scatterModeActive = false;
+  private _scatterTimer?: Phaser.Time.TimerEvent;
 
   protected maxQuestions() { return Math.min(this.terms.length, 6); }
 
@@ -183,6 +188,36 @@ export default class MazeChaseScene extends BaseEngine {
         emitting: false,
       }).setDepth(18);
     }
+
+    // SCATTER MODE (Pac-Man research): ghosts retreat to corners periodically.
+    // Cycle: 7s chase → 5s scatter → 7s chase → 5s scatter → ...
+    // This gives the player breathing room and makes the game feel FAIR
+    // instead of relentlessly impossible.
+    this._scatterTimer = this.time.addEvent({
+      delay: 7000, // initial delay = first chase phase
+      loop: false,
+      callback: () => this._toggleScatterMode(),
+    });
+  }
+
+  private _toggleScatterMode() {
+    if (this.isFinished) return;
+    this._scatterModeActive = !this._scatterModeActive;
+    // Visual cue: brief flash so player knows scatter mode started/ended
+    try {
+      this.juice.flash(this._scatterModeActive ? this.theme.success : this.theme.accent, 0.2, 200);
+      if (this._scatterModeActive) {
+        this.juice.scorePopup(this.scale.width / 2, 160, '💨 GHOSTS SCATTER!', this.theme.success);
+        audioBus.speak('Scatter!');
+      }
+    } catch {}
+    // Schedule next toggle: 5s scatter, then 7s chase
+    const nextDelay = this._scatterModeActive ? 5000 : 7000;
+    this._scatterTimer = this.time.addEvent({
+      delay: nextDelay,
+      loop: false,
+      callback: () => this._toggleScatterMode(),
+    });
   }
 
   protected onTick(_remainingMs: number) {
@@ -549,16 +584,19 @@ export default class MazeChaseScene extends BaseEngine {
         )
       );
 
-      // Per-ghost AI tick — every 600ms recompute path toward player
-      // (BFS through corridors only — no phasing through walls)
+      // Per-ghost AI tick — every 300ms recompute path toward player
+      // (BFS through corridors only — no phasing through walls).
+      // Was 600ms — too slow, ghost movement felt jerky.
       this.time.addEvent({
-        delay: 600, loop: true,
+        delay: 300, loop: true,
         callback: () => this.updateEnemyAI(enemy),
       });
       // Initial impulse after spawn animation finishes
       this.time.delayedCall(350, () => this.updateEnemyAI(enemy));
 
       this.physics.add.collider(enemy, this.wallsGroup);
+      // SCATTER MODE: assign each ghost a corner to retreat to
+      enemy.setData('cornerIdx', this.enemiesGroup.getChildren().length - 1);
       this.enemiesGroup.add(enemy);
     });
   }
@@ -576,6 +614,39 @@ export default class MazeChaseScene extends BaseEngine {
     const body = enemy.body as Phaser.Physics.Arcade.Body;
     if (!body) return;
 
+    // SCATTER MODE: ghosts head to their assigned corner instead of chasing.
+    // Each ghost has a corner index (stored as data). Corner positions:
+    //   0 = top-left (0,0), 1 = top-right (COLS-1,0),
+    //   2 = bottom-left (0,ROWS-1), 3 = bottom-right (COLS-1,ROWS-1)
+    if (this._scatterModeActive) {
+      const cornerIdx = (enemy.getData('cornerIdx') as number) ?? 0;
+      const corners = [
+        { x: 0, y: 0 },
+        { x: COLS - 1, y: 0 },
+        { x: 0, y: ROWS - 1 },
+        { x: COLS - 1, y: ROWS - 1 },
+      ];
+      const target = corners[cornerIdx % 4];
+      const enemyCell = this.pixelToCell(enemy.x, enemy.y);
+      if (!enemyCell) return;
+      // If already at corner, just stop
+      if (enemyCell.x === target.x && enemyCell.y === target.y) {
+        body.setVelocity(0, 0);
+        return;
+      }
+      const nextCell = this.bfsNextStep(enemyCell, target);
+      if (nextCell) {
+        const tpx = this.mazeOffsetX + nextCell.x * CELL + CELL / 2;
+        const tpy = this.mazeOffsetY + nextCell.y * CELL + CELL / 2;
+        const dx = tpx - enemy.x;
+        const dy = tpy - enemy.y;
+        const d = Math.hypot(dx, dy);
+        const scatterSpeed = (this.lod.isMobile ? 100 : 120) + (this.level - 1) * 8;
+        if (d > 1) body.setVelocity((dx / d) * scatterSpeed, (dy / d) * scatterSpeed);
+      }
+      return;
+    }
+
     // Find next cell on BFS path to player
     const enemyCell = this.pixelToCell(enemy.x, enemy.y);
     const playerCell = this.pixelToCell(this.player.x, this.player.y);
@@ -586,7 +657,9 @@ export default class MazeChaseScene extends BaseEngine {
       const dx = this.player.x - enemy.x;
       const dy = this.player.y - enemy.y;
       const dist = Math.hypot(dx, dy);
-      const chaseSpeed = (this.lod.isMobile ? 60 : 80) + (this.level - 1) * 10;
+      // PACING FIX: Ghost chase speed = 84% of player speed (Pac-Man ratio).
+      // Player can escape in straight lines. Was 80+level*10 (too slow at L1).
+      const chaseSpeed = (this.lod.isMobile ? 130 : 160) + (this.level - 1) * 12;
       if (dist > 1) {
         body.setVelocity((dx / dist) * chaseSpeed, (dy / dist) * chaseSpeed);
       }
@@ -607,13 +680,22 @@ export default class MazeChaseScene extends BaseEngine {
     const dx = targetPx - enemy.x;
     const dy = targetPy - enemy.y;
     const dist = Math.hypot(dx, dy);
-    // Patrol speed is slower than chase; chase speed kicks in when ghost
-    // is close to the player (within 2 cells)
+    // PACING FIX: Ghost speeds tuned to Pac-Man ratio (ghost = 84% of player).
+    //   Chase mode (within 3 cells): 160px/s at L1 — player (190) can escape.
+    //   Patrol mode (far away):       100px/s at L1 — not sluggish.
+    //   Scatter mode (retreating):    120px/s — heads to corner.
+    // Was: chase 95+level*10, patrol 60+level*8 (patrol too slow, felt stuck).
     const cellDist = Math.abs(enemyCell.x - playerCell.x) + Math.abs(enemyCell.y - playerCell.y);
     const isChasing = cellDist <= 3;
-    const baseSpeed = isChasing
-      ? (this.lod.isMobile ? 70 : 95) + (this.level - 1) * 10
-      : (this.lod.isMobile ? 45 : 60) + (this.level - 1) * 8;
+    const isScattering = this._scatterModeActive;
+    let baseSpeed: number;
+    if (isScattering) {
+      baseSpeed = (this.lod.isMobile ? 100 : 120) + (this.level - 1) * 8;
+    } else if (isChasing) {
+      baseSpeed = (this.lod.isMobile ? 130 : 160) + (this.level - 1) * 12;
+    } else {
+      baseSpeed = (this.lod.isMobile ? 85 : 100) + (this.level - 1) * 8;
+    }
     if (dist > 1) {
       body.setVelocity((dx / dist) * baseSpeed, (dy / dist) * baseSpeed);
     }
@@ -966,9 +1048,12 @@ export default class MazeChaseScene extends BaseEngine {
     const boosted = now < this.speedBoostUntil;
     // AAAA — SLOWER START: Level 1 = 140px/s (was 280). Ramps up 20px/s per level.
     // Level 1=140, Level 2=160, Level 3=180, Level 4=200, Level 5=220, Level 6=240
-    const baseSpeed = this.lod.isMobile ? 110 : 140;
-    const levelSpeed = baseSpeed + (this.level - 1) * 20;
-    const speed = boosted ? levelSpeed * 1.55 : levelSpeed;
+    const baseSpeed = this.lod.isMobile ? 150 : 190;
+    // PACING FIX (research-backed): Player crosses 1 cell (76px) in 400ms.
+    // Pac-Man original = 125ms/cell (8 tiles/sec). We're slower for kids/ESL.
+    // Level ramp +15px/s per level (was +20 — too aggressive).
+    const levelSpeed = baseSpeed + (this.level - 1) * 15;
+    const speed = boosted ? levelSpeed * 1.4 : levelSpeed;
 
     // ---- Keyboard input ----
     let vx = 0, vy = 0;

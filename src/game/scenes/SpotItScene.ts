@@ -253,9 +253,10 @@ export default class SpotItScene extends BaseEngine {
     const isFinalRound = this.round === this.maxRounds - 1;
     this.roundText.setText(`Round ${this.round + 1} of ${this.maxRounds}${isFinalRound ? ' · FINAL' : ''}`);
 
-    // DRAMA: Time limit shrinks per round. Round 1 = 12s, Round 2 = 11s, ...
-    // down to a minimum of 4s. Final round = 6s for tension.
-    this.roundTimeLimit = isFinalRound ? 6 : Math.max(4, 12 - this.round);
+    // DRAMA: Time limit shrinks per round — but NEVER below 8s (ESL-friendly).
+    // Round 1 = 15s, shrinks 1s/round, floor 8s. Final round = 10s for tension.
+    // Was: 12s→4s minimum (4s is impossible for ESL learners reading symbols).
+    this.roundTimeLimit = isFinalRound ? 10 : Math.max(8, 15 - this.round);
     this.timeLeft = this.roundTimeLimit;
     this.timerText.setColor(this.hex(this.theme.textMuted));
 

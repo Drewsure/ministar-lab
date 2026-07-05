@@ -273,6 +273,58 @@ Total: 23 infinite tweens converted to `repeat: 999`.
 
 ---
 
+### ✅ CHECK 12: Pacing — player faster than enemies, ESL-friendly timers, Scatter Mode
+
+**What happens:** Maze/action games feel "impossible to play" when:
+- Ghosts/enemies are as fast as or faster than the player (no escape possible)
+- No Scatter Mode (ghosts chase relentlessly, no breathing room)
+- Timers too tight for ESL learners (4s to read 5 symbols = impossible)
+- BFS/AI recompute too slow (enemies move in jerky 600ms bursts)
+
+**Pac-Man original (the gold standard):**
+- Player: 8 tiles/sec (crosses 1 tile in 125ms)
+- Ghosts: 7.5 tiles/sec (**84% of player** — player escapes in straight lines)
+- Scatter Mode: every ~7s, ghosts retreat to corners for ~5s (breathing room)
+- 4 ghost personalities (not all chase the same way)
+
+**How to verify (Maze Chase):**
+```bash
+# Player speed
+grep "baseSpeed" src/game/scenes/MazeChaseScene.ts
+# Must be: 190px/s desktop, 150 mobile (was 140/110 — too slow)
+
+# Ghost chase speed
+grep "chaseSpeed" src/game/scenes/MazeChaseScene.ts
+# Must be: 160px/s desktop, 130 mobile (84% of player — Pac-Man ratio)
+
+# Scatter Mode exists
+grep "scatterMode\|_scatterModeActive\|_toggleScatterMode" src/game/scenes/MazeChaseScene.ts
+# Must have: scatter timer (7s chase / 5s scatter cycle)
+
+# BFS recompute delay
+grep "delay: 300" src/game/scenes/MazeChaseScene.ts
+# Must be: 300ms (was 600ms — jerky movement)
+```
+
+**How to verify (Spot It):**
+```bash
+grep "roundTimeLimit" src/game/scenes/SpotItScene.ts
+# Must be: Math.max(8, 15 - this.round) — NEVER below 8s (ESL minimum)
+# Was: Math.max(4, 12 - this.round) — 4s impossible for ESL
+```
+
+**Pacing rules for ALL games:**
+1. Player speed ≥ enemy chase speed (enemy = 84% of player max)
+2. Scatter Mode for any chase game (7s chase / 5s scatter cycle)
+3. ESL timer minimum: 8s per round
+4. Speed ramps: linear (+15px/s per level), NOT exponential
+5. Cell-crossing time: 125-400ms (outside this feels wrong)
+6. AI recompute: ≤300ms (faster = smoother enemy movement)
+
+See PACING_AUDIT.md for full per-game audit.
+
+---
+
 ## ADDITIONAL LESSONS LEARNED
 
 ### BOM (Byte Order Mark) contamination
