@@ -213,7 +213,8 @@ export default class GameshowScene extends BaseEngine {
       // Grand finale
       if (this.lifelines > 0 && this.score >= this.maxScore * 0.6) {
         this.juice.confettiRain(3000);
-        this.juice.zoomPunch(1.1, 500);
+        // NO zoomPunch — cam.zoomTo corrupts camera tween state → freeze
+        this.juice.flash(this.theme.warning, 0.4, 300);
       }
       this.finishGame(this.score >= this.maxScore * 0.6);
       return;

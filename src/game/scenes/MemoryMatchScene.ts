@@ -317,6 +317,10 @@ export default class MemoryMatchScene extends BaseEngine {
       });
     }
     this.flippedQueue = [];
-    this.time.delayedCall(400, () => { this.canInteract = true; });
+    // canInteract must wait for the FULL flip-back animation to finish:
+    //   shake (400ms) + flip-back scaleX 0 (140ms) + scaleX 1 (140ms) = 680ms.
+    // The old 400ms delay re-enabled clicks mid-flip — combined with the now-removed
+    // periodic tweens.killAll(), this left cards permanently stuck on the reveal side.
+    this.time.delayedCall(800, () => { this.canInteract = true; });
   }
 }

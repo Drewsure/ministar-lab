@@ -197,7 +197,7 @@ export default function Home() {
               }}
             >
               <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: brand.accentColor }} />
-              AAA 2029 · 16 Games · 10 Worlds · Audio Learning
+              AAA 2029 · 31 Games · 10 Worlds · Audio Learning
             </div>
             <h1
               className="text-3xl sm:text-5xl font-black tracking-tight mb-2"
@@ -327,10 +327,10 @@ export default function Home() {
             </div>
 
             <div
-              className="mx-auto rounded-3xl overflow-hidden shadow-2xl"
+              className="mx-auto rounded-3xl overflow-hidden shadow-2xl ministar-game-frame"
               style={{
-                maxWidth: '900px',
-                maxHeight: '70vh',
+                maxWidth: '1100px',
+                aspectRatio: '4 / 3',
                 border: `1px solid color-mix(in oklab, var(--brand-accent) 30%, transparent)`,
                 boxShadow: `0 30px 80px -20px ${brand.primaryColor}80`,
               }}
@@ -399,7 +399,7 @@ export default function Home() {
               <button
                 onClick={() => {
                   const today = new Date();
-                  const gameIds: GameModeId[] = ['maze-chase', 'quiz', 'balloon-pop', 'gameshow', 'spin-wheel', 'memory-match', 'airplane', 'whack-a-mole', 'flash-cards', 'anagram', 'group-sort', 'bridge-builder', 'wordsearch', 'crossword', 'type-answer', 'match-up'];
+                  const gameIds: GameModeId[] = ['maze-chase', 'quiz', 'balloon-pop', 'gameshow', 'spin-wheel', 'memory-match', 'airplane', 'whack-a-mole', 'flash-cards', 'anagram', 'group-sort', 'bridge-builder', 'wordsearch', 'crossword', 'type-answer', 'match-up', 'farm-life', 'monster-fighter', 'tower-defense', 'rhythm-tap', 'space-explorer', 'story-adventure', 'treasure-hunt'];
                   const dailyGame = gameIds[today.getDate() % gameIds.length];
                   launchGame(dailyGame, theme);
                 }}
@@ -525,7 +525,7 @@ export default function Home() {
             © 2029 {brand.displayName} · MiniStar Learning Games
           </div>
           <div className="flex items-center gap-4">
-            <span>16 Games</span>
+            <span>31 Games</span>
             <span>·</span>
             <span>10 Worlds</span>
             <span>·</span>

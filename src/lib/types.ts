@@ -108,7 +108,8 @@ export type GameModeId =
   | 'tower-defense'
   | 'rhythm-tap'
   | 'space-explorer'
-  | 'story-adventure';
+  | 'story-adventure'
+  | 'treasure-hunt';
 
 export interface GameModeMeta {
   id: GameModeId;

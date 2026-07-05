@@ -40,6 +40,7 @@ const SCENE_IMPORTS: Record<string, () => Promise<{ default: any }>> = {
   'rhythm-tap':      () => import('@/game/scenes/RhythmTapScene'),
   'space-explorer':  () => import('@/game/scenes/SpaceExplorerScene'),
   'story-adventure': () => import('@/game/scenes/StoryAdventureScene'),
+  'treasure-hunt':   () => import('@/game/scenes/TreasureHuntScene'),
 };
 
 const SCENE_KEY_BY_MODE: Record<string, string> = {
@@ -73,6 +74,7 @@ const SCENE_KEY_BY_MODE: Record<string, string> = {
   'rhythm-tap':      'RhythmTapScene',
   'space-explorer':  'SpaceExplorerScene',
   'story-adventure': 'StoryAdventureScene',
+  'treasure-hunt':   'TreasureHuntScene',
 };
 
 interface GameCanvasProps {
@@ -188,17 +190,16 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
           // Guard: check if the game was destroyed by cleanup before 'ready' fired
           if (cancelled || !gameRef.current || gameRef.current !== game) return;
 
-          // Make the canvas focusable + responsive right after boot
+          // Make the canvas focusable.
+          // IMPORTANT: do NOT set width/height/maxWidth/maxHeight here — Phaser's
+          // Scale.FIT mode controls the canvas size. Setting inline width/height
+          // styles overrides Phaser's scaling and the canvas won't fill its parent.
           const canvas = container.querySelector('canvas');
           if (canvas) {
             canvas.setAttribute('tabindex', '0');
             canvas.style.outline = 'none';
             canvas.style.touchAction = 'none';
             canvas.style.pointerEvents = 'auto';
-            canvas.style.maxWidth = '100%';
-            canvas.style.maxHeight = '70vh';
-            canvas.style.width = 'auto';
-            canvas.style.height = 'auto';
             canvas.style.display = 'block';
             canvas.style.margin = '0 auto';
           }
@@ -231,11 +232,11 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
   }, [config?.mode, config?.theme, config?.terms.length, config?.unit, config?.qrSlug]);
 
   return (
-    <div className="relative w-full h-full" style={{ touchAction: 'none' }}>
+    <div className="relative w-full h-full" style={{ touchAction: 'none', minHeight: '480px' }}>
       <div
         ref={containerRef}
         className="w-full h-full"
-        style={{ touchAction: 'none', pointerEvents: 'auto' }}
+        style={{ touchAction: 'none', pointerEvents: 'auto', width: '100%', height: '100%' }}
       />
       {/* Exit button removed — the parent page provides a clear "← Back to Library" button.
           Having two exit buttons was confusing users. */}

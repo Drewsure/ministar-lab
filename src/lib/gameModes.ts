@@ -308,6 +308,16 @@ export const GAME_MODES: GameModeMeta[] = [
     maxTerms: 12,
     accent: '#fbbf24',
   },
+  {
+    id: 'treasure-hunt',
+    name: 'Treasure Hunt',
+    engine: 'Selection',
+    description: 'Dig for treasure on a grid! Use hints to find hidden jewels and answer vocab to claim them!',
+    emoji: '🗺️',
+    minTerms: 8,
+    maxTerms: 12,
+    accent: '#f59e0b',
+  },
 ];
 
 export function getGameMode(id: GameModeId): GameModeMeta {

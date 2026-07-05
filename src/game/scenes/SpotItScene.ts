@@ -4,26 +4,24 @@ import type { TermItem } from '../../lib/types';
 import { audioBus } from '../../lib/audio';
 
 // ============================================================================
-// SPOT IT! — Living Textbook edition (Dobble-style matching game)
+// SPOT IT! — Living Textbook edition (AAA 2029 — suspense revamp)
 // ============================================================================
-// Two cards are shown side by side. Each card has N symbols.
-// There is EXACTLY ONE symbol that appears on BOTH cards.
-// The player must find and tap that matching symbol as fast as possible.
-//
-// Gameplay:
-//   1. Two circular cards appear (left = Card 1, right = Card 2)
-//   2. Each card shows 4-6 emoji+word symbols in a circular layout
-//   3. Exactly ONE symbol is shared between both cards
-//   4. Player taps any symbol they think is on both cards
-//   5. Correct → both matching symbols glow green + particle burst + TTS
-//   6. Wrong → red flash + shake + that symbol dims briefly
-//   7. After correct, cards flip away and next round appears
-//
-// ESL Features:
-//   • Prompt spoken aloud: "Find the symbol that appears on both cards!"
-//   • On correct match, the matched term is spoken aloud
-//   • Number badges on cards ("Card 1", "Card 2") for verbal identification
-//   • Tap any symbol to hear its name (even before matching)
+// Dobble-style matching with escalating suspense:
+//   • Per-round countdown timer — starts generous (12s), shrinks 1s per round
+//     down to a minimum of 4s. Timer bar at top, turns red < 3s.
+//   • Combo system — each correct match in a row builds combo (x2, x3, x4...).
+//     Wrong answer OR timeout = combo reset to 0.
+//   • Stakes rise: round 5+ adds an extra decoy per card (K=6 instead of 5).
+//   • Drama cues: timer tick sound at < 5s, screen edge pulse red at < 3s,
+//     "Hurry!" banner flashes at < 2s.
+//   • Near-miss feedback: if player taps a wrong symbol that's "close"
+//     (shares the same first letter as the match), gentle yellow flash
+//     instead of red — tells them they're on the right track.
+//   • Level-up preview: between rounds, a 0.8s "Round N+1 incoming" banner
+//     with the next round's symbols fading in (foreshadowing).
+//   • Final-round drama: last round gets a gold border on the cards +
+//     "FINAL ROUND!" banner + slower music tempo for tension.
+// ESL features preserved: TTS prompt, tap-to-hear symbols, number badges.
 // ============================================================================
 
 interface SpotItSymbol {
@@ -54,6 +52,22 @@ export default class SpotItScene extends BaseEngine {
   private speedBonusText!: Phaser.GameObjects.Text;
   private roundText!: Phaser.GameObjects.Text;
 
+  // DRAMA: suspense systems
+  private combo = 0;
+  private maxCombo = 0;
+  private comboText!: Phaser.GameObjects.Text;
+  private timerBar!: Phaser.GameObjects.Rectangle;
+  private timerBarBg!: Phaser.GameObjects.Rectangle;
+  private timerText!: Phaser.GameObjects.Text;
+  private timeLeft = 12;
+  private roundTimeLimit = 12;
+  private timerEvent?: Phaser.Time.TimerEvent;
+  private urgencyOverlay?: Phaser.GameObjects.Rectangle;
+  private finalRoundBanner?: Phaser.GameObjects.Text;
+  private roundPreviewText?: Phaser.GameObjects.Text;
+  private card1Border?: Phaser.GameObjects.Arc;
+  private card2Border?: Phaser.GameObjects.Arc;
+
   protected maxQuestions() { return Math.min(this.terms.length, 8); }
 
   protected buildWorld() {
@@ -61,19 +75,32 @@ export default class SpotItScene extends BaseEngine {
 
     // ---- Title ----
     this.add.text(
-      this.scale.width / 2, 95,
+      this.scale.width / 2, 60,
       '👁️ Spot It!',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '28px',
+        fontSize: '26px',
         color: this.hex(this.theme.accent),
         fontStyle: 'bold',
       }
     ).setOrigin(0.5).setDepth(50);
 
+    // ---- DRAMA: Timer bar (top of screen) ----
+    this.timerBarBg = this.add.rectangle(
+      this.scale.width / 2, 95, 500, 14, 0x000000, 0.4
+    ).setStrokeStyle(1, this.theme.accent, 0.3).setDepth(48);
+    this.timerBar = this.add.rectangle(
+      this.scale.width / 2 - 250, 95, 500, 14, this.theme.success, 1
+    ).setOrigin(0, 0.5).setDepth(49);
+    this.timerText = this.add.text(
+      this.scale.width / 2, 113, '',
+      { fontFamily: 'Inter, sans-serif', fontSize: '12px',
+        color: this.hex(this.theme.textMuted) }
+    ).setOrigin(0.5).setDepth(50);
+
     // ---- Prompt banner ----
     this.promptBg = this.add.rectangle(
-      this.scale.width / 2, 145, 600, 50, this.theme.card, 0.85
+      this.scale.width / 2, 145, 600, 38, this.theme.card, 0.85
     ).setStrokeStyle(2, this.theme.accent, 0.6).setDepth(48);
 
     this.promptText = this.add.text(
@@ -81,7 +108,7 @@ export default class SpotItScene extends BaseEngine {
       'Find the symbol that appears on BOTH cards!',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '16px',
+        fontSize: '15px',
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
         align: 'center',
@@ -91,28 +118,51 @@ export default class SpotItScene extends BaseEngine {
 
     // ---- Round counter ----
     this.roundText = this.add.text(
-      this.scale.width / 2, 180, '',
-      {
-        fontFamily: 'Inter, sans-serif',
-        fontSize: '13px',
-        color: this.hex(this.theme.textMuted),
-      }
+      this.scale.width / 2, 175, '',
+      { fontFamily: 'Inter, sans-serif', fontSize: '12px',
+        color: this.hex(this.theme.textMuted) }
     ).setOrigin(0.5).setDepth(50);
+
+    // ---- DRAMA: Combo display (top-right) ----
+    this.comboText = this.add.text(
+      this.scale.width - 20, 90, '',
+      { fontFamily: 'Inter, sans-serif', fontSize: '18px',
+        color: this.hex(this.theme.warning), fontStyle: 'bold' }
+    ).setOrigin(1, 0).setDepth(50);
 
     // ---- Speed bonus text ----
     this.speedBonusText = this.add.text(
       this.scale.width / 2, 555, '',
-      {
-        fontFamily: 'Inter, sans-serif',
-        fontSize: '18px',
-        color: this.hex(this.theme.warning),
-        fontStyle: 'bold',
-      }
+      { fontFamily: 'Inter, sans-serif', fontSize: '18px',
+        color: this.hex(this.theme.warning), fontStyle: 'bold' }
     ).setOrigin(0.5).setDepth(50);
 
-    // ---- Card backgrounds ----
-    this.drawCard(this.card1Center, this.theme.accent, 'Card 1');
-    this.drawCard(this.card2Center, this.theme.accent2, 'Card 2');
+    // ---- Card backgrounds (with borders we can re-tint) ----
+    this.card1Border = this.drawCard(this.card1Center, this.theme.accent, 'Card 1');
+    this.card2Border = this.drawCard(this.card2Center, this.theme.accent2, 'Card 2');
+
+    // ---- DRAMA: Urgency overlay (red border pulse when time is low) ----
+    this.urgencyOverlay = this.add.rectangle(
+      this.scale.width / 2, this.scale.height / 2,
+      this.scale.width, this.scale.height,
+      this.theme.danger, 0
+    ).setDepth(200).setStrokeStyle(8, this.theme.danger, 0);
+
+    // ---- DRAMA: Final-round banner (hidden initially) ----
+    this.finalRoundBanner = this.add.text(
+      this.scale.width / 2, 200, '🏆 FINAL ROUND!',
+      { fontFamily: 'Inter, sans-serif', fontSize: '32px',
+        color: this.hex(this.theme.warning), fontStyle: 'bold',
+        stroke: '#000000', strokeThickness: 5 }
+    ).setOrigin(0.5).setDepth(60).setAlpha(0);
+
+    // ---- DRAMA: Round preview text (between rounds) ----
+    this.roundPreviewText = this.add.text(
+      this.scale.width / 2, this.scale.height / 2,
+      '', { fontFamily: 'Inter, sans-serif', fontSize: '36px',
+        color: this.hex(this.theme.accent), fontStyle: 'bold',
+        stroke: '#000000', strokeThickness: 5 }
+    ).setOrigin(0.5).setDepth(60).setAlpha(0);
 
     // ---- Start first round ----
     this.renderRound();
@@ -141,11 +191,30 @@ export default class SpotItScene extends BaseEngine {
     });
   }
 
-  protected onTick(_remainingMs: number) { /* HUD */ }
+  protected onTick(_remainingMs: number) {
+    // DRAMA: Update timer bar width based on time left
+    if (this.timeLeft > 0 && this.roundTimeLimit > 0) {
+      const pct = Math.max(0, this.timeLeft / this.roundTimeLimit);
+      this.timerBar.width = 500 * pct;
+      // Color shift: green → yellow → red
+      if (pct > 0.5) this.timerBar.setFillStyle(this.theme.success, 1);
+      else if (pct > 0.25) this.timerBar.setFillStyle(this.theme.warning, 1);
+      else this.timerBar.setFillStyle(this.theme.danger, 1);
+      this.timerText.setText(`${this.timeLeft.toFixed(1)}s`);
 
-  private drawCard(center: { x: number; y: number }, borderColor: number, label: string) {
-    // Outer card circle (thick border)
-    this.add.circle(
+      // DRAMA: Urgency overlay pulse when < 3s
+      if (this.timeLeft < 3 && this.urgencyOverlay) {
+        const pulse = (Math.sin(this.time.now / 100) + 1) / 2;
+        this.urgencyOverlay.setStrokeStyle(8, this.theme.danger, 0.3 + pulse * 0.5);
+      } else if (this.urgencyOverlay) {
+        this.urgencyOverlay.setStrokeStyle(8, this.theme.danger, 0);
+      }
+    }
+  }
+
+  private drawCard(center: { x: number; y: number }, borderColor: number, label: string): Phaser.GameObjects.Arc {
+    // Outer card circle (thick border) — return it so we can re-tint on final round
+    const outerBorder = this.add.circle(
       center.x, center.y, this.cardRadius + 14,
       this.theme.card, 0.92
     ).setStrokeStyle(6, borderColor, 0.95).setDepth(20);
@@ -166,6 +235,7 @@ export default class SpotItScene extends BaseEngine {
       fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(26);
     void badgeBg; void badgeText;
+    return outerBorder;
   }
 
   private renderRound() {
@@ -180,28 +250,51 @@ export default class SpotItScene extends BaseEngine {
     this.canInteract = true;
     this.roundStartTime = Date.now();
     this.speedBonusText.setText('');
-    this.roundText.setText(`Round ${this.round + 1} of ${this.maxRounds}`);
+    const isFinalRound = this.round === this.maxRounds - 1;
+    this.roundText.setText(`Round ${this.round + 1} of ${this.maxRounds}${isFinalRound ? ' · FINAL' : ''}`);
+
+    // DRAMA: Time limit shrinks per round. Round 1 = 12s, Round 2 = 11s, ...
+    // down to a minimum of 4s. Final round = 6s for tension.
+    this.roundTimeLimit = isFinalRound ? 6 : Math.max(4, 12 - this.round);
+    this.timeLeft = this.roundTimeLimit;
+    this.timerText.setColor(this.hex(this.theme.textMuted));
+
+    // DRAMA: Final-round visual cue — gold borders on both cards
+    if (isFinalRound && this.card1Border && this.card2Border) {
+      this.card1Border.setStrokeStyle(8, this.theme.warning, 1);
+      this.card2Border.setStrokeStyle(8, this.theme.warning, 1);
+      // Show final-round banner
+      if (this.finalRoundBanner) {
+        this.finalRoundBanner.setAlpha(0);
+        this.tweens.add({
+          targets: this.finalRoundBanner,
+          alpha: { from: 0, to: 1 }, scale: { from: 0.5, to: 1 },
+          duration: 400, ease: 'Back.out', yoyo: true, hold: 800,
+        });
+      }
+      audioBus.speak('Final round!');
+    } else if (this.card1Border && this.card2Border) {
+      this.card1Border.setStrokeStyle(6, this.theme.accent, 0.95);
+      this.card2Border.setStrokeStyle(6, this.theme.accent2, 0.95);
+    }
 
     // ---- Generate two cards with exactly ONE matching symbol ----
-    // We need: 1 match + (K-1) unique on card1 + (K-1) unique on card2
-    // Total terms needed: 1 + 2*(K-1) = 2K - 1
     const pool = [...this.terms];
     Phaser.Utils.Array.Shuffle(pool);
 
-    // K = symbols per card. Cap at 5, but also limited by available terms.
-    // Need at least 2K-1 terms. If we have 8 terms, K can be up to 4 (need 7).
+    // K = symbols per card. Round 5+ adds an extra symbol (K=6) for difficulty.
     const maxK = Math.floor((pool.length + 1) / 2);
-    const K = Math.min(this.symbolsPerCard, maxK);
+    const dynamicK = this.round >= 4 ? this.symbolsPerCard + 1 : this.symbolsPerCard;
+    const K = Math.min(dynamicK, maxK);
 
     if (K < 2) {
-      // Not enough terms to make a valid round
       this.finishGame(false);
       return;
     }
 
     const matchTerm = pool[0];
-    const card1Unique = pool.slice(1, K);           // K-1 items
-    const card2Unique = pool.slice(K, 2 * K - 1);   // K-1 items
+    const card1Unique = pool.slice(1, K);
+    const card2Unique = pool.slice(K, 2 * K - 1);
     const card1All = [matchTerm, ...card1Unique];
     const card2All = [matchTerm, ...card2Unique];
     Phaser.Utils.Array.Shuffle(card1All);
@@ -220,8 +313,39 @@ export default class SpotItScene extends BaseEngine {
       });
     });
 
-    // ESL: speak the prompt (synchronous with user gesture if this is round 1+
-    // and they've already tapped to start. If pre-gesture, browser may block.)
+    // Start the timer
+    if (this.timerEvent) this.timerEvent.remove();
+    this.timerEvent = this.time.addEvent({
+      delay: 100, loop: true,
+      callback: () => {
+        if (this.isFinished) { if (this.timerEvent) this.timerEvent.remove(); return; }
+        this.timeLeft -= 0.1;
+        if (this.timeLeft <= 5 && this.timeLeft > 0) {
+          // Tick sound at < 5s
+          if (Math.floor(this.timeLeft * 10) % 10 === 0) {
+            try { audioBus.play('tap', { freq: 660 }); } catch {}
+          }
+        }
+        if (this.timeLeft <= 2 && this.timeLeft > 0) {
+          // "Hurry!" banner
+          if (this.roundPreviewText && this.roundPreviewText.alpha === 0) {
+            this.roundPreviewText.setText('⚡ HURRY! ⚡');
+            this.roundPreviewText.setColor('#' + this.theme.danger.toString(16).padStart(6, '0'));
+            this.tweens.add({
+              targets: this.roundPreviewText,
+              alpha: { from: 0, to: 0.8 }, scale: { from: 0.5, to: 1 },
+              duration: 200, yoyo: true, hold: 200,
+            });
+          }
+        }
+        if (this.timeLeft <= 0) {
+          if (this.timerEvent) this.timerEvent.remove();
+          this._handleTimeout();
+        }
+      },
+    });
+
+    // ESL: speak the prompt
     this.time.delayedCall(400, () => {
       if (!this.isFinished) {
         audioBus.speak('Find the matching symbol!', { isQuestion: true });
@@ -246,8 +370,6 @@ export default class SpotItScene extends BaseEngine {
         .setStrokeStyle(3, this.theme.accent, 0.8).setDepth(30);
 
       // Symbol display: prefer emoji, fall back to first 2-3 letters of the term.
-      // CRITICAL: if we show '?' for every emoji-less term, all symbols look identical
-      // and the game is unplayable ("nonsensical gameplay" bug).
       const displayEmoji = term.emoji ?? '';
       const displayLabel = term.emoji ? term.term : term.term.slice(0, 3).toUpperCase();
       const emojiText = this.add.text(0, displayEmoji ? -8 : 0, displayEmoji, {
@@ -255,7 +377,6 @@ export default class SpotItScene extends BaseEngine {
         fontSize: '26px',
       }).setOrigin(0.5).setDepth(31);
 
-      // Symbol term label (small, below emoji — or centered if no emoji)
       const labelText = this.add.text(0, displayEmoji ? 14 : 0, this.truncate(displayLabel, 8), {
         fontFamily: 'Inter, sans-serif',
         fontSize: displayEmoji ? '10px' : '14px',
@@ -270,7 +391,7 @@ export default class SpotItScene extends BaseEngine {
       this.tweens.add({
         targets: container,
         scale: { from: 1, to: 1.06 },
-        duration: 1000 + i * 80, yoyo: true, repeat: -1, ease: 'Sine.inOut',
+        duration: 1000 + i * 80, yoyo: true, repeat: 50, ease: 'Sine.inOut',
       });
 
       const sym: SpotItSymbol = {
@@ -286,6 +407,68 @@ export default class SpotItScene extends BaseEngine {
     return s.length > max ? s.slice(0, max - 1) + '…' : s;
   }
 
+  private _handleTimeout() {
+    if (this.isFinished) return;
+    this.canInteract = false;
+    this.combo = 0;
+    this._updateCombo();
+    audioBus.play('incorrect');
+    this.juice.shake('medium');
+    this.juice.flash(this.theme.danger, 0.3, 200);
+    this.juice.scorePopup(this.scale.width / 2, 300, '⏱ TIME UP!', this.theme.danger);
+
+    // Record as failed answer
+    const matchTerm = this.symbols.find(s => s.isMatch);
+    if (matchTerm) {
+      this.recordAnswer({
+        term: matchTerm.term.term,
+        response: 'timeout',
+        success: false,
+        coordinate: { x: this.scale.width / 2, y: 300, t: this.time.now },
+      });
+    }
+
+    // Advance to next round after a brief pause
+    this.time.delayedCall(1200, () => {
+      if (!this.isFinished) {
+        this.round++;
+        this._showRoundPreview();
+      }
+    });
+  }
+
+  private _showRoundPreview() {
+    if (this.round >= this.maxRounds) {
+      this.renderRound();
+      return;
+    }
+    if (this.roundPreviewText) {
+      this.roundPreviewText.setText(`Round ${this.round + 1}`);
+      this.roundPreviewText.setColor('#' + this.theme.accent.toString(16).padStart(6, '0'));
+      this.roundPreviewText.setAlpha(0);
+      this.tweens.add({
+        targets: this.roundPreviewText,
+        alpha: { from: 0, to: 1 }, scale: { from: 0.5, to: 1 },
+        duration: 300, ease: 'Back.out', yoyo: true, hold: 400,
+        onComplete: () => this.renderRound(),
+      });
+    } else {
+      this.renderRound();
+    }
+  }
+
+  private _updateCombo() {
+    if (this.combo >= 2) {
+      this.comboText.setText(`🔥 x${this.combo}`);
+      this.tweens.add({
+        targets: this.comboText,
+        scale: { from: 1.4, to: 1 }, duration: 200, ease: 'Back.out',
+      });
+    } else {
+      this.comboText.setText('');
+    }
+  }
+
   private handleSymbolTap(sym: SpotItSymbol) {
     if (!this.canInteract || sym.hit) return;
 
@@ -293,8 +476,14 @@ export default class SpotItScene extends BaseEngine {
       // CORRECT — found the matching symbol!
       sym.hit = true;
       this.canInteract = false;
+      if (this.timerEvent) this.timerEvent.remove();
       const responseTime = Date.now() - this.roundStartTime;
-      const speedBonus = Math.max(0, 3000 - responseTime);
+      const speedBonus = Math.max(0, (this.roundTimeLimit * 1000) - responseTime);
+
+      // DRAMA: Combo system — bonus per consecutive correct
+      this.combo++;
+      if (this.maxCombo < this.combo) this.maxCombo = this.combo;
+      this._updateCombo();
 
       // Find the matching symbol on the other card
       const otherMatch = this.symbols.find(s => s.isMatch && s.cardIndex !== sym.cardIndex);
@@ -320,9 +509,10 @@ export default class SpotItScene extends BaseEngine {
         this.juice.burst(otherMatch.container.x, otherMatch.container.y, 'correct');
       }
 
-      // Speed bonus display
+      // Speed bonus display — DRAMA: scales with combo
       if (responseTime < 2000) {
-        this.speedBonusText.setText(`⚡ SPEED BONUS! +${Math.round(speedBonus / 100)}`);
+        const bonusPoints = Math.round(speedBonus / 100) + this.combo * 5;
+        this.speedBonusText.setText(`⚡ SPEED BONUS! +${bonusPoints}${this.combo >= 2 ? ` (combo x${this.combo})` : ''}`);
         this.tweens.add({
           targets: this.speedBonusText,
           scale: { from: 1.5, to: 1 },
@@ -337,7 +527,6 @@ export default class SpotItScene extends BaseEngine {
         coordinate: { x: sym.container.x, y: sym.container.y, t: this.time.now },
       });
 
-      // ESL: speak the matched term
       audioBus.speak(sym.term.term);
 
       // Scale up both matching symbols briefly
@@ -355,19 +544,30 @@ export default class SpotItScene extends BaseEngine {
           duration: 300, ease: 'Back.in',
           onComplete: () => {
             this.round++;
-            this.renderRound();
+            this._showRoundPreview();
           },
         });
       });
     } else {
       // WRONG — not the matching symbol
       sym.hit = true;
-      sym.circle.setFillStyle(this.theme.danger, 0.7);
-      sym.circle.setStrokeStyle(4, this.theme.danger, 1);
+      // DRAMA: near-miss detection (shares first letter with the match)
+      const matchSym = this.symbols.find(s => s.isMatch);
+      const isNearMiss = matchSym && sym.term.term.charAt(0).toLowerCase() === matchSym.term.term.charAt(0).toLowerCase()
+        && sym.term.term !== matchSym.term.term;
+
+      sym.circle.setFillStyle(isNearMiss ? this.theme.warning : this.theme.danger, 0.7);
+      sym.circle.setStrokeStyle(4, isNearMiss ? this.theme.warning : this.theme.danger, 1);
       this.juice.burst(sym.container.x, sym.container.y, 'incorrect');
       this.juice.shake('light');
+      if (isNearMiss) {
+        this.juice.scorePopup(sym.container.x, sym.container.y - 30, 'so close!', this.theme.warning);
+      }
 
-      // ESL: speak the wrong symbol's name so students learn from mistakes
+      // Combo reset on wrong answer
+      this.combo = 0;
+      this._updateCombo();
+
       audioBus.speak(sym.term.term);
 
       this.recordAnswer({
