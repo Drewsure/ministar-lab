@@ -34,6 +34,12 @@ const SCENE_IMPORTS: Record<string, () => Promise<{ default: any }>> = {
   'snaking':         () => import('@/game/scenes/SnakingScene'),
   'training-academy':() => import('@/game/scenes/TrainingAcademyScene'),
   'rescue-quest':    () => import('@/game/scenes/RescueQuestScene'),
+  'farm-life':       () => import('@/game/scenes/FarmLifeScene'),
+  'monster-fighter': () => import('@/game/scenes/MonsterFighterScene'),
+  'tower-defense':   () => import('@/game/scenes/TowerDefenseScene'),
+  'rhythm-tap':      () => import('@/game/scenes/RhythmTapScene'),
+  'space-explorer':  () => import('@/game/scenes/SpaceExplorerScene'),
+  'story-adventure': () => import('@/game/scenes/StoryAdventureScene'),
 };
 
 const SCENE_KEY_BY_MODE: Record<string, string> = {
@@ -61,6 +67,12 @@ const SCENE_KEY_BY_MODE: Record<string, string> = {
   'snaking':         'SnakingScene',
   'training-academy':'TrainingAcademyScene',
   'rescue-quest':    'RescueQuestScene',
+  'farm-life':       'FarmLifeScene',
+  'monster-fighter': 'MonsterFighterScene',
+  'tower-defense':   'TowerDefenseScene',
+  'rhythm-tap':      'RhythmTapScene',
+  'space-explorer':  'SpaceExplorerScene',
+  'story-adventure': 'StoryAdventureScene',
 };
 
 interface GameCanvasProps {
