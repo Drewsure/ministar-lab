@@ -99,10 +99,14 @@ export default class WhackAMoleScene extends BaseEngine {
     this.createHammer();
 
     // ---- Spawn loop ----
-    // DRAMA: Mole spawn rate ESCALATES per level (re-scheduled each spawn).
+    // AAAA — Mole spawn rate: SLOWER at start (1.8s), gets faster per level
     // Level 1=1.8s, Level 2=1.5s, Level 3=1.2s, Level 4=1.0s, Level 5=0.8s
-    // The timer is re-created in spawnMole() so the delay tracks the current level.
-    this._scheduleNextSpawn();
+    const spawnDelay = Math.max(700, 1800 - (this.level - 1) * 300);
+    this.spawnTimer = this.time.addEvent({
+      delay: spawnDelay, loop: true,
+      callback: this.spawnMole,
+      callbackScope: this,
+    });
 
     // ---- Hammer follows mouse ----
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
@@ -181,19 +185,6 @@ export default class WhackAMoleScene extends BaseEngine {
 
   }
 
-  private _scheduleNextSpawn() {
-    if (this.isFinished) return;
-    // Spawn delay shrinks per level — drama escalates as player levels up
-    const spawnDelay = Math.max(700, 1800 - (this.level - 1) * 300);
-    this.spawnTimer = this.time.addEvent({
-      delay: spawnDelay, loop: false,
-      callback: () => {
-        this.spawnMole();
-        this._scheduleNextSpawn();
-      },
-    });
-  }
-
   private spawnMole() {
     if (this.isFinished || !this.activePrompt) return;
     const emptyHoles = this.holes.filter(h => !h.mole);
@@ -201,74 +192,32 @@ export default class WhackAMoleScene extends BaseEngine {
     const hole = Phaser.Utils.Array.GetRandom(emptyHoles);
     const holeIdx = this.holes.indexOf(hole);
 
-    // DRAMA: 3 mole types
-    //   • 45% correct (matches the prompt) — green border, +1 point
-    //   • 50% decoy (wrong word) — neutral border, lose combo if whacked
-    //   • 5%  golden mole — bonus +3 points + speak "Bonus!" + free combo
-    //   • (no bombs — keep it kid-friendly per the no-gambling constraint)
-    const roll = Math.random();
-    let isCorrect = false;
-    let isGolden = false;
-    let term: TermItem | undefined;
-    if (roll < 0.05 && this.comboCount >= 2) {
-      // Golden mole — only appears once player has a combo going (drama reward)
-      isGolden = true;
-      isCorrect = true;
-      term = this.activePrompt;
-    } else if (roll < 0.5) {
-      isCorrect = true;
-      term = this.activePrompt;
-    } else {
-      isCorrect = false;
-      term = Phaser.Utils.Array.GetRandom(this.terms.filter(t => t.id !== this.activePrompt!.id));
-    }
+    // 50% correct, 50% decoy
+    const isCorrect = Math.random() < 0.5;
+    const term = isCorrect
+      ? this.activePrompt
+      : Phaser.Utils.Array.GetRandom(this.terms.filter(t => t.id !== this.activePrompt!.id));
     if (!term) return;
 
     // Mole body (using generated texture)
     const moleImg = this.add.image(0, 0, 'mole-' + this.theme.id).setDisplaySize(60, 60);
-    if (isGolden) moleImg.setTint(this.theme.warning);
-
-    // Term label above mole — DRAMA: golden gets a special label
-    const labelColor = isGolden ? this.theme.warning : (isCorrect ? this.theme.success : this.theme.card);
-    const labelText = isGolden ? `⭐ ${term.term}` : (term.emoji ?? term.term.slice(0, 6));
-    const txt = this.add.text(0, -42, labelText, {
+    // Term label above mole
+    const txt = this.add.text(0, -42, term.emoji ?? term.term.slice(0, 6), {
       fontFamily: 'Inter, sans-serif',
-      fontSize: isGolden ? '20px' : '18px',
+      fontSize: '18px',
       color: '#ffffff',
       fontStyle: 'bold',
-      backgroundColor: '#' + labelColor.toString(16).padStart(6, '0'),
+      backgroundColor: '#' + (isCorrect ? this.theme.success : this.theme.card).toString(16).padStart(6, '0'),
       padding: { x: 8, y: 4 },
     }).setOrigin(0.5);
-
-    // DRAMA: Golden mole gets a spinning star aura
-    if (isGolden) {
-      const aura = this.add.circle(0, 0, 40, this.theme.warning, 0.3).setDepth(-1);
-      this.tweens.add({
-        targets: aura,
-        scale: { from: 0.8, to: 1.4 }, alpha: { from: 0.5, to: 0 },
-        duration: 500, repeat: 50, ease: 'Sine.out',
-      });
-      const container = this.add.container(hole.x, hole.y + 40, [aura, moleImg, txt]).setSize(60, 60).setInteractive({ useHandCursor: false });
-      container.setDepth(5);
-      const mole: Mole = { container, term, isCorrect, active: true, holeIdx };
-      container.setData('mole', mole);
-      container.setData('isGolden', true);
-      hole.mole = mole;
-      this._animateMoleIn(hole, container, mole);
-      return;
-    }
 
     const container = this.add.container(hole.x, hole.y + 40, [moleImg, txt]).setSize(60, 60).setInteractive({ useHandCursor: false });
     container.setDepth(5);
 
     const mole: Mole = { container, term, isCorrect, active: true, holeIdx };
     container.setData('mole', mole);
-    container.setData('isGolden', false);
     hole.mole = mole;
-    this._animateMoleIn(hole, container, mole);
-  }
 
-  private _animateMoleIn(hole: Hole, container: Phaser.GameObjects.Container, mole: Mole) {
     // Emerge animation with dirt particles
     container.setScale(0).setAlpha(0);
     this.tweens.add({
@@ -282,11 +231,9 @@ export default class WhackAMoleScene extends BaseEngine {
 
     container.on('pointerdown', () => this.whack(hole, mole));
 
-    // Auto retreat — DRAMA: golden mole retreats FAST (1.5s) so player must react
-    const isGolden = container.getData('isGolden') as boolean;
-    const stayTime = isGolden
-      ? 1500
-      : Math.max(1200, 3000 - (this.level - 1) * 400);
+    // Auto retreat after 1.8s
+    // AAAA — Mole stay-up time: LONGER at start (3s), gets shorter per level
+    const stayTime = Math.max(1200, 3000 - (this.level - 1) * 400);
     this.time.delayedCall(stayTime, () => {
       if (mole.active) this.retreat(hole, mole);
     });
@@ -318,14 +265,6 @@ export default class WhackAMoleScene extends BaseEngine {
     this.juice.squash(mole.container, 1.3);
 
     if (mole.isCorrect) {
-      // DRAMA: Golden mole = +3 bonus + free combo preservation
-      const isGolden = mole.container.getData('isGolden') as boolean;
-      if (isGolden) {
-        this.juice.scorePopup(mole.container.x, mole.container.y - 30, '⭐ +3 BONUS!', this.theme.warning);
-        this.juice.flash(this.theme.warning, 0.4, 250);
-        // NO zoomPunch — cam.zoomTo corrupts camera tween state → freeze
-        audioBus.speak('Bonus mole!');
-      }
       // Combo display
       if (this.comboCount >= 2) {
         this.comboText.setText(`COMBO x${this.comboCount}!`);
@@ -346,10 +285,6 @@ export default class WhackAMoleScene extends BaseEngine {
         this.updatePrompt();
       }
       this.checkWin();
-    } else {
-      // DRAMA: Wrong mole = combo reset
-      this.comboCount = 0;
-      this.comboText.setText('');
     }
 
     // Bonk animation

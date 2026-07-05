@@ -34,13 +34,6 @@ const SCENE_IMPORTS: Record<string, () => Promise<{ default: any }>> = {
   'snaking':         () => import('@/game/scenes/SnakingScene'),
   'training-academy':() => import('@/game/scenes/TrainingAcademyScene'),
   'rescue-quest':    () => import('@/game/scenes/RescueQuestScene'),
-  'farm-life':       () => import('@/game/scenes/FarmLifeScene'),
-  'monster-fighter': () => import('@/game/scenes/MonsterFighterScene'),
-  'tower-defense':   () => import('@/game/scenes/TowerDefenseScene'),
-  'rhythm-tap':      () => import('@/game/scenes/RhythmTapScene'),
-  'space-explorer':  () => import('@/game/scenes/SpaceExplorerScene'),
-  'story-adventure': () => import('@/game/scenes/StoryAdventureScene'),
-  'treasure-hunt':   () => import('@/game/scenes/TreasureHuntScene'),
 };
 
 const SCENE_KEY_BY_MODE: Record<string, string> = {
@@ -68,13 +61,6 @@ const SCENE_KEY_BY_MODE: Record<string, string> = {
   'snaking':         'SnakingScene',
   'training-academy':'TrainingAcademyScene',
   'rescue-quest':    'RescueQuestScene',
-  'farm-life':       'FarmLifeScene',
-  'monster-fighter': 'MonsterFighterScene',
-  'tower-defense':   'TowerDefenseScene',
-  'rhythm-tap':      'RhythmTapScene',
-  'space-explorer':  'SpaceExplorerScene',
-  'story-adventure': 'StoryAdventureScene',
-  'treasure-hunt':   'TreasureHuntScene',
 };
 
 interface GameCanvasProps {
@@ -124,15 +110,17 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
       // Load the scene module (only the active one — keeps bundle light)
       const SceneClass = (await sceneLoader()).default;
 
-      // Responsive sizing — FIT mode scales the 800x600 game to fit any screen
+      // Responsive sizing — RESIZE mode fills the parent container completely
+      // (FIT mode letterboxes, leaving black bars on mobile). The parent div
+      // has aspect-ratio: 4/3 so the game keeps its proportions.
       const container = containerRef.current!;
 
       const bgColor = '#' + (theme?.bg ?? 0x000000).toString(16).padStart(6, '0');
 
-      // Calculate responsive dimensions based on container size
-      const containerWidth = container.clientWidth || window.innerWidth;
-      const containerHeight = container.clientHeight || window.innerHeight;
-      // Use FIT scale mode — Phaser handles the scaling automatically
+      // Use the parent container's actual dimensions for the game size
+      const containerWidth = container.clientWidth || 800;
+      const containerHeight = container.clientHeight || 600;
+      // Game dimensions match the container — Scale.RESIZE handles the rest
       const gameWidth = 800;
       const gameHeight = 600;
 
@@ -143,7 +131,10 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
         height: gameHeight,
         backgroundColor: bgColor,
         scale: {
-          mode: Phaser.Scale.FIT,
+          // MOBILE FIX: RESIZE mode fills the container completely (no black bars).
+          // FIT mode letterboxes, which on mobile (with aspect-ratio:4/3 frame)
+          // can cause the canvas to be smaller than the frame or overflow.
+          mode: Phaser.Scale.RESIZE,
           autoCenter: Phaser.Scale.CENTER_BOTH,
           width: gameWidth,
           height: gameHeight,
@@ -190,10 +181,11 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
           // Guard: check if the game was destroyed by cleanup before 'ready' fired
           if (cancelled || !gameRef.current || gameRef.current !== game) return;
 
-          // Make the canvas focusable.
-          // IMPORTANT: do NOT set width/height/maxWidth/maxHeight here — Phaser's
-          // Scale.FIT mode controls the canvas size. Setting inline width/height
-          // styles overrides Phaser's scaling and the canvas won't fill its parent.
+          // MOBILE FIX: Do NOT set width/height/maxWidth/maxHeight inline styles.
+          // Phaser's Scale.FIT mode controls the canvas size. Setting inline
+          // width/height/maxHeight styles overrides Phaser's scaling → canvas
+          // overflows on mobile (screen "lost outside of view").
+          // Only set accessibility + touch styles — let Phaser handle sizing.
           const canvas = container.querySelector('canvas');
           if (canvas) {
             canvas.setAttribute('tabindex', '0');
@@ -202,6 +194,9 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
             canvas.style.pointerEvents = 'auto';
             canvas.style.display = 'block';
             canvas.style.margin = '0 auto';
+            // Critical: canvas must fill its parent so Scale.FIT can compute
+            canvas.style.width = '100%';
+            canvas.style.height = '100%';
           }
 
           if (!game.scene.getScene(sceneKey)) {
@@ -232,11 +227,11 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
   }, [config?.mode, config?.theme, config?.terms.length, config?.unit, config?.qrSlug]);
 
   return (
-    <div className="relative w-full h-full" style={{ touchAction: 'none', minHeight: '480px' }}>
+    <div className="relative w-full h-full" style={{ touchAction: 'none' }}>
       <div
         ref={containerRef}
         className="w-full h-full"
-        style={{ touchAction: 'none', pointerEvents: 'auto', width: '100%', height: '100%' }}
+        style={{ touchAction: 'none', pointerEvents: 'auto' }}
       />
       {/* Exit button removed — the parent page provides a clear "← Back to Library" button.
           Having two exit buttons was confusing users. */}

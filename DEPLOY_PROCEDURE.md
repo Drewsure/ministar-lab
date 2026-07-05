@@ -19,38 +19,7 @@ zip -r download/ministar-src-clean.zip \
   -x "node_modules/*" ".*"
 ```
 
-### Step 2: Give the user ONE-AT-A-TIME PowerShell steps
-
-**CRITICAL (user override, 2026-07-05):** The user has explicitly and repeatedly
-asked for **one-at-a-time steps** in the live chat. This OVERRIDES the previous
-"one block" format below. From now on:
-
-- Present each step as a **separate** numbered code block.
-- Each step = **one** self-contained PowerShell command.
-- Wait for the user to confirm before giving the next step.
-- Format:
-
-```
-### Step 1 — <action>
-
-```powershell
-<single command>
-```
-
-### Step 2 — <action>
-
-```powershell
-<single command>
-```
-
-(etc.)
-```
-
-The previous format (chained commands in one block) caused confusion — the user
-could not tell which command failed when an error appeared. One-at-a-time makes
-each command's output unambiguous.
-
---- LEGACY FORMAT (DO NOT USE — kept for reference only) ---
+### Step 2: Give the user ONE block of PowerShell
 
 Paste this exact format (no variations, no alternatives, no "options A/B/C"):
 

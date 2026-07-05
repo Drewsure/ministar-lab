@@ -130,7 +130,7 @@ export default class BalloonPopScene extends BaseEngine {
       targets: glow,
       scale: { from: 1, to: 1.3 },
       alpha: { from: 0.2, to: 0.4 },
-      duration: 600, yoyo: true, repeat: 999, ease: 'Sine.inOut',
+      duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut',
     });
   }
 
@@ -148,7 +148,7 @@ export default class BalloonPopScene extends BaseEngine {
       this.tweens.add({
         targets: light,
         alpha: { from: 1, to: 0.3 },
-        duration: 400 + i * 50, yoyo: true, repeat: 999,
+        duration: 400 + i * 50, yoyo: true, repeat: -1,
       });
     }
     c.add([body, dome]);
@@ -179,7 +179,7 @@ export default class BalloonPopScene extends BaseEngine {
     w1.setStrokeStyle(2, 0x64748b, 0.8);
     w2.setStrokeStyle(2, 0x64748b, 0.8);
     // Spokes (rotating)
-    this.tweens.add({ targets: [w1, w2], angle: 360, duration: 1000, repeat: 999, ease: 'Linear' });
+    this.tweens.add({ targets: [w1, w2], angle: 360, duration: 1000, repeat: -1, ease: 'Linear' });
     c.add([body, w1, w2]);
   }
 
@@ -209,7 +209,7 @@ export default class BalloonPopScene extends BaseEngine {
     // Propellers (spinning)
     const prop1 = this.add.ellipse(-22, -6, 18, 4, 0x22d3ee, 0.5);
     const prop2 = this.add.ellipse(22, -6, 18, 4, 0x22d3ee, 0.5);
-    this.tweens.add({ targets: [prop1, prop2], angle: 360, duration: 100, repeat: 999, ease: 'Linear' });
+    this.tweens.add({ targets: [prop1, prop2], angle: 360, duration: 100, repeat: -1, ease: 'Linear' });
     c.add([body, arm1, arm2, prop1, prop2]);
   }
 
@@ -223,7 +223,7 @@ export default class BalloonPopScene extends BaseEngine {
     // Wheels
     const w1 = this.add.circle(-25, 10, 10, 0xfde047, 1);
     const w2 = this.add.circle(25, 10, 10, 0xfde047, 1);
-    this.tweens.add({ targets: [w1, w2], angle: 360, duration: 1000, repeat: 999, ease: 'Linear' });
+    this.tweens.add({ targets: [w1, w2], angle: 360, duration: 1000, repeat: -1, ease: 'Linear' });
     c.add([body, lolli, w1, w2]);
   }
 
@@ -244,7 +244,7 @@ export default class BalloonPopScene extends BaseEngine {
     this.tweens.add({
       targets: c,
       y: c.y - 8,
-      duration: 1200, yoyo: true, repeat: 999, ease: 'Sine.inOut',
+      duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.inOut',
     });
   }
 
@@ -260,7 +260,7 @@ export default class BalloonPopScene extends BaseEngine {
     // Wheels
     const w1 = this.add.circle(-25, 12, 10, 0x1e293b, 1);
     const w2 = this.add.circle(25, 12, 10, 0x1e293b, 1);
-    this.tweens.add({ targets: [w1, w2], angle: 360, duration: 1000, repeat: 999, ease: 'Linear' });
+    this.tweens.add({ targets: [w1, w2], angle: 360, duration: 1000, repeat: -1, ease: 'Linear' });
     c.add([body, w1, w2]);
   }
 
@@ -411,7 +411,7 @@ export default class BalloonPopScene extends BaseEngine {
       targets: container,
       x: `+=${Phaser.Math.Between(15, 30)}`,
       duration: 800 + Math.random() * 400,
-      yoyo: true, repeat: 999, ease: 'Sine.inOut',
+      yoyo: true, repeat: -1, ease: 'Sine.inOut',
     });
 
     // NOTE: per-container pointerdown removed — the global handler in

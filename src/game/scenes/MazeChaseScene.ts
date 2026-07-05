@@ -49,7 +49,6 @@ export default class MazeChaseScene extends BaseEngine {
 
   // --- Player ---
   private player!: Phaser.Physics.Arcade.Sprite;
-  private playerEmoji!: Phaser.GameObjects.Text;
   private playerDir: Dir = 'right';
   private playerDirIndicator!: Phaser.GameObjects.Text;
   private playerGlow!: Phaser.GameObjects.Arc;
@@ -63,15 +62,9 @@ export default class MazeChaseScene extends BaseEngine {
   // --- Game state ---
   private activeTerm?: TermItem;
   private promptText!: Phaser.GameObjects.Text;
-  private livesText!: Phaser.GameObjects.Text;
-  private lives = 3;
-  private maxLives = 3;
-  private invulnerableUntil = 0;
-  private ghostWarningText?: Phaser.GameObjects.Text;
   private compassArrow!: Phaser.GameObjects.Text;
   private targetHits = new Map<Phaser.GameObjects.GameObject, boolean>();
   private round = 0;
-  private ghostAI!: Phaser.Time.TimerEvent;
 
   // --- Input (created ONCE) ---
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -81,12 +74,6 @@ export default class MazeChaseScene extends BaseEngine {
   private path: { x: number; y: number }[] = [];
   private pathIdx = 0;
   private speedBoostUntil = 0;
-  private _lastHeartbeat = 0;
-  // SCATTER MODE (Pac-Man research): every 12s, ghosts retreat to their
-  // assigned corner for 5s. Gives the player a breathing-room break.
-  // Without this, ghosts chase relentlessly → game feels impossible.
-  private _scatterModeActive = false;
-  private _scatterTimer?: Phaser.Time.TimerEvent;
 
   protected maxQuestions() { return Math.min(this.terms.length, 6); }
 
@@ -127,30 +114,6 @@ export default class MazeChaseScene extends BaseEngine {
       }
     ).setOrigin(0.5).setDepth(50);
 
-    // DRAMA: Lives indicator (top-left) — ghosts can catch you!
-    this.livesText = this.add.text(20, 28, '❤️❤️❤️', {
-      fontFamily: 'Inter, sans-serif',
-      fontSize: '18px',
-      color: this.hex(this.theme.danger),
-      fontStyle: 'bold',
-      stroke: '#000000', strokeThickness: 3,
-    }).setDepth(50);
-
-    // DRAMA: Ghost warning banner (initially hidden)
-    this.ghostWarningText = this.add.text(
-      this.scale.width / 2, this.scale.height / 2,
-      '👻 GHOSTS INCOMING!',
-      {
-        fontFamily: 'Inter, sans-serif',
-        fontSize: '36px',
-        color: this.hex(this.theme.danger),
-        fontStyle: 'bold',
-        stroke: '#000000', strokeThickness: 6,
-        backgroundColor: '#' + this.theme.card.toString(16).padStart(6, '0'),
-        padding: { x: 24, y: 12 },
-      }
-    ).setOrigin(0.5).setDepth(200).setAlpha(0);
-
     // Build maze + entities
     this.generateMaze();
     this.renderMaze();
@@ -188,36 +151,6 @@ export default class MazeChaseScene extends BaseEngine {
         emitting: false,
       }).setDepth(18);
     }
-
-    // SCATTER MODE (Pac-Man research): ghosts retreat to corners periodically.
-    // Cycle: 7s chase → 5s scatter → 7s chase → 5s scatter → ...
-    // This gives the player breathing room and makes the game feel FAIR
-    // instead of relentlessly impossible.
-    this._scatterTimer = this.time.addEvent({
-      delay: 7000, // initial delay = first chase phase
-      loop: false,
-      callback: () => this._toggleScatterMode(),
-    });
-  }
-
-  private _toggleScatterMode() {
-    if (this.isFinished) return;
-    this._scatterModeActive = !this._scatterModeActive;
-    // Visual cue: brief flash so player knows scatter mode started/ended
-    try {
-      this.juice.flash(this._scatterModeActive ? this.theme.success : this.theme.accent, 0.2, 200);
-      if (this._scatterModeActive) {
-        this.juice.scorePopup(this.scale.width / 2, 160, '💨 GHOSTS SCATTER!', this.theme.success);
-        audioBus.speak('Scatter!');
-      }
-    } catch {}
-    // Schedule next toggle: 5s scatter, then 7s chase
-    const nextDelay = this._scatterModeActive ? 5000 : 7000;
-    this._scatterTimer = this.time.addEvent({
-      delay: nextDelay,
-      loop: false,
-      callback: () => this._toggleScatterMode(),
-    });
   }
 
   protected onTick(_remainingMs: number) {
@@ -352,34 +285,24 @@ export default class MazeChaseScene extends BaseEngine {
     const startX = this.mazeOffsetX + CELL / 2;
     const startY = this.mazeOffsetY + CELL / 2;
 
-    // CHECK 3 (ETERNAL_VIGILANCE): Player MUST be visible. Previous approach
-    // used physics.add.sprite with a generated texture — if texture generation
-    // fails (WebGL context loss), the sprite creation throws → scene crash →
-    // game freeze. The ROBUST approach (same as ghosts) is to use a physics-
-    // enabled TEXT object with the Pac-Man emoji. No texture dependency =
-    // no freeze risk.
+    const playerKey = 'player-' + this.theme.id;
+    // ThemeAtlas already generated 'player-' + theme.id as a ship sprite.
+    // We add a soft glow halo behind the player.
+
     this.playerGlow = this.add.circle(startX, startY, 22, this.theme.accent, 0.18)
       .setDepth(19);
     this.tweens.add({
       targets: this.playerGlow,
       scale: { from: 1, to: 1.25 },
       alpha: { from: 0.18, to: 0.32 },
-      duration: 700, yoyo: true, repeat: 50, ease: 'Sine.inOut',
+      duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut',
     });
 
-    // Player = physics-enabled emoji text (no texture generation needed)
-    const playerText = this.add.text(startX, startY, '😋', {
-      fontFamily: 'Inter, sans-serif',
-      fontSize: '32px',
-    }).setOrigin(0.5).setDepth(20);
-    this.physics.add.existing(playerText);
-    const pBody = playerText.body as Phaser.Physics.Arcade.Body;
-    pBody.setCircle(14, 2, 2)
-         .setAllowGravity(false)
-         .setCollideWorldBounds(true);
-    // Cast to satisfy the typed `player` field — at runtime it's a Text with a physics body
-    this.player = playerText as unknown as Phaser.Physics.Arcade.Sprite;
-    this.playerEmoji = playerText; // alias — no separate emoji needed
+    this.player = this.physics.add.sprite(startX, startY, playerKey);
+    this.player.setCollideWorldBounds(true);
+    this.player.setCircle(13, 3, 3);
+    this.player.setDepth(20);
+    this.player.setScale(1.1);
 
     // Directional indicator (a small arrow that rotates)
     this.playerDirIndicator = this.add.text(startX, startY, '▶', {
@@ -479,7 +402,7 @@ export default class MazeChaseScene extends BaseEngine {
         targets: ring,
         scale: { from: 1, to: 1.5 },
         alpha: { from: 0.5, to: 0.1 },
-        duration: 700, repeat: 50, ease: 'Sine.out',
+        duration: 700, repeat: -1, ease: 'Sine.out',
       });
       orb.setData('glowRing', ring);
     }
@@ -505,7 +428,7 @@ export default class MazeChaseScene extends BaseEngine {
     this.tweens.add({
       targets: [orb, label],
       scale: { from: 1, to: isCorrect ? 1.2 : 1.08 },
-      duration: isCorrect ? 500 : 800, yoyo: true, repeat: 50, ease: 'Sine.inOut',
+      duration: isCorrect ? 500 : 800, yoyo: true, repeat: -1, ease: 'Sine.inOut',
     });
 
     // Physics body — use a circular body sized to the orb
@@ -527,215 +450,73 @@ export default class MazeChaseScene extends BaseEngine {
     const px = this.mazeOffsetX + cell.x * CELL + CELL / 2;
     const py = this.mazeOffsetY + cell.y * CELL + CELL / 2;
 
-    // DRAMA: Telegraph the ghost with a warning spawn — 1s warning circle
-    // before the ghost materializes. Gives the player a chance to react.
-    const warningCircle = this.add.circle(px, py, 30, this.theme.danger, 0.4)
-      .setStrokeStyle(3, this.theme.danger, 0.9).setDepth(13);
+    const enemyKey = 'particle-' + this.theme.id;
+    const enemy = this.add.image(px, py, enemyKey);
+    enemy.setTint(this.theme.danger);
+    enemy.setDisplaySize(34, 34);
+    enemy.setDepth(15);
+
+    // Pulsing red glow
+    const aura = this.add.circle(px, py, 20, this.theme.danger, 0.22)
+      .setDepth(14);
     this.tweens.add({
-      targets: warningCircle,
-      scale: { from: 0.3, to: 1.4 },
-      alpha: { from: 0.6, to: 0 },
-      duration: 800, ease: 'Quad.out',
-      onComplete: () => warningCircle.destroy(),
+      targets: aura,
+      scale: { from: 0.9, to: 1.3 },
+      alpha: { from: 0.25, to: 0 },
+      duration: 600, repeat: -1, ease: 'Sine.out',
     });
+    enemy.setData('aura', aura);
 
-    // Spawn the ghost after the warning
-    this.time.delayedCall(800, () => {
-      if (this.isFinished) return;
+    this.physics.add.existing(enemy);
+    const body = enemy.body as Phaser.Physics.Arcade.Body;
+    body.setCircle(17, 0, 0)
+        .setAllowGravity(false)
+        .setCollideWorldBounds(true);
+    body.setBoundsRectangle(
+      new Phaser.Geom.Rectangle(
+        this.mazeOffsetX, this.mazeOffsetY, COLS * CELL, ROWS * CELL
+      )
+    );
 
-      // CHECK 3 (ETERNAL_VIGILANCE): Ghosts MUST be emoji text, NOT add.image.
-      // add.image renders as a tiny colored dot — invisible. Emoji text is
-      // large, readable, and matches the Pac-Man aesthetic.
-      const ghostEmojis = ['👻', '👹', '👺', '💀'];
-      const ghostEmoji = ghostEmojis[(this.enemiesGroup?.getChildren().length ?? 0) % ghostEmojis.length];
-      const enemy = this.add.text(px, py, ghostEmoji, {
-        fontFamily: 'Inter, sans-serif',
-        fontSize: '32px',
-      }).setOrigin(0.5).setDepth(15);
-      enemy.setTint(0xffffff); // keep emoji visible (tint would darken)
-
-      // Pulsing red glow
-      const aura = this.add.circle(px, py, 20, this.theme.danger, 0.22)
-        .setDepth(14);
-      this.tweens.add({
-        targets: aura,
-        scale: { from: 0.9, to: 1.3 },
-        alpha: { from: 0.25, to: 0 },
-        duration: 600, repeat: 50, ease: 'Sine.out',
-      });
-      enemy.setData('aura', aura);
-
-      // Spawn animation: ghost materializes from warning
-      enemy.setScale(0).setAlpha(0);
-      this.tweens.add({
-        targets: enemy,
-        scale: 1, alpha: 1,
-        duration: 300, ease: 'Back.out',
-      });
-
-      this.physics.add.existing(enemy);
-      const body = enemy.body as Phaser.Physics.Arcade.Body;
-      body.setCircle(17, 8, 8)
-          .setAllowGravity(false)
-          .setCollideWorldBounds(true);
-      body.setBoundsRectangle(
-        new Phaser.Geom.Rectangle(
-          this.mazeOffsetX, this.mazeOffsetY, COLS * CELL, ROWS * CELL
-        )
-      );
-
-      // Per-ghost AI tick — every 300ms recompute path toward player
-      // (BFS through corridors only — no phasing through walls).
-      // Was 600ms — too slow, ghost movement felt jerky.
-      this.time.addEvent({
-        delay: 300, loop: true,
-        callback: () => this.updateEnemyAI(enemy),
-      });
-      // Initial impulse after spawn animation finishes
-      this.time.delayedCall(350, () => this.updateEnemyAI(enemy));
-
-      this.physics.add.collider(enemy, this.wallsGroup);
-      // SCATTER MODE: assign each ghost a corner to retreat to
-      enemy.setData('cornerIdx', this.enemiesGroup.getChildren().length - 1);
-      this.enemiesGroup.add(enemy);
+    // Patrol AI: change direction every 1.4s, or chase player if in LOS
+    this.time.addEvent({
+      delay: 1400, loop: true,
+      callback: () => this.updateEnemyAI(enemy),
     });
+    // Initial impulse
+    this.updateEnemyAI(enemy);
+
+    this.physics.add.collider(enemy, this.wallsGroup);
+    this.enemiesGroup.add(enemy);
   }
 
-  // ===========================================================================
-  // GHOST AI — BFS pathfinding through maze corridors (NEVER through walls)
-  // ===========================================================================
-  // The ghost picks the next cell on the shortest BFS path to the player's
-  // current cell, and walks there using physics velocity. When the ghost
-  // reaches the center of its target cell, it picks the next cell.
-  // This guarantees ghosts ONLY travel through open corridors.
-  // ===========================================================================
-  private updateEnemyAI(enemy: Phaser.GameObjects.Text) {
+  private updateEnemyAI(enemy: Phaser.GameObjects.Image) {
     if (!enemy.active || this.isFinished) return;
     const body = enemy.body as Phaser.Physics.Arcade.Body;
     if (!body) return;
 
-    // SCATTER MODE: ghosts head to their assigned corner instead of chasing.
-    // Each ghost has a corner index (stored as data). Corner positions:
-    //   0 = top-left (0,0), 1 = top-right (COLS-1,0),
-    //   2 = bottom-left (0,ROWS-1), 3 = bottom-right (COLS-1,ROWS-1)
-    if (this._scatterModeActive) {
-      const cornerIdx = (enemy.getData('cornerIdx') as number) ?? 0;
-      const corners = [
-        { x: 0, y: 0 },
-        { x: COLS - 1, y: 0 },
-        { x: 0, y: ROWS - 1 },
-        { x: COLS - 1, y: ROWS - 1 },
-      ];
-      const target = corners[cornerIdx % 4];
-      const enemyCell = this.pixelToCell(enemy.x, enemy.y);
-      if (!enemyCell) return;
-      // If already at corner, just stop
-      if (enemyCell.x === target.x && enemyCell.y === target.y) {
-        body.setVelocity(0, 0);
-        return;
-      }
-      const nextCell = this.bfsNextStep(enemyCell, target);
-      if (nextCell) {
-        const tpx = this.mazeOffsetX + nextCell.x * CELL + CELL / 2;
-        const tpy = this.mazeOffsetY + nextCell.y * CELL + CELL / 2;
-        const dx = tpx - enemy.x;
-        const dy = tpy - enemy.y;
-        const d = Math.hypot(dx, dy);
-        const scatterSpeed = (this.lod.isMobile ? 100 : 120) + (this.level - 1) * 8;
-        if (d > 1) body.setVelocity((dx / d) * scatterSpeed, (dy / d) * scatterSpeed);
-      }
-      return;
-    }
-
-    // Find next cell on BFS path to player
-    const enemyCell = this.pixelToCell(enemy.x, enemy.y);
-    const playerCell = this.pixelToCell(this.player.x, this.player.y);
-    if (!enemyCell || !playerCell) return;
-
-    // If ghost is already at the player's cell, charge directly at player
-    if (enemyCell.x === playerCell.x && enemyCell.y === playerCell.y) {
+    // Check line-of-sight to player (same row or column with no wall)
+    if (this.hasLineOfSight(enemy.x, enemy.y, this.player.x, this.player.y)) {
+      // Chase the player
       const dx = this.player.x - enemy.x;
       const dy = this.player.y - enemy.y;
       const dist = Math.hypot(dx, dy);
-      // PACING FIX: Ghost chase speed = 84% of player speed (Pac-Man ratio).
-      // Player can escape in straight lines. Was 80+level*10 (too slow at L1).
-      const chaseSpeed = (this.lod.isMobile ? 130 : 160) + (this.level - 1) * 12;
+      // AAAA — Ghosts slower at start, ramp with level
+      const chaseSpeed = (this.lod.isMobile ? 60 : 80) + (this.level - 1) * 10;
       if (dist > 1) {
         body.setVelocity((dx / dist) * chaseSpeed, (dy / dist) * chaseSpeed);
       }
       return;
     }
 
-    // BFS from enemyCell to playerCell through open corridors
-    const nextCell = this.bfsNextStep(enemyCell, playerCell);
-    if (!nextCell) {
-      // No path (shouldn't happen — maze is fully connected) — drift randomly
-      body.setVelocity(0, 0);
-      return;
-    }
-
-    // Walk toward the center of the next cell
-    const targetPx = this.mazeOffsetX + nextCell.x * CELL + CELL / 2;
-    const targetPy = this.mazeOffsetY + nextCell.y * CELL + CELL / 2;
-    const dx = targetPx - enemy.x;
-    const dy = targetPy - enemy.y;
-    const dist = Math.hypot(dx, dy);
-    // PACING FIX: Ghost speeds tuned to Pac-Man ratio (ghost = 84% of player).
-    //   Chase mode (within 3 cells): 160px/s at L1 — player (190) can escape.
-    //   Patrol mode (far away):       100px/s at L1 — not sluggish.
-    //   Scatter mode (retreating):    120px/s — heads to corner.
-    // Was: chase 95+level*10, patrol 60+level*8 (patrol too slow, felt stuck).
-    const cellDist = Math.abs(enemyCell.x - playerCell.x) + Math.abs(enemyCell.y - playerCell.y);
-    const isChasing = cellDist <= 3;
-    const isScattering = this._scatterModeActive;
-    let baseSpeed: number;
-    if (isScattering) {
-      baseSpeed = (this.lod.isMobile ? 100 : 120) + (this.level - 1) * 8;
-    } else if (isChasing) {
-      baseSpeed = (this.lod.isMobile ? 130 : 160) + (this.level - 1) * 12;
-    } else {
-      baseSpeed = (this.lod.isMobile ? 85 : 100) + (this.level - 1) * 8;
-    }
-    if (dist > 1) {
-      body.setVelocity((dx / dist) * baseSpeed, (dy / dist) * baseSpeed);
-    }
-  }
-
-  // BFS: returns the NEXT cell to move to (one step toward goal).
-  // Uses the maze's wall data so ghosts ONLY travel through open corridors.
-  // Uses a parent map for clean path reconstruction.
-  private bfsNextStep(start: { x: number; y: number }, goal: { x: number; y: number }): { x: number; y: number } | null {
-    if (start.x === goal.x && start.y === goal.y) return null;
-    const parentMap = new Map<string, { x: number; y: number } | null>();
-    const key = (x: number, y: number) => `${x},${y}`;
-    const queue: { x: number; y: number }[] = [{ x: start.x, y: start.y }];
-    parentMap.set(key(start.x, start.y), null);
-    let found = false;
-    while (queue.length > 0) {
-      const current = queue.shift()!;
-      if (current.x === goal.x && current.y === goal.y) { found = true; break; }
-      const cell = this.maze[current.y][current.x];
-      const neighbors: { x: number; y: number }[] = [];
-      if (!cell.walls.top && current.y > 0)        neighbors.push({ x: current.x, y: current.y - 1 });
-      if (!cell.walls.right && current.x < COLS - 1)  neighbors.push({ x: current.x + 1, y: current.y });
-      if (!cell.walls.bottom && current.y < ROWS - 1) neighbors.push({ x: current.x, y: current.y + 1 });
-      if (!cell.walls.left && current.x > 0)        neighbors.push({ x: current.x - 1, y: current.y });
-      for (const nb of neighbors) {
-        const k = key(nb.x, nb.y);
-        if (parentMap.has(k)) continue;
-        parentMap.set(k, { x: current.x, y: current.y });
-        queue.push(nb);
-      }
-    }
-    if (!found) return null;
-    // Walk back from goal to find the first step from start
-    let current: { x: number; y: number } | null = { x: goal.x, y: goal.y };
-    let prev: { x: number; y: number } | null = null;
-    while (current && !(current.x === start.x && current.y === start.y)) {
-      prev = current;
-      current = parentMap.get(key(current.x, current.y)) ?? null;
-    }
-    return prev;
+    // Patrol: random cardinal direction (so it stays on corridors)
+    const dirs = [
+      { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 },
+    ];
+    const d = Phaser.Utils.Array.GetRandom(dirs);
+    // AAAA — Patrol speed also ramps with level
+    const patrolSpeed = (this.lod.isMobile ? 40 : 55) + (this.level - 1) * 8;
+    body.setVelocity(d.x * patrolSpeed, d.y * patrolSpeed);
   }
 
   private hasLineOfSight(x1: number, y1: number, x2: number, y2: number): boolean {
@@ -820,77 +601,19 @@ export default class MazeChaseScene extends BaseEngine {
     if (this.isFinished) return;
     const e = enemy as Phaser.GameObjects.GameObject;
     if (this.targetHits.get(e)) return;
-
-    // DRAMA: Invulnerability window after being caught — prevents losing
-    // multiple lives in one ghost collision
-    if (Date.now() < this.invulnerableUntil) return;
-
     this.targetHits.set(e, true);
 
-    // Lose a life
-    this.lives--;
-    this.invulnerableUntil = Date.now() + 1500;
-    this._updateLives();
-
-    // DRAMA: Catch sequence — flash red, heavy shake, ghost roar, freeze
-    this.juice.flash(this.theme.danger, 0.5, 250);
-    this.juice.shake('heavy');
-    audioBus.play('incorrect');
-    audioBus.speak('Caught by ghost!');
-    this.juice.scorePopup(this.player.x, this.player.y - 30,
-      `💔 -1 LIFE`, this.theme.danger);
-
-    // Player flashes invulnerable (blinks during invulnerability window)
-    this.tweens.add({
-      targets: this.player,
-      alpha: { from: 0.3, to: 1 },
-      duration: 150, repeat: 8, ease: 'Sine.inOut',
-    });
-
     this.recordAnswer({
-      term: 'ghost',
-      response: 'caught-by-ghost',
+      term: 'enemy',
+      response: 'enemy-collision',
       success: false,
-      coordinate: { x: (e as Phaser.GameObjects.Text).x, y: (e as Phaser.GameObjects.Text).y, t: this.time.now },
+      coordinate: { x: (e as Phaser.GameObjects.Image).x, y: (e as Phaser.GameObjects.Image).y, t: this.time.now },
     });
 
-    // Knock the ghost back so it doesn't immediately re-catch
-    const ex = (e as Phaser.GameObjects.Text).x;
-    const ey = (e as Phaser.GameObjects.Text).y;
-    const dx = ex - this.player.x;
-    const dy = ey - this.player.y;
-    const dist = Math.hypot(dx, dy);
-    if (dist > 0) {
-      const enemyBody = (e as Phaser.GameObjects.Text).body as Phaser.Physics.Arcade.Body;
-      if (enemyBody) {
-        enemyBody.setVelocity((dx / dist) * 200, (dy / dist) * 200);
-      }
-    }
-
-    // Game over if out of lives
-    if (this.lives <= 0) {
-      this.time.delayedCall(600, () => {
-        if (!this.isFinished) this.finishGame(false);
-      });
-      return;
-    }
-
-    // Otherwise bounce player back to start
+    // Hit-stop: brief physics freeze for impact
+    this.juice.hitStop(100);
     this.bouncePlayerBack();
-    this.time.delayedCall(1400, () => this.targetHits.delete(e));
-  }
-
-  private _updateLives() {
-    if (!this.livesText) return;
-    const hearts = '❤️'.repeat(Math.max(0, this.lives)) + '🖤'.repeat(Math.max(0, this.maxLives - this.lives));
-    this.livesText.setText(hearts);
-    if (this.lives <= 1) {
-      this.livesText.setColor('#' + this.theme.danger.toString(16).padStart(6, '0'));
-    } else if (this.lives <= 2) {
-      this.livesText.setColor('#' + this.theme.warning.toString(16).padStart(6, '0'));
-    } else {
-      this.livesText.setColor('#' + this.theme.danger.toString(16).padStart(6, '0'));
-    }
+    this.time.delayedCall(900, () => this.targetHits.delete(e));
   }
 
   private bouncePlayerBack() {
@@ -1046,14 +769,12 @@ export default class MazeChaseScene extends BaseEngine {
 
     const now = Date.now();
     const boosted = now < this.speedBoostUntil;
-    // AAAA — SLOWER START: Level 1 = 140px/s (was 280). Ramps up 20px/s per level.
-    // Level 1=140, Level 2=160, Level 3=180, Level 4=200, Level 5=220, Level 6=240
-    const baseSpeed = this.lod.isMobile ? 150 : 190;
-    // PACING FIX (research-backed): Player crosses 1 cell (76px) in 400ms.
-    // Pac-Man original = 125ms/cell (8 tiles/sec). We're slower for kids/ESL.
-    // Level ramp +15px/s per level (was +20 — too aggressive).
-    const levelSpeed = baseSpeed + (this.level - 1) * 15;
-    const speed = boosted ? levelSpeed * 1.4 : levelSpeed;
+    // PACING FIX (user feedback "insane speed"): 120px/s desktop, 100 mobile.
+    // Crosses 1 cell (76px) in 633ms — slow enough for kids/ESL to control.
+    // Was 140px/s (543ms/cell) — still too fast per user testing.
+    const baseSpeed = this.lod.isMobile ? 100 : 120;
+    const levelSpeed = baseSpeed + (this.level - 1) * 10;
+    const speed = boosted ? levelSpeed * 1.3 : levelSpeed;
 
     // ---- Keyboard input ----
     let vx = 0, vy = 0;
@@ -1098,8 +819,6 @@ export default class MazeChaseScene extends BaseEngine {
     this.playerDirIndicator.setRotation(rotMap[this.playerDir]);
     this.playerDirIndicator.setPosition(this.player.x, this.player.y);
     this.playerGlow.setPosition(this.player.x, this.player.y);
-    // NOTE: playerEmoji IS the player (physics-enabled text), so it moves
-    // with its own physics body — no manual position sync needed.
 
     // Trail emitter follows the player
     if (this.trailEmitter) {
@@ -1117,26 +836,6 @@ export default class MazeChaseScene extends BaseEngine {
         try { this.trailEmitter.emitting = false; } catch {}
       }
     }
-
-    // NEAR-MISS HEARTBEAT — when a ghost is within 60px of the player, play
-    // a heartbeat audio cue every 400ms. Creates tension WITHOUT tweens
-    // (timer-based, safe from the infinite-tween freeze bug).
-    try {
-      if (this.enemiesGroup && this.enemiesGroup.getChildren().length > 0) {
-        let nearestDist = Infinity;
-        for (const e of this.enemiesGroup.getChildren()) {
-          const ex = (e as Phaser.GameObjects.Text).x;
-          const ey = (e as Phaser.GameObjects.Text).y;
-          const d = Math.hypot(ex - this.player.x, ey - this.player.y);
-          if (d < nearestDist) nearestDist = d;
-        }
-        const now = this.time.now;
-        if (nearestDist < 60 && now - this._lastHeartbeat > 400) {
-          this._lastHeartbeat = now;
-          try { audioBus.play('tap', { freq: 110 }); } catch {} // low heartbeat thump
-        }
-      }
-    } catch {}
   }
 
   // ===========================================================================
@@ -1165,8 +864,7 @@ export default class MazeChaseScene extends BaseEngine {
         this.pathIdx = 0;
         const body = this.player.body as Phaser.Physics.Arcade.Body;
         if (body) {
-          // PACING FIX: Match the new player speed (190/150), was old 140/110
-          const speed = this.lod.isMobile ? 150 : 190;
+          const speed = this.lod.isMobile ? 110 : 140;
           body.setVelocity(d.dir.x * speed, d.dir.y * speed);
         }
       });

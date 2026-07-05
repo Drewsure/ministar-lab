@@ -73,6 +73,7 @@ export default class AirplaneScene extends BaseEngine {
         padding: { x: 16, y: 8 },
       }
     ).setOrigin(0.5).setDepth(49);
+    this.makeSpeakable(this.promptText);
 
     // ---- Clear instructions ----
     this.instructionsText = this.add.text(
@@ -136,13 +137,16 @@ export default class AirplaneScene extends BaseEngine {
     this.updatePromptText();
 
     // ---- Spawn loop ----
-    // PACING FIX: Delay first spawn by 1.5s so player can read the clue
-    // before banners appear. Then spawn every 2.2s (was 1.8s — too fast).
-    this.spawnTimer = this.time.addEvent({
-      delay: 2200, loop: true,
-      callback: this.spawnBannerRow,
-      callbackScope: this,
-      startAt: 1500, // first spawn after 1.5s
+    // PACING FIX: Delay first spawn 1.5s so player reads the clue first.
+    // Spawn interval 2.5s (was 1.8s) — gives time between rows.
+    this.time.delayedCall(1500, () => {
+      if (this.isFinished) return;
+      this.spawnBannerRow();
+      this.spawnTimer = this.time.addEvent({
+        delay: 2500, loop: true,
+        callback: this.spawnBannerRow,
+        callbackScope: this,
+      });
     });
 
     // ---- Keyboard input (created ONCE) ----
@@ -231,48 +235,51 @@ export default class AirplaneScene extends BaseEngine {
     ];
     Phaser.Utils.Array.Shuffle(row);
 
-    // PACING FIX: Stagger banner spawns — spawn one every 400ms instead of
-    // all 3 at once. Prevents the "massive connected wall" effect.
-    // Also, the prompt (clue) is already shown via updatePromptText() BEFORE
-    // banners spawn, so the player has time to read it.
+    // PACING FIX (user feedback "brick wall falling down"): Stagger spawns
+    // — spawn one banner every 600ms (was all 3 at same instant). Also vary
+    // fall speed per banner so they don't look like a connected wall.
     row.forEach((entry, i) => {
-      this.time.delayedCall(i * 400, () => {
+      this.time.delayedCall(i * 600, () => {
         if (this.isFinished) return;
-        this._spawnSingleBanner(entry, startX + i * (bannerW + gap), bannerW, bannerH);
+        this._spawnSingleBanner(entry, startX + i * (bannerW + gap), bannerW, bannerH, i);
       });
     });
   }
 
-  private _spawnSingleBanner(entry: { term: TermItem; isCorrect: boolean }, x: number, bannerW: number, bannerH: number) {
+  private _spawnSingleBanner(entry: { term: TermItem; isCorrect: boolean }, x: number, bannerW: number, bannerH: number, idx: number) {
     const y = -bannerH;
 
-    // Banner background with rounded look
-    const bg = this.add.rectangle(0, 0, bannerW, bannerH, entry.isCorrect ? this.theme.success : this.theme.card, 0.95)
-      .setStrokeStyle(3, this.theme.accent, 0.8);
-    const strip = this.add.rectangle(0, -bannerH / 2 + 6, bannerW - 6, 4, this.theme.accent2, 0.9);
+    // VISUAL FIX (user feedback "change wall cubes to clouds"): Banner looks
+    // like a cloud — rounded white shape with blue tint, not a brick rectangle.
+    // Correct banner has a subtle green tint; wrong banners are neutral white.
+    const cloudColor = entry.isCorrect ? 0xe0f7fa : 0xffffff;
+    const bg = this.add.ellipse(0, 0, bannerW, bannerH * 0.9, cloudColor, 0.95)
+      .setStrokeStyle(3, entry.isCorrect ? this.theme.success : this.theme.accent, 0.7);
+    // Cloud puffs (3 small circles on top for a cloud shape)
+    const puff1 = this.add.circle(-bannerW * 0.3, -bannerH * 0.3, 18, cloudColor, 0.95);
+    const puff2 = this.add.circle(0, -bannerH * 0.4, 22, cloudColor, 0.95);
+    const puff3 = this.add.circle(bannerW * 0.3, -bannerH * 0.3, 18, cloudColor, 0.95);
+
     const txt = this.add.text(0, 4, entry.term.emoji ?? entry.term.term.slice(0, 10), {
       fontFamily: 'Inter, sans-serif',
       fontSize: '23px',
-      color: '#ffffff',
+      color: '#1e3a8a',
       fontStyle: 'bold',
     }).setOrigin(0.5);
     const label = this.add.text(0, -8, entry.term.term.slice(0, 12), {
       fontFamily: 'Inter, sans-serif',
       fontSize: '18px',
-      color: '#ffffff',
+      color: '#1e3a8a',
       fontStyle: 'bold',
-    }).setOrigin(0.5).setAlpha(0.8);
+    }).setOrigin(0.5).setAlpha(0.9);
 
-    const container = this.add.container(x, y, [bg, strip, txt, label]).setSize(bannerW, bannerH);
+    const container = this.add.container(x, y, [puff1, puff2, puff3, bg, txt, label]).setSize(bannerW, bannerH);
     this.physics.add.existing(container);
     const body = container.body as Phaser.Physics.Arcade.Body;
     body.setSize(bannerW, bannerH);
     body.setOffset(-bannerW / 2, -bannerH / 2);
     body.setAllowGravity(false);
     body.setImmovable(false);
-
-    // PACING FIX: Banner fall speed — SLOWER at start, ramps with speedMultiplier
-    const fallSpeed = (this.lod.isMobile ? 60 : 80) * this.speedMultiplier;
 
     // Sparkle that appears when banner enters view
     const sparkle = this.add.circle(x, 30, 8, this.theme.accent2, 0)
@@ -283,7 +290,12 @@ export default class AirplaneScene extends BaseEngine {
     this.banners.push(banner);
     this.bannerGroup.add(container);
 
-    // Move banner via tween (physics body velocity is unreliable on containers)
+    // PACING FIX: Vary fall speed per banner (idx 0=slow, 1=medium, 2=fast)
+    // so they don't fall as a connected wall. Each banner falls at a different
+    // speed, creating visual separation.
+    const baseFallSpeed = (this.lod.isMobile ? 60 : 80) * this.speedMultiplier;
+    const speedVariation = [0.8, 1.0, 1.2][idx % 3]; // 80%, 100%, 120% of base
+    const fallSpeed = baseFallSpeed * speedVariation;
     const fallDuration = ((this.scale.height + bannerH + 100) / fallSpeed) * 1000;
     this.tweens.add({
       targets: container,
@@ -372,9 +384,7 @@ export default class AirplaneScene extends BaseEngine {
       // Speed ramp every 4 catches
       if (this.catches % 4 === 0) {
         this.speedMultiplier = Math.min(2.5, this.speedMultiplier + 0.2);
-        // NO zoomPunch — cam.zoomTo corrupts camera tween state → freeze
-        this.juice.flash(this.theme.warning, 0.3, 200);
-        this.juice.scorePopup(this.scale.width / 2, 200, '⚡ SPEED UP!', this.theme.warning);
+        this.juice.zoomPunch(1.05, 250);
       }
       // Advance prompt to next term
       const remaining = this.terms.filter(t => t.id !== this.activePrompt!.id);

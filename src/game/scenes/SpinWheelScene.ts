@@ -116,7 +116,7 @@ export default class SpinWheelScene extends BaseEngine {
         alpha: { from: 1, to: 0.3 },
         duration: 400 + i * 30,
         yoyo: true,
-        repeat: 999,
+        repeat: -1,
         ease: 'Sine.inOut',
       });
     }
@@ -137,7 +137,7 @@ export default class SpinWheelScene extends BaseEngine {
     this.tweens.add({
       targets: this.pointer,
       y: wheelY - wheelRadius - 5,
-      duration: 600, yoyo: true, repeat: 999, ease: 'Sine.inOut',
+      duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut',
     });
 
     // ---- Spin button ----
@@ -166,9 +166,22 @@ export default class SpinWheelScene extends BaseEngine {
         const opt = btn.getData('opt') as { isCorrect: boolean; term: TermItem };
         const btnWorldY = 530 + (btn.getData('y') as number);
         if (opt && Math.abs(p.x - 400) < 160 && Math.abs(p.y - btnWorldY) < 25) {
-          // ESL: speak the definition before answering
-          audioBus.speak(opt.term.definition ?? opt.term.term);
-          this.selectOption(opt.isCorrect, opt.term, btn);
+          // ESL FIX (user feedback): "should have the statement vocalized along
+          // with other two statements in order for correct choice to be made".
+          // TAP ONCE = hear the definition spoken. TAP TWICE = confirm answer.
+          const wasHeard = btn.getData('heard') as boolean;
+          if (!wasHeard) {
+            // First tap: speak the definition, highlight this option as "heard"
+            btn.setData('heard', true);
+            audioBus.speak(opt.term.definition ?? opt.term.term);
+            const bg = btn.getAt(0) as Phaser.GameObjects.Rectangle;
+            bg.setStrokeStyle(3, this.theme.warning, 1);
+            this.juice.scorePopup(btn.x + 400, btnWorldY, '🔊 Tap again to choose', this.theme.warning);
+          } else {
+            // Second tap: confirm answer
+            audioBus.speak(opt.term.definition ?? opt.term.term);
+            this.selectOption(opt.isCorrect, opt.term, btn);
+          }
         }
       });
     });
@@ -293,22 +306,7 @@ export default class SpinWheelScene extends BaseEngine {
     const bg = btn.getAt(0) as Phaser.GameObjects.Rectangle;
     bg.setFillStyle(isCorrect ? this.theme.success : this.theme.danger, 1);
 
-    // FEEDBACK: Flash "Correct!" or "Try again!" so the user knows the result
-    const feedbackMsg = isCorrect ? '✅ Correct!' : '❌ Try again!';
-    const feedbackColor = isCorrect ? this.theme.success : this.theme.danger;
-    this.juice.scorePopup(this.scale.width / 2, this.scale.height / 2 - 40, feedbackMsg, feedbackColor);
-    this.juice.flash(feedbackColor, 0.3, 250);
-    if (isCorrect) {
-      audioBus.play('correct');
-      audioBus.speak(`Correct! ${this.landedTerm!.term}`);
-      this.juice.burst(btn.x, btn.y, 'correct');
-    } else {
-      audioBus.play('incorrect');
-      audioBus.speak('Try again!');
-      this.juice.shake('light');
-    }
-
-    this.time.delayedCall(1200, () => {
+    this.time.delayedCall(800, () => {
       // Reset for next spin
       this.promptText.setText('🎡 Spin the Wheel!');
       this.answerButtons.forEach(b => b.destroy());

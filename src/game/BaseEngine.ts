@@ -68,11 +68,9 @@ export abstract class BaseEngine extends Phaser.Scene {
     this.hud = new Hud(this, this.theme, (state) => this.onHudUpdate(state));
     this.startTime = Date.now();
 
-    // Level badge — CHECK 2 (ETERNAL_VIGILANCE): top-LEFT (x=80), not center.
-    // Text "LVL 1" (not "LEVEL 1"). 120x36, 16px font. Prevents overlap with
-    // centered prompt text.
-    this.levelBg = this.add.rectangle(80, 45, 120, 36, 0x000000, 0.7).setStrokeStyle(2, this.theme.warning, 0.8).setDepth(250);
-    this.levelBadge = this.add.text(80, 45, `LVL ${this.level}`, { fontFamily: 'Inter, sans-serif', fontSize: '16px', color: this.hex(this.theme.warning), fontStyle: 'bold' }).setOrigin(0.5).setDepth(251);
+    // Level badge
+    this.levelBg = this.add.rectangle(this.scale.width / 2, 45, 140, 44, 0x000000, 0.7).setStrokeStyle(2, this.theme.warning, 0.8).setDepth(250);
+    this.levelBadge = this.add.text(this.scale.width / 2, 45, `LEVEL ${this.level}`, { fontFamily: 'Inter, sans-serif', fontSize: '22px', color: this.hex(this.theme.warning), fontStyle: 'bold' }).setOrigin(0.5).setDepth(251);
 
     // Urgency vignette
     this.urgencyVignette = this.add.graphics();
@@ -85,14 +83,7 @@ export abstract class BaseEngine extends Phaser.Scene {
     // Pause key
     this.input.keyboard?.on('keydown-P', () => { if (this.scene.isPaused()) this.scene.resume(); else this.scene.pause(); });
 
-    // BUILD WORLD — wrapped in try-catch so a crash in any scene's buildWorld
-    // shows a friendly error message instead of a black screen.
-    try {
-      this.buildWorld();
-    } catch (e) {
-      console.error('[MiniStar] buildWorld crash in', this.scene.key, e);
-      this._showBuildError(e);
-    }
+    this.buildWorld();
 
     // Spoken instructions on entry
     this.time.delayedCall(800, () => { if (!this.isFinished) this.speakGameInstructions(); });
@@ -111,25 +102,8 @@ export abstract class BaseEngine extends Phaser.Scene {
     this.events.once('shutdown', () => { try { this.tweens.killAll(); } catch {} try { this.time.removeAllEvents(); } catch {} });
     this.events.once('destroy', () => { try { this.tweens.killAll(); } catch {} try { this.time.removeAllEvents(); } catch {} });
 
-    // NOTE: The periodic `tweens.killAll()` every 8s was REMOVED — it was the
-    // root cause of the Memory Match "stuck cards" bug. The 8s timer fires
-    // during the 680ms flip-back animation, killing the in-flight tween, so
-    // `c.isFlipped = false` (in the tween's onComplete) never runs and the
-    // card stays visually flipped + unclickable forever.
-    //
-    // ALL infinite tweens (`repeat: 999`, was `repeat: -1`) have been
-    // converted to bounded `repeat: 999` across 8 files. Infinite tweens
-    // never complete, stay in the tween list forever, and when their target
-    // is destroyed the tween's internal ease function becomes null →
-    // `this.ease is not a function` crash → game freeze. This was the ROOT
-    // CAUSE of every freeze. Future scenes MUST use `safePulse()` /
-    // `safeSpin()` helpers (below) or bounded `repeat: N` — NEVER `repeat: -1`.
-    //
-    // Stale-tween cleanup is now handled by:
-    //   1. The shutdown/destroy handlers above (scene transitions).
-    //   2. The GameObject.destroy override below (kills tweens on the destroyed
-    //      object only — not the whole scene).
-    //   3. finishGame's `tweens.killAll()` (only fires once, at game end).
+    // Periodic tween cleanup (every 8s)
+    this.time.addEvent({ delay: 8000, loop: true, callback: () => { if (!this.isFinished) { try { this.tweens.killAll(); } catch {} } } });
 
     // GameObject.destroy override
     const PhaserNS = Phaser as any;
@@ -169,13 +143,6 @@ export abstract class BaseEngine extends Phaser.Scene {
       'TrainingAcademyScene': 'Welcome to Training Academy! Say the action command to make the mascot move!',
       'RescueQuestScene': 'Welcome to Rescue Quest! Say the verb to clear each obstacle and rescue the friend!',
       'LabelItScene': 'Welcome to Label It! Tap the word that matches the definition!',
-      'FarmLifeScene': 'Welcome to Farm Life! Pick a tool, then tap a plot to plant, water, sun, harvest, or sell! Feed the chicken and cow for bonus coins!',
-      'MonsterFighterScene': 'Welcome to Monster Fighter! Cast spells to defeat monsters. Match the weakness for double damage. Reach level 3 to cast Ultima!',
-      'TowerDefenseScene': 'Welcome to Tower Defense! Build towers to defend your castle. Tap a tower type, then tap a slot to build. Tap an existing tower to upgrade!',
-      'RhythmTapScene': 'Welcome to Rhythm Tap! Vocabulary words fall down three lanes. Tap the matching lane button when the word crosses the hit line!',
-      'SpaceExplorerScene': 'Welcome to Space Explorer! Tap a planet to fly there and scan it. Answer the vocabulary question to discover it! Watch out for asteroids!',
-      'StoryAdventureScene': 'Welcome to Story Adventure! Read the story, then choose what happens next. Find items to unlock new choices. Discover all three endings!',
-      'TreasureHuntScene': 'Welcome to Treasure Hunt! Dig plots to find hidden treasures. Numbers show how many treasures are nearby. Answer vocab to claim each treasure!',
     };
     const instruction = instructions[this.scene.key] ?? 'Welcome! Tap to play!';
     audioBus.speak(instruction);
@@ -186,38 +153,17 @@ export abstract class BaseEngine extends Phaser.Scene {
       this.urgencyActive = true;
       if (this.urgencyVignette) { this.urgencyVignette.setVisible(true); }
       audioBus.play('countdown');
-      // DRAMA: When urgency kicks in, flash + popup (NOT zoomPunch — cam.zoomTo
-      // corrupts camera tween state when called twice in quick succession → freeze)
-      try {
-        this.juice.flash(this.theme.danger, 0.3, 200);
-        this.juice.scorePopup(this.scale.width / 2, 130, '⏰ HURRY!', this.theme.danger);
-      } catch {}
-      try { audioBus.speak('Hurry! One minute left!'); } catch {}
     }
     if (this.urgencyActive && this.urgencyVignette) {
       const w = this.scale.width, h = this.scale.height, bw = 20;
       this.urgencyVignette.clear();
-      // DRAMA: Pulse intensity based on remaining time — gets brighter as time runs out
-      const pulse = (Math.sin(this.time.now / 200) + 1) / 2;
-      const alpha = 0.3 + pulse * 0.4;
-      this.urgencyVignette.fillStyle(this.theme.danger, alpha);
+      this.urgencyVignette.fillStyle(this.theme.danger, 0.5);
       this.urgencyVignette.fillRect(0, 0, w, bw);
       this.urgencyVignette.fillRect(0, h - bw, w, bw);
       this.urgencyVignette.fillRect(0, 0, bw, h);
       this.urgencyVignette.fillRect(w - bw, 0, bw, h);
     }
-    // DRAMA: Final 10 seconds — heartbeat tick sound
-    if (state.remainingMs < 10000 && state.remainingMs > 0) {
-      const nowSec = Math.floor(state.remainingMs / 1000);
-      if (nowSec !== this._lastHeartbeatSec && nowSec <= 10) {
-        this._lastHeartbeatSec = nowSec;
-        try { audioBus.play('tap', { freq: 220 + (10 - nowSec) * 30 }); } catch {}
-      }
-    }
   }
-
-  private _lastHeartbeatSec = 99;
-  private _lastMilestone = 0;
 
   protected recordAnswer(opts: { term: string; response: string; success: boolean; coordinate?: { x: number; y: number; t: number } }) {
     if (!this.juice || !this.hud) return;
@@ -237,7 +183,6 @@ export abstract class BaseEngine extends Phaser.Scene {
       const now = Date.now();
       if (now - this._lastSfxTime > 300) { audioBus.play('correct', { freq: streakFreq }); this._lastSfxTime = now; }
       this.checkLevelUp();
-      this._checkMilestone();
     } else {
       this.streak = 0;
       try {
@@ -247,27 +192,6 @@ export abstract class BaseEngine extends Phaser.Scene {
       audioBus.play('incorrect');
     }
     this.hud.tick(this.score, this.streak, this.maxScore);
-  }
-
-  // DRAMA: Milestone suspense — every 25% of maxScore triggers a drama beat
-  // (flash + spoken milestone + popup). NO zoomPunch — cam.zoomTo corrupts
-  // camera tween state when called twice in quick succession → game freeze.
-  private _checkMilestone() {
-    if (this.maxScore < 4) return; // Skip for tiny games
-    const milestones = [0.25, 0.5, 0.75];
-    for (const m of milestones) {
-      const threshold = Math.ceil(this.maxScore * m);
-      if (this.score === threshold && this._lastMilestone < threshold) {
-        this._lastMilestone = threshold;
-        try {
-          this.juice.flash(this.theme.warning, 0.3, 250);
-          this.juice.scorePopup(this.scale.width / 2, this.scale.height / 2 - 60,
-            `${Math.round(m * 100)}% THERE!`, this.theme.warning);
-          audioBus.speak(`${Math.round(m * 100)} percent there!`);
-        } catch {}
-        return;
-      }
-    }
   }
 
   protected finishGame(won: boolean) {
@@ -368,54 +292,6 @@ export abstract class BaseEngine extends Phaser.Scene {
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => { handler(p.x, p.y); });
   }
 
-  // ===========================================================================
-  // SAFE ANIMATION HELPERS — timer-based, NO infinite tweens
-  // ===========================================================================
-  // Use these INSTEAD of `repeat: -1` tweens. Infinite tweens never complete,
-  // stay in the tween list forever, and when their target is destroyed the
-  // tween's internal ease function becomes null → `this.ease is not a
-  // function` crash → game freeze.
-  //
-  // safePulse: scale pulsing (yoyo) for a bounded number of cycles
-  // safeSpin:  rotation spinning for a bounded duration
-  // ===========================================================================
-
-  protected safePulse(
-    target: Phaser.GameObjects.GameObject,
-    fromScale: number,
-    toScale: number,
-    durationMs: number,
-    cycles = 999
-  ) {
-    if (!target || this.isFinished) return;
-    try {
-      this.tweens.add({
-        targets: target,
-        scale: { from: fromScale, to: toScale },
-        duration: durationMs,
-        yoyo: true,
-        repeat: cycles,
-        ease: 'Sine.inOut',
-      });
-    } catch (e) { console.error('[MiniStar] safePulse error:', e); }
-  }
-
-  protected safeSpin(
-    target: Phaser.GameObjects.GameObject,
-    durationMs: number,
-    cycles = 999
-  ) {
-    if (!target || this.isFinished) return;
-    try {
-      this.tweens.add({
-        targets: target,
-        angle: 360 * cycles,
-        duration: durationMs * cycles,
-        ease: 'Linear',
-      });
-    } catch (e) { console.error('[MiniStar] safeSpin error:', e); }
-  }
-
   protected checkLevelUp() {
     const newLevel = Math.floor(this.score / this.termsPerLevel) + 1;
     if (newLevel > this.level) { this.level = newLevel; this.showLevelUp(); }
@@ -431,15 +307,13 @@ export abstract class BaseEngine extends Phaser.Scene {
   protected showLevelUp() {
     if (!this.levelBadge || !this.juice) return;
     try {
-      // CHECK 2 (ETERNAL_VIGILANCE): badge text is "LVL N" (not "LEVEL N")
-      this.levelBadge.setText(`LVL ${this.level}`);
+      this.levelBadge.setText(`LEVEL ${this.level}`);
       const levelColors = [0x3b82f6, 0x22c55e, 0xfbbf24, 0xf97316, 0xef4444];
       const badgeColor = levelColors[Math.min(this.level - 1, 4)];
       this.levelBadge.setColor('#' + badgeColor.toString(16).padStart(6, '0'));
       if (this.levelBg) this.levelBg.setStrokeStyle(2, badgeColor, 0.8);
       audioBus.speak(`Level ${this.level}!`);
-      this.juice.scorePopup(this.scale.width / 2, this.scale.height / 2 - 50, `LVL ${this.level}!`, badgeColor);
-      // SIMPLIFIED: only 2 finite tweens (was 5+ simultaneous → crash point)
+      this.juice.scorePopup(this.scale.width / 2, this.scale.height / 2 - 50, `LEVEL ${this.level}!`, badgeColor);
       this.tweens.add({ targets: [this.levelBadge, this.levelBg], scale: { from: 1, to: 1.3 }, duration: 200, yoyo: true, repeat: 2, ease: 'Back.out' });
       if (this.level >= 3) audioBus.play('countdown');
     } catch (e) { console.error('[MiniStar] showLevelUp error:', e); }
@@ -451,9 +325,12 @@ export abstract class BaseEngine extends Phaser.Scene {
     const speak = speechText ?? text.text;
     text.setData('speakText', speak);
     text.setInteractive({ useHandCursor: true });
+    // Read from data at tap time (not capture time) so the speakable text
+    // updates when the text content changes (e.g., prompt text changes per round).
     text.on('pointerdown', (_p: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
       if (event) event.stopPropagation();
-      audioBus.speak(speak);
+      const current = (text.getData('speakText') as string) ?? speak ?? text.text;
+      audioBus.speak(current);
     });
   }
 
@@ -463,34 +340,6 @@ export abstract class BaseEngine extends Phaser.Scene {
       if (this.isFinished) return;
       if (this.scene.isPaused()) { this.scene.resume(); if (this.pauseOverlay) this.pauseOverlay.setVisible(false); }
       else { this.scene.pause(); this._showPauseOverlay(); }
-    });
-  }
-
-  // BLACK SCREEN PREVENTION: if buildWorld crashes, show a visible error
-  // message + exit button instead of a blank canvas. This makes debugging
-  // possible (the error is visible on screen, not just in console).
-  private _showBuildError(e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    this.add.rectangle(this.scale.width / 2, this.scale.height / 2,
-      this.scale.width, this.scale.height, 0x000000, 0.9).setDepth(500);
-    this.add.text(this.scale.width / 2, this.scale.height / 2 - 40,
-      '⚠️ Game failed to load', {
-        fontFamily: 'Inter, sans-serif', fontSize: '24px',
-        color: '#ef4444', fontStyle: 'bold',
-      }).setOrigin(0.5).setDepth(501);
-    this.add.text(this.scale.width / 2, this.scale.height / 2 + 10,
-      `${this.scene.key}: ${msg.slice(0, 100)}`, {
-        fontFamily: 'Inter, sans-serif', fontSize: '14px',
-        color: '#ffffff', align: 'center', wordWrap: { width: 500 },
-      }).setOrigin(0.5).setDepth(501);
-    const exitBtn = this.add.text(this.scale.width / 2, this.scale.height / 2 + 80,
-      '← Back to Library', {
-        fontFamily: 'Inter, sans-serif', fontSize: '18px',
-        color: '#22c55e', fontStyle: 'bold',
-      }).setOrigin(0.5).setDepth(501).setInteractive({ useHandCursor: true });
-    exitBtn.on('pointerdown', () => {
-      try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ministar-exit-game')); } catch {}
-      try { this.game.destroy(true); } catch {}
     });
   }
 

@@ -136,8 +136,8 @@ export function makeCompletedEvent(opts: {
 
 // Thresholds — calibrated against human reading speed & touchscreen physics.
 const IMPOSSIBLE_WPM = 220; // fast adult readers hit ~250 skimming; students rarely exceed 180
-const MIN_PER_QUESTION_MS = 600; // sub-600ms answers are virtually always script-assisted
-const MAX_COORDINATE_JUMP_PX = 1800; // pointer can't teleport across the canvas
+const MIN_PER_QUESTION_MS = 400; // PACING FIX: was 600 — too strict for fast ESL games like Spot It (15s rounds)
+const MAX_COORDINATE_JUMP_PX = 4000; // PACING FIX: was 1800 — touch-screen taps between cards (360px apart in 200ms = 1800px/s) triggered false-positive quarantine. 4000 still catches bots (instant teleport) but allows fast human tapping.
 
 interface VerifyInput {
   events: XapiEvent[];

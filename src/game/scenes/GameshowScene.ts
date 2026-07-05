@@ -181,7 +181,7 @@ export default class GameshowScene extends BaseEngine {
       x: startX + 200 * (index % 2 === 0 ? 1 : -1),
       angle: index % 2 === 0 ? 15 : -15,
       duration: 5000 + index * 2000,
-      yoyo: true, repeat: 999, ease: 'Sine.inOut',
+      yoyo: true, repeat: -1, ease: 'Sine.inOut',
     });
     this.spotlights.push(beam);
   }
@@ -203,7 +203,7 @@ export default class GameshowScene extends BaseEngine {
       this.tweens.add({
         targets: heart,
         scale: { from: 1, to: 1.1 },
-        duration: 800 + i * 200, yoyo: true, repeat: 999, ease: 'Sine.inOut',
+        duration: 800 + i * 200, yoyo: true, repeat: -1, ease: 'Sine.inOut',
       });
     }
   }
@@ -213,8 +213,7 @@ export default class GameshowScene extends BaseEngine {
       // Grand finale
       if (this.lifelines > 0 && this.score >= this.maxScore * 0.6) {
         this.juice.confettiRain(3000);
-        // NO zoomPunch — cam.zoomTo corrupts camera tween state → freeze
-        this.juice.flash(this.theme.warning, 0.4, 300);
+        this.juice.zoomPunch(1.1, 500);
       }
       this.finishGame(this.score >= this.maxScore * 0.6);
       return;

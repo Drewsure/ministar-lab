@@ -39,7 +39,7 @@ export default class RescueQuestScene extends BaseEngine {
 
     this.hero = this.add.text(this.heroX, 400, '🦸', { fontSize: '48px' }).setOrigin(0.5).setDepth(100);
     this.target = this.add.text(this.scale.width - 80, 400, '🐰', { fontSize: '48px' }).setOrigin(0.5).setDepth(100);
-    this.tweens.add({ targets: this.target, scale: { from: 1, to: 1.15 }, duration: 800, yoyo: true, repeat: 999, ease: 'Sine.inOut' });
+    this.tweens.add({ targets: this.target, scale: { from: 1, to: 1.15 }, duration: 800, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
 
     this.statusText = this.add.text(this.scale.width / 2, this.scale.height - 140, '', {
       fontFamily: 'Inter, sans-serif', fontSize: '18px', color: this.hex(this.theme.warning), fontStyle: 'bold',
@@ -86,7 +86,7 @@ export default class RescueQuestScene extends BaseEngine {
     this.heardText.setText('');
     this.obstacles.forEach((o, i) => {
       o.label.setAlpha(i === this.currentObstacleIdx ? 1 : 0);
-      if (i === this.currentObstacleIdx) this.tweens.add({ targets: o.text, scale: { from: 1, to: 1.2 }, duration: 500, yoyo: true, repeat: 999, ease: 'Sine.inOut' });
+      if (i === this.currentObstacleIdx) this.tweens.add({ targets: o.text, scale: { from: 1, to: 1.2 }, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     });
     audioBus.speak(`Say ${obs.command} to ${labelText.toLowerCase()}`);
   }

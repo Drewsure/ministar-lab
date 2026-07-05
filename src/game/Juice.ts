@@ -1139,25 +1139,25 @@ export class MascotController {
     switch (s) {
       case 'idle':
         this.currentTween = this.scene.tweens.add({
-          targets: sp, y: '-=6', duration: 900, yoyo: true, repeat: 999, ease: 'Sine.inOut',
+          targets: sp, y: '-=6', duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut',
         });
         break;
       case 'hype':
         audioBus.play('streak');
         this.currentTween = this.scene.tweens.add({
-          targets: sp, scale: 1.6, y: '-=20', duration: 180, yoyo: true, repeat: 999, ease: 'Quad.out',
+          targets: sp, scale: 1.6, y: '-=20', duration: 180, yoyo: true, repeat: -1, ease: 'Quad.out',
         });
         this.secondaryTween = this.scene.tweens.add({
-          targets: sp, angle: 12, duration: 90, yoyo: true, repeat: 999,
+          targets: sp, angle: 12, duration: 90, yoyo: true, repeat: -1,
         });
         this.stateTimer = this.scene.time.delayedCall(4000, () => this.setState('idle'));
         break;
       case 'urgent':
         this.currentTween = this.scene.tweens.add({
-          targets: sp, x: '+=4', duration: 60, yoyo: true, repeat: 999,
+          targets: sp, x: '+=4', duration: 60, yoyo: true, repeat: -1,
         });
         this.secondaryTween = this.scene.tweens.add({
-          targets: sp, alpha: 0.6, duration: 200, yoyo: true, repeat: 999,
+          targets: sp, alpha: 0.6, duration: 200, yoyo: true, repeat: -1,
         });
         break;
       case 'celebrate':
@@ -1171,7 +1171,7 @@ export class MascotController {
       case 'sad':
         audioBus.play('lose');
         this.currentTween = this.scene.tweens.add({
-          targets: sp, y: '+=8', angle: -10, duration: 400, yoyo: true, repeat: 999, ease: 'Sine.inOut',
+          targets: sp, y: '+=8', angle: -10, duration: 400, yoyo: true, repeat: -1, ease: 'Sine.inOut',
         });
         this.stateTimer = this.scene.time.delayedCall(3000, () => this.setState('idle'));
         break;

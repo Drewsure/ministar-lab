@@ -15,15 +15,13 @@ export default class SnakingScene extends BaseEngine {
   private nextDirection = { x: 1, y: 0 };
   private gridStep = 30;
   private moveTimer = 0;
-  private moveInterval = 350; // PACING FIX: slower start (was 250ms — too twitchy)
+  private moveInterval = 250;
   private currentPrompt?: TermItem;
   private promptText!: Phaser.GameObjects.Text;
   private promptBg!: Phaser.GameObjects.Rectangle;
   private lengthText!: Phaser.GameObjects.Text;
   private isMoving = false;
   private startHint?: Phaser.GameObjects.Text;
-  private lives = 3; // PACING FIX: 3 lives — wall hit doesn't end game instantly
-  private livesText!: Phaser.GameObjects.Text;
 
   protected maxQuestions() { return Math.min(this.terms.length, 10); }
 
@@ -41,15 +39,11 @@ export default class SnakingScene extends BaseEngine {
     this.lengthText = this.add.text(20, 190, 'Length: 3', {
       fontFamily: 'Inter, sans-serif', fontSize: '16px', color: this.hex(this.theme.warning), fontStyle: 'bold',
     }).setDepth(50);
-    // PACING FIX: Lives display — wall hit loses a life, not instant game over
-    this.livesText = this.add.text(this.scale.width - 20, 190, '❤️❤️❤️', {
-      fontFamily: 'Inter, sans-serif', fontSize: '16px', color: this.hex(this.theme.danger), fontStyle: 'bold',
-    }).setOrigin(1, 0).setDepth(50);
 
     this.startHint = this.add.text(this.scale.width / 2, this.scale.height / 2 + 80, 'Tap arrow keys or swipe to start!', {
       fontFamily: 'Inter, sans-serif', fontSize: '16px', color: this.hex(this.theme.warning),
     }).setOrigin(0.5).setDepth(50).setAlpha(0);
-    this.tweens.add({ targets: this.startHint, alpha: { from: 0.4, to: 1 }, duration: 800, yoyo: true, repeat: 999 });
+    this.tweens.add({ targets: this.startHint, alpha: { from: 0.4, to: 1 }, duration: 800, yoyo: true, repeat: -1 });
 
     const startX = 120;
     const startY = Math.floor(this.scale.height / 2 / this.gridStep) * this.gridStep;
@@ -89,38 +83,8 @@ export default class SnakingScene extends BaseEngine {
     const head = this.snake[0];
     const newX = head.x + this.direction.x * this.gridStep;
     const newY = head.y + this.direction.y * this.gridStep;
-    // PACING FIX: Wall hit loses a life + resets snake to center, NOT instant game over.
-    // Only game-over when out of lives. Makes the game playable for kids.
-    if (newX < 20 || newX > this.scale.width - 20 || newY < 220 || newY > this.scale.height - 20) {
-      this.lives--;
-      this._updateLives();
-      this.juice.shake('medium');
-      this.juice.flash(this.theme.danger, 0.3, 200);
-      audioBus.play('incorrect');
-      if (this.lives <= 0) { this.finishGame(false); return; }
-      // Reset snake to center, keep direction
-      const cx = Math.floor((this.scale.width / 2) / this.gridStep) * this.gridStep;
-      const cy = Math.floor((this.scale.height / 2) / this.gridStep) * this.gridStep;
-      this.snake.forEach(s => s.text.destroy());
-      this.snake = [];
-      for (let i = 0; i < 3; i++) {
-        this.snake.push({ x: cx - i * this.gridStep, y: cy,
-          text: this.add.text(cx - i * this.gridStep, cy, i === 0 ? '🐶' : '🟪', { fontSize: '24px' }).setOrigin(0.5).setDepth(100) });
-      }
-      this.direction = { x: 1, y: 0 };
-      this.nextDirection = { x: 1, y: 0 };
-      return;
-    }
-    // Self-collision = lose a life too (not instant game over)
-    for (let i = 1; i < this.snake.length; i++) {
-      if (this.snake[i].x === newX && this.snake[i].y === newY) {
-        this.lives--;
-        this._updateLives();
-        this.juice.shake('medium');
-        if (this.lives <= 0) { this.finishGame(false); return; }
-        return;
-      }
-    }
+    if (newX < 20 || newX > this.scale.width - 20 || newY < 220 || newY > this.scale.height - 20) { this.finishGame(false); return; }
+    for (let i = 1; i < this.snake.length; i++) { if (this.snake[i].x === newX && this.snake[i].y === newY) { this.finishGame(false); return; } }
 
     let ateFood: FoodItem | null = null;
     for (const food of this.foods) { if (Phaser.Math.Distance.Between(newX, newY, food.x, food.y) < 25) { ateFood = food; break; } }
@@ -131,12 +95,6 @@ export default class SnakingScene extends BaseEngine {
     if (ateFood) this.handleEat(ateFood);
     else { const tail = this.snake.pop(); if (tail) tail.text.destroy(); }
     this.lengthText.setText(`Length: ${this.snake.length}`);
-  }
-
-  private _updateLives() {
-    if (!this.livesText) return;
-    const hearts = '❤️'.repeat(Math.max(0, this.lives)) + '🖤'.repeat(Math.max(0, 3 - this.lives));
-    this.livesText.setText(hearts);
   }
 
   private spawnFood() {
@@ -155,7 +113,14 @@ export default class SnakingScene extends BaseEngine {
         fontFamily: 'Inter, sans-serif', fontSize: '16px', color: this.hex(this.theme.text), fontStyle: 'bold',
         backgroundColor: '#' + this.theme.card.toString(16).padStart(6, '0'), padding: { x: 10, y: 6 },
       }).setOrigin(0.5).setDepth(50);
+      // ESL FIX: Make food text tappable to hear the word spoken.
+      // Use a LOCAL handler (NOT makeSpeakable) so we DON'T stopPropagation —
+      // the global pointer handler still changes snake direction.
       txt.setData('speakText', term.term);
+      txt.setInteractive({ useHandCursor: true });
+      txt.on('pointerdown', () => {
+        audioBus.speak(term.term);
+      });
       this.foods.push({ term, isCorrect: term.id === this.currentPrompt!.id, text: txt, x: gx, y: gy });
     });
   }
