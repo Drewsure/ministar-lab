@@ -34,6 +34,7 @@ const SCENE_IMPORTS: Record<string, () => Promise<{ default: any }>> = {
   'snaking':         () => import('@/game/scenes/SnakingScene'),
   'training-academy':() => import('@/game/scenes/TrainingAcademyScene'),
   'rescue-quest':    () => import('@/game/scenes/RescueQuestScene'),
+  'star-farm':       () => import('@/game/scenes/StarFarmScene'),
 };
 
 const SCENE_KEY_BY_MODE: Record<string, string> = {
@@ -61,6 +62,7 @@ const SCENE_KEY_BY_MODE: Record<string, string> = {
   'snaking':         'SnakingScene',
   'training-academy':'TrainingAcademyScene',
   'rescue-quest':    'RescueQuestScene',
+  'star-farm':       'StarFarmScene',
 };
 
 interface GameCanvasProps {

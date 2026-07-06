@@ -248,6 +248,16 @@ export const GAME_MODES: GameModeMeta[] = [
     maxTerms: 6,
     accent: '#ef4444',
   },
+  {
+    id: 'star-farm',
+    name: 'Star Farm',
+    engine: 'Selection',
+    description: 'Complete Stardew-style farming sim! Till, water, plant, harvest crops. Day/night cycle, NPCs, shop, quests, save/load. Learn farming vocabulary!',
+    emoji: '🌾',
+    minTerms: 4,
+    maxTerms: 12,
+    accent: '#22c55e',
+  },
 ];
 
 export function getGameMode(id: GameModeId): GameModeMeta {

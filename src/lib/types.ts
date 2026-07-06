@@ -102,7 +102,8 @@ export type GameModeId =
   | 'physics-puzzler'
   | 'snaking'
   | 'training-academy'
-  | 'rescue-quest';
+  | 'rescue-quest'
+  | 'star-farm';
 
 export interface GameModeMeta {
   id: GameModeId;

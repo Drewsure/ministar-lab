@@ -143,6 +143,7 @@ export abstract class BaseEngine extends Phaser.Scene {
       'TrainingAcademyScene': 'Welcome to Training Academy! Say the action command to make the mascot move!',
       'RescueQuestScene': 'Welcome to Rescue Quest! Say the verb to clear each obstacle and rescue the friend!',
       'LabelItScene': 'Welcome to Label It! Tap the word that matches the definition!',
+      'StarFarmScene': 'Welcome to Star Farm! A complete farming adventure! Tap the hoe, then tap a tile to till soil. Water it, plant seeds, and harvest crops! Visit the shop to buy seeds and sell crops. Sleep to restore energy. Your farm saves automatically!',
     };
     const instruction = instructions[this.scene.key] ?? 'Welcome! Tap to play!';
     audioBus.speak(instruction);
