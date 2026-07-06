@@ -154,6 +154,21 @@ export default class StarFarmScene extends BaseEngine {
   private gridOffsetX = 0;
   private gridOffsetY = 0;
 
+  // Player character (walking farmer)
+  private playerEmoji!: Phaser.GameObjects.Text;
+  private playerX = 0;
+  private playerY = 0;
+  private playerTargetX = 0;
+  private playerTargetY = 0;
+  private playerMoving = false;
+  private playerDir: 'down' | 'up' | 'left' | 'right' = 'down';
+  private walkAnimTimer?: Phaser.Time.TimerEvent;
+
+  // Animation effects
+  private rainEmitter?: Phaser.GameObjects.Particles.ParticleEmitter;
+  private sunMoon!: Phaser.GameObjects.Text;
+  private floatingTexts: Phaser.GameObjects.Text[] = [];
+
   // Player state
   private selectedTool: ToolType = 'hoe';
   private selectedCrop: CropType = 'parsnip';
@@ -303,6 +318,10 @@ export default class StarFarmScene extends BaseEngine {
     this._buildAnimals();
     this._buildToolBar();
     this._buildCropBar();
+    this._buildPlayer();
+    this._buildSunMoon();
+    this._buildRainEmitter();
+    this._startTreeSway();
 
     // Timers
     this.growthTimer = this.time.addEvent({
@@ -318,6 +337,25 @@ export default class StarFarmScene extends BaseEngine {
     this.setupGlobalPointer((x, y) => {
       if (this.shopOpen || this.fishingActive) return;
       this._handleTap(x, y);
+    });
+
+    // Keyboard movement (WASD + arrows)
+    if (this.input.keyboard) {
+      const kb = this.input.keyboard;
+      kb.on('keydown-LEFT', () => this._movePlayerBy(-30, 0));
+      kb.on('keydown-RIGHT', () => this._movePlayerBy(30, 0));
+      kb.on('keydown-UP', () => this._movePlayerBy(0, -30));
+      kb.on('keydown-DOWN', () => this._movePlayerBy(0, 30));
+      kb.on('keydown-A', () => this._movePlayerBy(-30, 0));
+      kb.on('keydown-D', () => this._movePlayerBy(30, 0));
+      kb.on('keydown-W', () => this._movePlayerBy(0, -30));
+      kb.on('keydown-S', () => this._movePlayerBy(0, 30));
+    }
+
+    // Animal wandering — every 8 seconds
+    this.time.addEvent({
+      delay: 8000, loop: true,
+      callback: () => this._animateAnimalWander(),
     });
 
     // Sleep + Save buttons
@@ -482,6 +520,231 @@ export default class StarFarmScene extends BaseEngine {
     this.cropButtons.forEach(btn => btn.setVisible(this.selectedTool === 'seed'));
   }
 
+  // ===========================================================================
+  // PLAYER CHARACTER + ANIMATIONS
+  // ===========================================================================
+  private _buildPlayer() {
+    // Start player at center of farm
+    this.playerX = this.gridOffsetX + this.TILE * 7;
+    this.playerY = this.gridOffsetY + this.TILE * 4;
+    this.playerTargetX = this.playerX;
+    this.playerTargetY = this.playerY;
+    this.playerEmoji = this.add.text(this.playerX, this.playerY, '🧑‍🌾', {
+      fontFamily: 'Inter, sans-serif', fontSize: '28px',
+    }).setOrigin(0.5).setDepth(100);
+    // Gentle idle bob
+    this.tweens.add({
+      targets: this.playerEmoji,
+      y: this.playerY - 3,
+      duration: 800, yoyo: true, repeat: 50, ease: 'Sine.inOut',
+    });
+  }
+
+  private _buildSunMoon() {
+    // Sun/moon that arcs across the sky based on dayProgress
+    this.sunMoon = this.add.text(this.scale.width / 2, 30, '☀️', {
+      fontSize: '24px',
+    }).setOrigin(0.5).setDepth(51);
+  }
+
+  private _buildRainEmitter() {
+    // Rain particle emitter (hidden by default, shown when weather=rainy)
+    const rainKey = 'particle-' + this.theme.id;
+    if (this.textures.exists(rainKey)) {
+      this.rainEmitter = this.add.particles(0, 0, rainKey, {
+        x: { min: 0, max: this.scale.width },
+        y: { min: -10, max: -10 },
+        lifespan: 1500,
+        speedY: { min: 200, max: 350 },
+        speedX: { min: -30, max: -10 },
+        scale: { start: 0.8, end: 0.3 },
+        alpha: { start: 0.6, end: 0.2 },
+        tint: 0x60a5fa,
+        quantity: 2,
+        frequency: 80,
+        emitting: false,
+      }).setDepth(150);
+    }
+  }
+
+  private _startTreeSway() {
+    // Gentle sway animation for all trees
+    for (let r = 0; r < this.GRID_H; r++) {
+      for (let c = 0; c < this.GRID_W; c++) {
+        const tile = this.grid[r][c];
+        if (tile.terrain === 'tree') {
+          this.tweens.add({
+            targets: tile.emoji,
+            angle: { from: -3, to: 3 },
+            duration: 1500 + Math.random() * 1000,
+            yoyo: true, repeat: 50, ease: 'Sine.inOut',
+            delay: Math.random() * 500,
+          });
+        }
+        // Water ripple — scale pulse on water tiles
+        if (tile.terrain === 'water') {
+          this.tweens.add({
+            targets: tile.emoji,
+            scale: { from: 0.9, to: 1.1 },
+            alpha: { from: 0.7, to: 1 },
+            duration: 2000 + Math.random() * 1000,
+            yoyo: true, repeat: 50, ease: 'Sine.inOut',
+            delay: Math.random() * 800,
+          });
+        }
+      }
+    }
+  }
+
+  private _movePlayerTo(tx: number, ty: number) {
+    this.playerTargetX = tx;
+    this.playerTargetY = ty;
+    if (!this.playerMoving) {
+      this.playerMoving = true;
+      this._walkAnim();
+    }
+  }
+
+  private _movePlayerBy(dx: number, dy: number) {
+    // Keyboard movement — move player by delta
+    this.playerX = Phaser.Math.Clamp(this.playerX + dx, 20, this.scale.width - 20);
+    this.playerY = Phaser.Math.Clamp(this.playerY + dy, 140, this.scale.height - 40);
+    this.playerTargetX = this.playerX;
+    this.playerTargetY = this.playerY;
+    this.playerEmoji.setPosition(this.playerX, this.playerY);
+    // Direction + walk bob
+    if (Math.abs(dx) > Math.abs(dy)) {
+      this.playerDir = dx > 0 ? 'right' : 'left';
+    } else {
+      this.playerDir = dy > 0 ? 'down' : 'up';
+    }
+    if (this.playerDir === 'left') this.playerEmoji.setFlipX(true);
+    else this.playerEmoji.setFlipX(false);
+    // Quick squash
+    this.tweens.add({
+      targets: this.playerEmoji,
+      scaleX: { from: 1.15, to: 1 }, scaleY: { from: 0.85, to: 1 },
+      duration: 100, ease: 'Quad.out',
+    });
+  }
+
+  private _walkAnim() {
+    // Walk loop — moves player toward target, plays step bob animation
+    const dx = this.playerTargetX - this.playerX;
+    const dy = this.playerTargetY - this.playerY;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 3) {
+      this.playerMoving = false;
+      this.playerEmoji.setScale(1);
+      return;
+    }
+    const speed = 120; // px per second
+    const step = Math.min(dist, speed * 0.05); // 50ms per frame
+    this.playerX += (dx / dist) * step;
+    this.playerY += (dy / dist) * step;
+    // Direction
+    if (Math.abs(dx) > Math.abs(dy)) {
+      this.playerDir = dx > 0 ? 'right' : 'left';
+    } else {
+      this.playerDir = dy > 0 ? 'down' : 'up';
+    }
+    // Walk bob — scale Y oscillation
+    const bob = Math.sin(Date.now() / 80) * 0.1;
+    this.playerEmoji.setScale(1 + bob * 0.5, 1 - bob);
+    this.playerEmoji.setPosition(this.playerX, this.playerY);
+    this.playerEmoji.setText(this.playerDir === 'up' ? '🧑‍🌾' : '🧑‍🌾');
+    // Flip for left/right
+    if (this.playerDir === 'left') this.playerEmoji.setFlipX(true);
+    else this.playerEmoji.setFlipX(false);
+    // Continue
+    this.walkAnimTimer = this.time.delayedCall(50, () => this._walkAnim());
+  }
+
+  private _floatText(text: string, x: number, y: number, color: number) {
+    const t = this.add.text(x, y, text, {
+      fontFamily: 'Inter, sans-serif', fontSize: '16px',
+      color: '#' + color.toString(16).padStart(6, '0'),
+      fontStyle: 'bold', stroke: '#000000', strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(200);
+    this.tweens.add({
+      targets: t,
+      y: y - 40, alpha: 0,
+      duration: 1000, ease: 'Cubic.out',
+      onComplete: () => t.destroy(),
+    });
+  }
+
+  private _swingToolAnimation(tool: ToolType, tile: Tile) {
+    // Tool swing — player scales + rotates briefly + particle burst at tile
+    const toolEmojis: Record<ToolType, string> = {
+      hoe: '⛏️', water: '💧', seed: '🌱', harvest: '🧺', axe: '🪓', pickaxe: '⛏️',
+    };
+    // Show tool emoji briefly above the tile
+    const toolFx = this.add.text(tile.x, tile.y - 20, toolEmojis[tool], {
+      fontSize: '24px',
+    }).setOrigin(0.5).setDepth(150).setAlpha(0);
+    this.tweens.add({
+      targets: toolFx,
+      alpha: 1, scale: { from: 0.5, to: 1.3 },
+      duration: 150, ease: 'Back.out',
+      yoyo: true,
+      onComplete: () => toolFx.destroy(),
+    });
+    // Player squash
+    this.tweens.add({
+      targets: this.playerEmoji,
+      scaleX: { from: 1.2, to: 1 }, scaleY: { from: 0.8, to: 1 },
+      duration: 200, ease: 'Back.out',
+    });
+    // Particle burst at tile
+    try {
+      this.juice.burst(tile.x, tile.y, tool === 'water' ? 'correct' : 'correct');
+    } catch {}
+  }
+
+  private _updateRainEmitter() {
+    if (this.rainEmitter) {
+      this.rainEmitter.emitting = (this.weather === 'rainy');
+    }
+  }
+
+  private _updateSunMoon() {
+    // Sun arcs across sky during day, moon at night
+    const t = this.dayProgress; // 0..1
+    const arcX = this.scale.width * t;
+    const arcY = 30 - Math.sin(t * Math.PI) * 20;
+    this.sunMoon.setPosition(arcX, arcY);
+    this.sunMoon.setText(t > 0.5 ? '🌙' : '☀️');
+  }
+
+  private _animateCropGrowth(tile: Tile, newStage: string) {
+    // Bounce + scale pulse when a crop advances to a new stage
+    this.tweens.add({
+      targets: tile.emoji,
+      scale: { from: 0.7, to: 1.15 }, duration: 250,
+      yoyo: true, ease: 'Back.out',
+    });
+    // Sparkle particle
+    try { this.juice.burst(tile.x, tile.y, 'correct'); } catch {}
+  }
+
+  private _animateAnimalWander() {
+    // Animals wander randomly every few seconds
+    for (const animal of this.animals) {
+      this.time.delayedCall(Phaser.Math.Between(2000, 5000), () => {
+        if (this.isFinished || !animal.text.active) return;
+        const wanderX = animal.x + Phaser.Math.Between(-30, 30);
+        const wanderY = animal.y + Phaser.Math.Between(-20, 20);
+        this.tweens.add({
+          targets: animal.text,
+          x: wanderX, y: wanderY,
+          duration: 2000, ease: 'Sine.inOut',
+          yoyo: true, repeat: 1,
+        });
+      });
+    }
+  }
+
   private _selectTool(t: ToolType) {
     this.selectedTool = t;
     audioBus.play('tap');
@@ -508,21 +771,23 @@ export default class StarFarmScene extends BaseEngine {
   // INPUT HANDLING
   // ===========================================================================
   private _handleTap(x: number, y: number) {
-    // NPCs
+    // NPCs — move player there, then open
     for (const npc of this.npcs) {
       if (Math.abs(x - npc.x) < 28 && Math.abs(y - npc.y) < 28) {
-        this._openNPC(npc);
+        this._movePlayerTo(npc.x, npc.y + 20);
+        this.time.delayedCall(800, () => this._openNPC(npc));
         return;
       }
     }
-    // Animals
+    // Animals — move player there, then interact
     for (const animal of this.animals) {
       if (Math.abs(x - animal.x) < 28 && Math.abs(y - animal.y) < 28) {
-        this._interactAnimal(animal);
+        this._movePlayerTo(animal.x, animal.y + 20);
+        this.time.delayedCall(800, () => this._interactAnimal(animal));
         return;
       }
     }
-    // Tool buttons
+    // Tool buttons (instant — no walking)
     const tools: ToolType[] = ['hoe', 'water', 'seed', 'harvest', 'axe', 'pickaxe'];
     for (let i = 0; i < this.toolButtons.length; i++) {
       const btn = this.toolButtons[i];
@@ -531,7 +796,7 @@ export default class StarFarmScene extends BaseEngine {
         return;
       }
     }
-    // Crop buttons
+    // Crop buttons (instant)
     if (this.selectedTool === 'seed') {
       const allCrops = Object.keys(CROPS) as CropType[];
       for (let i = 0; i < this.cropButtons.length; i++) {
@@ -545,12 +810,19 @@ export default class StarFarmScene extends BaseEngine {
         }
       }
     }
-    // Grid tiles
+    // Grid tiles — move player there, then use tool
     for (let r = 0; r < this.GRID_H; r++) {
       for (let c = 0; c < this.GRID_W; c++) {
         const tile = this.grid[r][c];
         if (Math.abs(x - tile.x) < this.TILE / 2 && Math.abs(y - tile.y) < this.TILE / 2) {
-          this._useTool(tile);
+          this._movePlayerTo(tile.x, tile.y);
+          // Use tool after player arrives (~800ms)
+          this.time.delayedCall(800, () => {
+            if (!this.isFinished) {
+              this._useTool(tile);
+              this._swingToolAnimation(this.selectedTool, tile);
+            }
+          });
           return;
         }
       }
@@ -853,12 +1125,15 @@ export default class StarFarmScene extends BaseEngine {
             tile.emoji.setText(crop.emoji);
             tile.bg.setFillStyle(this.theme.success, 0.4);
             this.juice.scorePopup(tile.x, tile.y - 25, 'Ready!', this.theme.success);
+            this._animateCropGrowth(tile, 'ready');
           } else if (tile.growth >= Math.ceil(crop.growTime * 0.6)) {
             tile.stage = 'growing';
             tile.emoji.setText('🌿');
+            this._animateCropGrowth(tile, 'growing');
           } else if (tile.growth >= 1) {
             tile.stage = 'sprout';
             tile.emoji.setText('🌱');
+            this._animateCropGrowth(tile, 'sprout');
           }
         }
       }
@@ -886,6 +1161,9 @@ export default class StarFarmScene extends BaseEngine {
       b = Math.floor(0xeb * (1 - k) + 0x4b * k);
     }
     this.skyRect.setFillStyle((r << 16) | (g << 8) | b, 1);
+    // Update sun/moon arc + rain
+    this._updateSunMoon();
+    this._updateRainEmitter();
   }
 
   private _endDay() {
