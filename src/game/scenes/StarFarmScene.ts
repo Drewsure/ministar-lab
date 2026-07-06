@@ -156,6 +156,8 @@ export default class StarFarmScene extends BaseEngine {
 
   // Player character (walking farmer)
   private playerEmoji!: Phaser.GameObjects.Text;
+  private playerSprite?: Phaser.GameObjects.Sprite;
+  private playerShadow?: Phaser.GameObjects.Ellipse;
   private playerX = 0;
   private playerY = 0;
   private playerTargetX = 0;
@@ -168,6 +170,7 @@ export default class StarFarmScene extends BaseEngine {
   private rainEmitter?: Phaser.GameObjects.Particles.ParticleEmitter;
   private sunMoon!: Phaser.GameObjects.Text;
   private floatingTexts: Phaser.GameObjects.Text[] = [];
+  private nightOverlay?: Phaser.GameObjects.Rectangle;
 
   // Player state
   private selectedTool: ToolType = 'hoe';
@@ -321,6 +324,7 @@ export default class StarFarmScene extends BaseEngine {
     this._buildPlayer();
     this._buildSunMoon();
     this._buildRainEmitter();
+    this._buildNightOverlay();
     this._startTreeSway();
 
     // Timers
@@ -529,15 +533,110 @@ export default class StarFarmScene extends BaseEngine {
     this.playerY = this.gridOffsetY + this.TILE * 4;
     this.playerTargetX = this.playerX;
     this.playerTargetY = this.playerY;
-    this.playerEmoji = this.add.text(this.playerX, this.playerY, '🧑‍🌾', {
-      fontFamily: 'Inter, sans-serif', fontSize: '28px',
-    }).setOrigin(0.5).setDepth(100);
-    // Gentle idle bob
+
+    // Generate procedural farmer sprite textures (walk cycle: 4 frames)
+    this._generatePlayerSprites();
+
+    // Shadow ellipse under player
+    this.playerShadow = this.add.ellipse(this.playerX, this.playerY + 14, 28, 10, 0x000000, 0.3)
+      .setDepth(99);
+
+    // Player sprite (uses generated texture)
+    this.playerSprite = this.add.sprite(this.playerX, this.playerY, 'farmer-down-0')
+      .setDepth(100).setScale(1.5);
+
+    // Keep emoji as fallback (hidden) for any code that references playerEmoji
+    this.playerEmoji = this.add.text(this.playerX, this.playerY, '', {
+      fontFamily: 'Inter, sans-serif', fontSize: '1px',
+    }).setOrigin(0.5).setDepth(100).setVisible(false);
+
+    // Idle bob
     this.tweens.add({
-      targets: this.playerEmoji,
+      targets: this.playerSprite,
       y: this.playerY - 3,
       duration: 800, yoyo: true, repeat: 50, ease: 'Sine.inOut',
     });
+
+    // Camera follows player smoothly
+    this.cameras.main.startFollow(this.playerSprite, true, 0.1, 0.1);
+    this.cameras.main.setZoom(1.0);
+  }
+
+  private _generatePlayerSprites() {
+    // Generate 4-direction × 2-frame walk cycle sprites procedurally
+    // (down, up, left, right — 2 frames each = 8 textures)
+    if (this.textures.exists('farmer-down-0')) return; // already generated
+
+    const dirs = ['down', 'up', 'left', 'right'];
+    for (const dir of dirs) {
+      for (let frame = 0; frame < 2; frame++) {
+        const key = `farmer-${dir}-${frame}`;
+        const g = this.add.graphics();
+
+        // Body (blue overalls)
+        g.fillStyle(0x2563eb, 1);
+        g.fillRoundedRect(-8, -2, 16, 14, 3);
+
+        // Head (skin tone)
+        g.fillStyle(0xfdbcb4, 1);
+        g.fillCircle(0, -10, 7);
+
+        // Hat (straw hat — brown)
+        g.fillStyle(0xd4a574, 1);
+        g.fillEllipse(0, -15, 20, 6);
+        g.fillStyle(0xc4955a, 1);
+        g.fillRect(-5, -18, 10, 4);
+
+        // Arms (skin tone)
+        g.fillStyle(0xfdbcb4, 1);
+        const armOffset = frame === 0 ? 0 : 2;
+        g.fillCircle(-9, 0 + armOffset, 3);
+        g.fillCircle(9, 0 - armOffset, 3);
+
+        // Legs (dark blue) — walk frame offset
+        g.fillStyle(0x1e40af, 1);
+        const legOffset = frame === 0 ? 0 : 2;
+        g.fillRect(-6, 10, 4, 6 + legOffset);
+        g.fillRect(2, 10, 4, 6 - legOffset);
+
+        // Direction-specific face details
+        if (dir === 'down') {
+          // Eyes
+          g.fillStyle(0x000000, 1);
+          g.fillCircle(-2, -10, 1);
+          g.fillCircle(2, -10, 1);
+        } else if (dir === 'up') {
+          // Back of head — no eyes, just hair
+          g.fillStyle(0x6b4423, 1);
+          g.fillCircle(0, -11, 5);
+        } else if (dir === 'left') {
+          g.fillStyle(0x000000, 1);
+          g.fillCircle(-3, -10, 1);
+        } else if (dir === 'right') {
+          g.fillStyle(0x000000, 1);
+          g.fillCircle(3, -10, 1);
+        }
+
+        g.generateTexture(key, 28, 32);
+        g.destroy();
+      }
+    }
+  }
+
+  private _updatePlayerSprite() {
+    // Update player sprite texture based on direction + walk frame
+    if (!this.playerSprite) return;
+    const frame = this.playerMoving ? Math.floor(Date.now() / 150) % 2 : 0;
+    const key = `farmer-${this.playerDir}-${frame}`;
+    if (this.textures.exists(key)) {
+      this.playerSprite.setTexture(key);
+    }
+    // Flip for left direction
+    this.playerSprite.setFlipX(this.playerDir === 'left');
+    // Shadow follows
+    if (this.playerShadow) {
+      this.playerShadow.setPosition(this.playerX, this.playerY + 14);
+    }
   }
 
   private _buildSunMoon() {
@@ -565,6 +664,33 @@ export default class StarFarmScene extends BaseEngine {
         emitting: false,
       }).setDepth(150);
     }
+  }
+
+  private _buildNightOverlay() {
+    // Darkness overlay that intensifies at night (alpha based on dayProgress)
+    this.nightOverlay = this.add.rectangle(
+      this.scale.width / 2, this.scale.height / 2,
+      this.scale.width, this.scale.height,
+      0x000033, 0
+    ).setDepth(180);
+  }
+
+  private _updateNightOverlay() {
+    if (!this.nightOverlay) return;
+    // Alpha ramps up during evening/night (dayProgress 0.5-1.0)
+    const t = this.dayProgress;
+    let alpha = 0;
+    if (t > 0.5) {
+      alpha = (t - 0.5) * 0.8; // up to 0.4 at midnight
+    }
+    this.nightOverlay.setAlpha(alpha);
+  }
+
+  private _screenShake(intensity: 'light' | 'medium' | 'heavy' = 'medium') {
+    const map = { light: 0.005, medium: 0.01, heavy: 0.02 };
+    try {
+      this.cameras.main.shake(200, map[intensity]);
+    } catch {}
   }
 
   private _startTreeSway() {
@@ -611,21 +737,25 @@ export default class StarFarmScene extends BaseEngine {
     this.playerY = Phaser.Math.Clamp(this.playerY + dy, 140, this.scale.height - 40);
     this.playerTargetX = this.playerX;
     this.playerTargetY = this.playerY;
-    this.playerEmoji.setPosition(this.playerX, this.playerY);
-    // Direction + walk bob
+    // Direction
     if (Math.abs(dx) > Math.abs(dy)) {
       this.playerDir = dx > 0 ? 'right' : 'left';
     } else {
       this.playerDir = dy > 0 ? 'down' : 'up';
     }
-    if (this.playerDir === 'left') this.playerEmoji.setFlipX(true);
-    else this.playerEmoji.setFlipX(false);
-    // Quick squash
-    this.tweens.add({
-      targets: this.playerEmoji,
-      scaleX: { from: 1.15, to: 1 }, scaleY: { from: 0.85, to: 1 },
-      duration: 100, ease: 'Quad.out',
-    });
+    // Update sprite + shadow
+    if (this.playerSprite) {
+      this.playerSprite.setPosition(this.playerX, this.playerY);
+      this.playerSprite.setFlipX(this.playerDir === 'left');
+      // Quick squash
+      this.tweens.add({
+        targets: this.playerSprite,
+        scaleX: { from: 1.7, to: 1.5 }, scaleY: { from: 1.3, to: 1.5 },
+        duration: 100, ease: 'Quad.out',
+      });
+    }
+    if (this.playerShadow) this.playerShadow.setPosition(this.playerX, this.playerY + 14);
+    this._updatePlayerSprite();
   }
 
   private _walkAnim() {
@@ -635,7 +765,7 @@ export default class StarFarmScene extends BaseEngine {
     const dist = Math.hypot(dx, dy);
     if (dist < 3) {
       this.playerMoving = false;
-      this.playerEmoji.setScale(1);
+      if (this.playerSprite) this.playerSprite.setScale(1.5, 1.5);
       return;
     }
     const speed = 120; // px per second
@@ -650,12 +780,12 @@ export default class StarFarmScene extends BaseEngine {
     }
     // Walk bob — scale Y oscillation
     const bob = Math.sin(Date.now() / 80) * 0.1;
-    this.playerEmoji.setScale(1 + bob * 0.5, 1 - bob);
-    this.playerEmoji.setPosition(this.playerX, this.playerY);
-    this.playerEmoji.setText(this.playerDir === 'up' ? '🧑‍🌾' : '🧑‍🌾');
-    // Flip for left/right
-    if (this.playerDir === 'left') this.playerEmoji.setFlipX(true);
-    else this.playerEmoji.setFlipX(false);
+    if (this.playerSprite) {
+      this.playerSprite.setScale(1.5 + bob * 0.5, 1.5 - bob);
+      this.playerSprite.setPosition(this.playerX, this.playerY);
+      this.playerSprite.setFlipX(this.playerDir === 'left');
+    }
+    if (this.playerShadow) this.playerShadow.setPosition(this.playerX, this.playerY + 14);
     // Continue
     this.walkAnimTimer = this.time.delayedCall(50, () => this._walkAnim());
   }
@@ -691,11 +821,13 @@ export default class StarFarmScene extends BaseEngine {
       onComplete: () => toolFx.destroy(),
     });
     // Player squash
-    this.tweens.add({
-      targets: this.playerEmoji,
-      scaleX: { from: 1.2, to: 1 }, scaleY: { from: 0.8, to: 1 },
-      duration: 200, ease: 'Back.out',
-    });
+    if (this.playerSprite) {
+      this.tweens.add({
+        targets: this.playerSprite,
+        scaleX: { from: 1.8, to: 1.5 }, scaleY: { from: 1.2, to: 1.5 },
+        duration: 200, ease: 'Back.out',
+      });
+    }
     // Particle burst at tile
     try {
       this.juice.burst(tile.x, tile.y, tool === 'water' ? 'correct' : 'correct');
@@ -935,9 +1067,11 @@ export default class StarFarmScene extends BaseEngine {
         tile.hp -= this.toolLevel.axe;
         this._spendEnergy(energyCost);
         audioBus.play('flip');
+        this._screenShake('light');
         if (tile.hp <= 0) {
           this.wood += 3 + this.toolLevel.axe;
           tile.terrain = 'grass'; tile.emoji.setText('🟩'); tile.bg.setFillStyle(0x4a7c3a, 0.75);
+          this._screenShake('medium');
           audioBus.speak('Wood collected!');
           this.juice.burst(tile.x, tile.y, 'correct');
           this.vocabLearned.add('wood');
@@ -954,10 +1088,12 @@ export default class StarFarmScene extends BaseEngine {
         tile.hp -= this.toolLevel.pickaxe;
         this._spendEnergy(energyCost);
         audioBus.play('flip');
+        this._screenShake('light');
         if (tile.hp <= 0) {
           this.stone += 2 + this.toolLevel.pickaxe;
           if (Math.random() < 0.4) { this.ore++; this._unlockAch('first_ore'); }
           tile.terrain = 'grass'; tile.emoji.setText('🟩'); tile.bg.setFillStyle(0x4a7c3a, 0.75);
+          this._screenShake('heavy');
           audioBus.speak('Stone mined!');
           this.juice.burst(tile.x, tile.y, 'correct');
           this.vocabLearned.add('stone');
@@ -1161,9 +1297,11 @@ export default class StarFarmScene extends BaseEngine {
       b = Math.floor(0xeb * (1 - k) + 0x4b * k);
     }
     this.skyRect.setFillStyle((r << 16) | (g << 8) | b, 1);
-    // Update sun/moon arc + rain
+    // Update sun/moon arc + rain + night overlay + player sprite
     this._updateSunMoon();
     this._updateRainEmitter();
+    this._updateNightOverlay();
+    this._updatePlayerSprite();
   }
 
   private _endDay() {
