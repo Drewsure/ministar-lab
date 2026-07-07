@@ -317,6 +317,9 @@ export default class MemoryMatchScene extends BaseEngine {
       });
     }
     this.flippedQueue = [];
-    this.time.delayedCall(400, () => { this.canInteract = true; });
+    // ETERNAL_VIGILANCE: canInteract must wait 800ms (not 400ms) — the
+    // flip-back animation takes 680ms total (shake 400 + flip 280). 400ms
+    // re-enabled clicks mid-flip, causing cards to get stuck in spin.
+    this.time.delayedCall(800, () => { this.canInteract = true; });
   }
 }

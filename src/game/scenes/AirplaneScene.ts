@@ -137,13 +137,13 @@ export default class AirplaneScene extends BaseEngine {
     this.updatePromptText();
 
     // ---- Spawn loop ----
-    // PACING FIX: Delay first spawn 1.5s so player reads the clue first.
-    // Spawn interval 2.5s (was 1.8s) — gives time between rows.
-    this.time.delayedCall(1500, () => {
+    // PACING FIX (user feedback "way too excessive and slow"):
+    // Spawn interval 1.8s (was 2.5s — too slow). First spawn after 1.2s.
+    this.time.delayedCall(1200, () => {
       if (this.isFinished) return;
       this.spawnBannerRow();
       this.spawnTimer = this.time.addEvent({
-        delay: 2500, loop: true,
+        delay: 1800, loop: true,
         callback: this.spawnBannerRow,
         callbackScope: this,
       });
@@ -219,7 +219,7 @@ export default class AirplaneScene extends BaseEngine {
   private spawnBannerRow() {
     if (this.isFinished || !this.activePrompt) return;
 
-    const bannerW = 180, bannerH = 64;
+    const bannerW = 140, bannerH = 48;
     const gap = 30;
     const cols = 3;
     const totalW = cols * bannerW + (cols - 1) * gap;
@@ -235,11 +235,12 @@ export default class AirplaneScene extends BaseEngine {
     ];
     Phaser.Utils.Array.Shuffle(row);
 
-    // PACING FIX (user feedback "brick wall falling down"): Stagger spawns
-    // — spawn one banner every 600ms (was all 3 at same instant). Also vary
-    // fall speed per banner so they don't look like a connected wall.
+    // PACING FIX (user feedback "excessive and slow"): Stagger spawns
+    // — spawn one banner every 350ms (was 600ms — too slow). Banners are
+    // smaller (140×48 was 180×64) so they're not "excessive". Fall speed
+    // variation minimal (0.9/1.0/1.1 was 0.8/1.0/1.2 — too extreme).
     row.forEach((entry, i) => {
-      this.time.delayedCall(i * 600, () => {
+      this.time.delayedCall(i * 350, () => {
         if (this.isFinished) return;
         this._spawnSingleBanner(entry, startX + i * (bannerW + gap), bannerW, bannerH, i);
       });
@@ -256,19 +257,19 @@ export default class AirplaneScene extends BaseEngine {
     const bg = this.add.ellipse(0, 0, bannerW, bannerH * 0.9, cloudColor, 0.95)
       .setStrokeStyle(3, entry.isCorrect ? this.theme.success : this.theme.accent, 0.7);
     // Cloud puffs (3 small circles on top for a cloud shape)
-    const puff1 = this.add.circle(-bannerW * 0.3, -bannerH * 0.3, 18, cloudColor, 0.95);
-    const puff2 = this.add.circle(0, -bannerH * 0.4, 22, cloudColor, 0.95);
-    const puff3 = this.add.circle(bannerW * 0.3, -bannerH * 0.3, 18, cloudColor, 0.95);
+    const puff1 = this.add.circle(-bannerW * 0.3, -bannerH * 0.3, 14, cloudColor, 0.95);
+    const puff2 = this.add.circle(0, -bannerH * 0.4, 17, cloudColor, 0.95);
+    const puff3 = this.add.circle(bannerW * 0.3, -bannerH * 0.3, 14, cloudColor, 0.95);
 
-    const txt = this.add.text(0, 4, entry.term.emoji ?? entry.term.term.slice(0, 10), {
+    const txt = this.add.text(0, 3, entry.term.emoji ?? entry.term.term.slice(0, 10), {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '23px',
+      fontSize: '18px',
       color: '#1e3a8a',
       fontStyle: 'bold',
     }).setOrigin(0.5);
-    const label = this.add.text(0, -8, entry.term.term.slice(0, 12), {
+    const label = this.add.text(0, -6, entry.term.term.slice(0, 10), {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '18px',
+      fontSize: '14px',
       color: '#1e3a8a',
       fontStyle: 'bold',
     }).setOrigin(0.5).setAlpha(0.9);
@@ -294,7 +295,7 @@ export default class AirplaneScene extends BaseEngine {
     // so they don't fall as a connected wall. Each banner falls at a different
     // speed, creating visual separation.
     const baseFallSpeed = (this.lod.isMobile ? 60 : 80) * this.speedMultiplier;
-    const speedVariation = [0.8, 1.0, 1.2][idx % 3]; // 80%, 100%, 120% of base
+    const speedVariation = [0.9, 1.0, 1.1][idx % 3]; // minimal variation (was 0.8/1.0/1.2 — too extreme)
     const fallSpeed = baseFallSpeed * speedVariation;
     const fallDuration = ((this.scale.height + bannerH + 100) / fallSpeed) * 1000;
     this.tweens.add({

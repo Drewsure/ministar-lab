@@ -285,9 +285,10 @@ export default class MazeChaseScene extends BaseEngine {
     const startX = this.mazeOffsetX + CELL / 2;
     const startY = this.mazeOffsetY + CELL / 2;
 
-    const playerKey = 'player-' + this.theme.id;
-    // ThemeAtlas already generated 'player-' + theme.id as a ship sprite.
-    // We add a soft glow halo behind the player.
+    // CHECK 3 (ETERNAL_VIGILANCE): Player MUST be visible. Using physics-
+    // enabled emoji text (same approach as ghosts) — no texture dependency.
+    // physics.add.sprite with a texture key can be invisible if the texture
+    // fails to generate. Emoji text is ALWAYS visible.
 
     this.playerGlow = this.add.circle(startX, startY, 22, this.theme.accent, 0.18)
       .setDepth(19);
@@ -295,14 +296,21 @@ export default class MazeChaseScene extends BaseEngine {
       targets: this.playerGlow,
       scale: { from: 1, to: 1.25 },
       alpha: { from: 0.18, to: 0.32 },
-      duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut',
+      duration: 700, yoyo: true, repeat: 50, ease: 'Sine.inOut',
     });
 
-    this.player = this.physics.add.sprite(startX, startY, playerKey);
-    this.player.setCollideWorldBounds(true);
-    this.player.setCircle(13, 3, 3);
-    this.player.setDepth(20);
-    this.player.setScale(1.1);
+    // Player = physics-enabled emoji text (😋 Pac-Man style)
+    const playerText = this.add.text(startX, startY, '😋', {
+      fontFamily: 'Inter, sans-serif',
+      fontSize: '32px',
+    }).setOrigin(0.5).setDepth(20);
+    this.physics.add.existing(playerText);
+    const pBody = playerText.body as Phaser.Physics.Arcade.Body;
+    pBody.setCircle(14, 2, 2)
+         .setAllowGravity(false)
+         .setCollideWorldBounds(true);
+    // Cast to satisfy the typed `player` field
+    this.player = playerText as unknown as Phaser.Physics.Arcade.Sprite;
 
     // Directional indicator (a small arrow that rotates)
     this.playerDirIndicator = this.add.text(startX, startY, '▶', {
@@ -402,7 +410,7 @@ export default class MazeChaseScene extends BaseEngine {
         targets: ring,
         scale: { from: 1, to: 1.5 },
         alpha: { from: 0.5, to: 0.1 },
-        duration: 700, repeat: -1, ease: 'Sine.out',
+        duration: 700, repeat: 999, ease: 'Sine.out',
       });
       orb.setData('glowRing', ring);
     }
@@ -428,7 +436,7 @@ export default class MazeChaseScene extends BaseEngine {
     this.tweens.add({
       targets: [orb, label],
       scale: { from: 1, to: isCorrect ? 1.2 : 1.08 },
-      duration: isCorrect ? 500 : 800, yoyo: true, repeat: -1, ease: 'Sine.inOut',
+      duration: isCorrect ? 500 : 800, yoyo: true, repeat: 999, ease: 'Sine.inOut',
     });
 
     // Physics body — use a circular body sized to the orb
@@ -450,11 +458,15 @@ export default class MazeChaseScene extends BaseEngine {
     const px = this.mazeOffsetX + cell.x * CELL + CELL / 2;
     const py = this.mazeOffsetY + cell.y * CELL + CELL / 2;
 
-    const enemyKey = 'particle-' + this.theme.id;
-    const enemy = this.add.image(px, py, enemyKey);
-    enemy.setTint(this.theme.danger);
-    enemy.setDisplaySize(34, 34);
-    enemy.setDepth(15);
+    // CHECK 3 (ETERNAL_VIGILANCE): Ghosts MUST be emoji text, NOT add.image.
+    // add.image renders as a tiny colored dot — invisible. Emoji text is
+    // large, readable, and matches the Pac-Man aesthetic.
+    const ghostEmojis = ['👻', '👹', '👺', '💀'];
+    const ghostEmoji = ghostEmojis[(this.enemiesGroup?.getChildren().length ?? 0) % ghostEmojis.length];
+    const enemy = this.add.text(px, py, ghostEmoji, {
+      fontFamily: 'Inter, sans-serif',
+      fontSize: '32px',
+    }).setOrigin(0.5).setDepth(15);
 
     // Pulsing red glow
     const aura = this.add.circle(px, py, 20, this.theme.danger, 0.22)
@@ -463,13 +475,14 @@ export default class MazeChaseScene extends BaseEngine {
       targets: aura,
       scale: { from: 0.9, to: 1.3 },
       alpha: { from: 0.25, to: 0 },
-      duration: 600, repeat: -1, ease: 'Sine.out',
+      duration: 600, repeat: 50, ease: 'Sine.out',
     });
     enemy.setData('aura', aura);
 
     this.physics.add.existing(enemy);
     const body = enemy.body as Phaser.Physics.Arcade.Body;
-    body.setCircle(17, 0, 0)
+    // Text objects have origin 0.5, so circle offset is (width/2 - radius, height/2 - radius)
+    body.setCircle(17, 8, 8)
         .setAllowGravity(false)
         .setCollideWorldBounds(true);
     body.setBoundsRectangle(
@@ -490,7 +503,7 @@ export default class MazeChaseScene extends BaseEngine {
     this.enemiesGroup.add(enemy);
   }
 
-  private updateEnemyAI(enemy: Phaser.GameObjects.Image) {
+  private updateEnemyAI(enemy: Phaser.GameObjects.Text) {
     if (!enemy.active || this.isFinished) return;
     const body = enemy.body as Phaser.Physics.Arcade.Body;
     if (!body) return;
