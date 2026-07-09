@@ -105,13 +105,23 @@ export default class MemoryMatchScene extends BaseEngine {
     });
     Phaser.Utils.Array.Shuffle(cards);
 
-    const cardW = 140, cardH = 160;
+    // RESPONSIVE CARD SIZING: calculate card size based on available space.
+    // Available area: full width × (height - 220 for HUD/title).
+    // This makes cards fill the screen on both PC and mobile.
+    const availW = this.scale.width - 40;
+    const availH = this.scale.height - 220;
     const cols = Math.min(cards.length, 4);
     const rows = Math.ceil(cards.length / cols);
-    const gap = 14;
+    const gap = 12;
+    // Calculate card size to fit available space
+    const maxCardW = (availW - (cols - 1) * gap) / cols;
+    const maxCardH = (availH - (rows - 1) * gap) / rows;
+    // Maintain ~1:1.15 aspect ratio, but don't exceed available space
+    const cardW = Math.min(maxCardW, maxCardH / 1.15, 180);
+    const cardH = cardW * 1.15;
     const totalW = cols * cardW + (cols - 1) * gap;
     const startX = (this.scale.width - totalW) / 2 + cardW / 2;
-    const startY = 240;
+    const startY = 200 + (availH - (rows * cardH + (rows - 1) * gap)) / 2;
 
     cards.forEach((c, i) => {
       const x = startX + (i % cols) * (cardW + gap);
@@ -120,18 +130,17 @@ export default class MemoryMatchScene extends BaseEngine {
       const back = this.add.image(0, 0, 'card-back-' + this.theme.id).setDisplaySize(cardW, cardH);
       const front = this.add.image(0, 0, 'card-front-' + this.theme.id).setDisplaySize(cardW, cardH).setVisible(false);
 
-      // CARD VISUAL FIX: Bigger emoji (48px) on top + word (16px) below.
-      // Was: single 18px text-only (looked unfinished). Now cards have a
-      // clear emoji illustration + readable word label.
-      // Determine if the card text is an emoji (short) or a word
+      // CARD VISUAL: Emoji + word scaled to card size
       const isEmoji = c.text.length <= 2 && /\p{Emoji}/u.test(c.text);
-      const emojiText = this.add.text(0, -20, isEmoji ? c.text : (c.term.emoji ?? '⭐'), {
+      const emojiFontSize = Math.floor(cardW * 0.45) + 'px'; // 45% of card width
+      const wordFontSize = Math.floor(cardW * 0.14) + 'px';  // 14% of card width
+      const emojiText = this.add.text(0, -cardH * 0.12, isEmoji ? c.text : (c.term.emoji ?? '⭐'), {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '72px',
+        fontSize: emojiFontSize,
       }).setOrigin(0.5).setVisible(false);
-      const label = this.add.text(0, 32, c.text, {
+      const label = this.add.text(0, cardH * 0.22, c.text, {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '22px',
+        fontSize: wordFontSize,
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
         align: 'center',
