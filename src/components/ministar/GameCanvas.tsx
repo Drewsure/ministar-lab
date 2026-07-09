@@ -112,17 +112,14 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
       // Load the scene module (only the active one — keeps bundle light)
       const SceneClass = (await sceneLoader()).default;
 
-      // Responsive sizing — RESIZE mode fills the parent container completely
-      // (FIT mode letterboxes, leaving black bars on mobile). The parent div
-      // has aspect-ratio: 4/3 so the game keeps its proportions.
+      // Responsive sizing — FIT mode scales the 800×600 game uniformly to
+      // fit inside the container, maintaining 4:3 aspect ratio. No squishing,
+      // no zooming. (RESIZE was wrong — it made the canvas match container
+      // pixels exactly, causing squished UI on mobile + zoomed UI on PC.)
       const container = containerRef.current!;
 
       const bgColor = '#' + (theme?.bg ?? 0x000000).toString(16).padStart(6, '0');
 
-      // Use the parent container's actual dimensions for the game size
-      const containerWidth = container.clientWidth || 800;
-      const containerHeight = container.clientHeight || 600;
-      // Game dimensions match the container — Scale.RESIZE handles the rest
       const gameWidth = 800;
       const gameHeight = 600;
 
@@ -133,10 +130,9 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
         height: gameHeight,
         backgroundColor: bgColor,
         scale: {
-          // MOBILE FIX: RESIZE mode fills the container completely (no black bars).
-          // FIT mode letterboxes, which on mobile (with aspect-ratio:4/3 frame)
-          // can cause the canvas to be smaller than the frame or overflow.
-          mode: Phaser.Scale.RESIZE,
+          // FIT = scale uniformly to fit container, maintain aspect ratio.
+          // This is the correct mode for responsive game embedding.
+          mode: Phaser.Scale.FIT,
           autoCenter: Phaser.Scale.CENTER_BOTH,
           width: gameWidth,
           height: gameHeight,
@@ -180,14 +176,13 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
       // AAAA — After game boots, add the scene under the correct key and start it
       game.events.once('ready', () => {
         try {
-          // Guard: check if the game was destroyed by cleanup before 'ready' fired
           if (cancelled || !gameRef.current || gameRef.current !== game) return;
 
-          // MOBILE FIX: Do NOT set width/height/maxWidth/maxHeight inline styles.
-          // Phaser's Scale.FIT mode controls the canvas size. Setting inline
-          // width/height/maxHeight styles overrides Phaser's scaling → canvas
-          // overflows on mobile (screen "lost outside of view").
-          // Only set accessibility + touch styles — let Phaser handle sizing.
+          // CRITICAL: Do NOT set any width/height/maxWidth/maxHeight inline
+          // styles on the canvas. Phaser's Scale.FIT mode controls the canvas
+          // size completely. Any inline style overrides Phaser's scaling →
+          // canvas overflows on mobile (zoomed in) or squishes on PC.
+          // Only set accessibility + touch styles.
           const canvas = container.querySelector('canvas');
           if (canvas) {
             canvas.setAttribute('tabindex', '0');
@@ -196,9 +191,7 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
             canvas.style.pointerEvents = 'auto';
             canvas.style.display = 'block';
             canvas.style.margin = '0 auto';
-            // Critical: canvas must fill its parent so Scale.FIT can compute
-            canvas.style.width = '100%';
-            canvas.style.height = '100%';
+            // Do NOT set width/height — Phaser FIT handles it
           }
 
           if (!game.scene.getScene(sceneKey)) {
@@ -229,14 +222,11 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
   }, [config?.mode, config?.theme, config?.terms.length, config?.unit, config?.qrSlug]);
 
   return (
-    <div className="relative w-full h-full" style={{ touchAction: 'none' }}>
+    <div style={{ touchAction: 'none', width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
       <div
         ref={containerRef}
-        className="w-full h-full"
-        style={{ touchAction: 'none', pointerEvents: 'auto' }}
+        style={{ touchAction: 'none', pointerEvents: 'auto', width: '100%', height: '100%' }}
       />
-      {/* Exit button removed — the parent page provides a clear "← Back to Library" button.
-          Having two exit buttons was confusing users. */}
     </div>
   );
 }

@@ -327,16 +327,18 @@ export default function Home() {
             </div>
 
             <div
-              className="mx-auto rounded-3xl overflow-hidden shadow-2xl ministar-game-frame"
+              className="mx-auto rounded-3xl overflow-hidden shadow-2xl"
               style={{
                 width: '100%',
-                maxWidth: '1100px',
-                // MOBILE FIX: Use aspect-ratio (4:3) instead of maxHeight:70vh.
-                // maxHeight:70vh was clipping the canvas on mobile so games
-                // were "lost outside of view" + froze/unresponsive on phones.
-                // aspect-ratio makes the frame scale to viewport width while
-                // keeping the 4:3 game proportions.
-                aspectRatio: '4 / 3',
+                maxWidth: '900px',
+                // HEIGHT FIX: Use viewport-relative height that works on both
+                // mobile and PC. On iPhone mini (640px tall), 60vh = 384px —
+                // fits after header/buttons. On PC (1080px tall), 60vh = 648px
+                // — caps the game so it's not zoomed. Phaser FIT scales the
+                // 800×600 game inside this frame, maintaining aspect ratio.
+                height: '60vh',
+                maxHeight: '600px',
+                minHeight: '300px',
                 border: `1px solid color-mix(in oklab, var(--brand-accent) 30%, transparent)`,
                 boxShadow: `0 30px 80px -20px ${brand.primaryColor}80`,
               }}
