@@ -85,8 +85,30 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
       onExit?.();
     };
     window.addEventListener('ministar-exit-game', handleExit);
+    // ORIENTATION CHANGE: When phone rotates, Phaser needs to resize.
+    // Listen for resize + orientationchange events and call game.scale.refresh().
+    const handleResize = () => {
+      if (gameRef.current) {
+        try {
+          // Delay slightly so the browser finishes rotating
+          setTimeout(() => {
+            if (gameRef.current) {
+              gameRef.current.scale.refresh();
+              gameRef.current.scale.resize(
+                gameRef.current.scale.parent?.clientWidth || window.innerWidth,
+                gameRef.current.scale.parent?.clientHeight || window.innerHeight
+              );
+            }
+          }, 200);
+        } catch {}
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
     return () => {
       window.removeEventListener('ministar-exit-game', handleExit);
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
     };
   }, [onExit]);
 

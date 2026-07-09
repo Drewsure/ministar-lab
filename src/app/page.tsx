@@ -263,7 +263,7 @@ export default function Home() {
         </section>
       )}
 
-      <main className="flex-1 mx-auto max-w-7xl w-full px-4 sm:px-6 pb-12">
+      <main className={launch ? "flex-1 mx-auto w-full px-2 pb-2" : "flex-1 mx-auto max-w-7xl w-full px-4 sm:px-6 pb-12"}>
         {launch ? (
           // -----------------------------------------------------------------
           // GAME VIEW
@@ -313,6 +313,25 @@ export default function Home() {
                   🔊 Audio
                 </button>
                 <button
+                  onClick={() => {
+                    const elem = document.documentElement;
+                    if (!document.fullscreenElement) {
+                      elem.requestFullscreen?.().catch(() => {});
+                    } else {
+                      document.exitFullscreen?.().catch(() => {});
+                    }
+                  }}
+                  className="rounded-xl px-3 py-2 text-xs font-semibold"
+                  style={{
+                    background: 'color-mix(in oklab, var(--brand-accent) 18%, transparent)',
+                    color: 'var(--brand-text)',
+                    border: '1px solid color-mix(in oklab, var(--brand-accent) 40%, transparent)',
+                  }}
+                  title="Toggle fullscreen mode"
+                >
+                  ⛶ Fullscreen
+                </button>
+                <button
                   onClick={exitGame}
                   className="rounded-xl px-4 py-2 text-sm font-semibold"
                   style={{
@@ -329,14 +348,14 @@ export default function Home() {
             <div
               className="mx-auto rounded-3xl overflow-hidden shadow-2xl"
               style={{
-                width: '95vw',
-                maxWidth: '1400px',
-                // FULLSCREEN: Use 85vh so the game fills most of the viewport.
-                // On PC (1080px tall): 85vh = 918px — fills the screen.
-                // On iPhone mini (640px tall): 85vh = 544px — fills the screen.
-                height: '85vh',
-                maxHeight: '900px',
-                minHeight: '400px',
+                // FULLSCREEN: Fill the entire available space.
+                // Width: 100% of parent (which is max-w-7xl but we override)
+                // Height: calc(100vh - 200px) to leave room for header + buttons.
+                // This fills the screen on both PC and mobile.
+                width: '100%',
+                maxWidth: '100%',
+                height: 'calc(100vh - 200px)',
+                minHeight: '350px',
                 border: `1px solid color-mix(in oklab, var(--brand-accent) 30%, transparent)`,
                 boxShadow: `0 30px 80px -20px ${brand.primaryColor}80`,
               }}
