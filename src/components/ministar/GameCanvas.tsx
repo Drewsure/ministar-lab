@@ -112,16 +112,16 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
       // Load the scene module (only the active one — keeps bundle light)
       const SceneClass = (await sceneLoader()).default;
 
-      // Responsive sizing — FIT mode scales the 800×600 game uniformly to
-      // fit inside the container, maintaining 4:3 aspect ratio. No squishing,
-      // no zooming. (RESIZE was wrong — it made the canvas match container
-      // pixels exactly, causing squished UI on mobile + zoomed UI on PC.)
+      // Responsive sizing — use 16:9 (1280×720) for desktop/wide screens,
+      // 4:3 (800×600) for mobile/portrait. FIT mode scales uniformly.
       const container = containerRef.current!;
 
       const bgColor = '#' + (theme?.bg ?? 0x000000).toString(16).padStart(6, '0');
 
-      const gameWidth = 800;
-      const gameHeight = 600;
+      // Detect viewport — wide screens get 16:9, narrow get 4:3
+      const isWide = typeof window !== 'undefined' && window.innerWidth > 1024;
+      const gameWidth = isWide ? 1280 : 800;
+      const gameHeight = isWide ? 720 : 600;
 
       const sceneConfig: Phaser.Types.Core.GameConfig = {
         type: Phaser.AUTO,
@@ -131,7 +131,6 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
         backgroundColor: bgColor,
         scale: {
           // FIT = scale uniformly to fit container, maintain aspect ratio.
-          // This is the correct mode for responsive game embedding.
           mode: Phaser.Scale.FIT,
           autoCenter: Phaser.Scale.CENTER_BOTH,
           width: gameWidth,

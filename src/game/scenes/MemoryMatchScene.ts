@@ -119,9 +119,19 @@ export default class MemoryMatchScene extends BaseEngine {
 
       const back = this.add.image(0, 0, 'card-back-' + this.theme.id).setDisplaySize(cardW, cardH);
       const front = this.add.image(0, 0, 'card-front-' + this.theme.id).setDisplaySize(cardW, cardH).setVisible(false);
-      const label = this.add.text(0, 0, c.text, {
+
+      // CARD VISUAL FIX: Bigger emoji (48px) on top + word (16px) below.
+      // Was: single 18px text-only (looked unfinished). Now cards have a
+      // clear emoji illustration + readable word label.
+      // Determine if the card text is an emoji (short) or a word
+      const isEmoji = c.text.length <= 2 && /\p{Emoji}/u.test(c.text);
+      const emojiText = this.add.text(0, -16, isEmoji ? c.text : (c.term.emoji ?? '⭐'), {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '18px',
+        fontSize: '48px',
+      }).setOrigin(0.5).setVisible(false);
+      const label = this.add.text(0, 22, c.text, {
+        fontFamily: 'Inter, sans-serif',
+        fontSize: '16px',
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
         align: 'center',
@@ -140,7 +150,7 @@ export default class MemoryMatchScene extends BaseEngine {
       // Make number badge speakable — tap to hear "Card N"
       numText.setData('speakText', `Card ${i + 1}`);
 
-      const container = this.add.container(x, y, [back, front, label, numBg, numText])
+      const container = this.add.container(x, y, [back, front, emojiText, label, numBg, numText])
         .setSize(cardW, cardH).setInteractive({ useHandCursor: true });
 
       const card: Card = {
@@ -149,6 +159,8 @@ export default class MemoryMatchScene extends BaseEngine {
         isFlipped: false, isMatched: false,
         homeX: x, homeY: y,
       };
+      // Store emojiText reference on the card so flipCard can show/hide it
+      (card as any).emojiText = emojiText;
 
       // Hover lift effect
       container.on('pointerover', () => {
@@ -205,6 +217,9 @@ export default class MemoryMatchScene extends BaseEngine {
         card.back.setVisible(false);
         card.front.setVisible(true);
         card.label.setVisible(true);
+        // Show the big emoji illustration on the card front
+        const emojiText = (card as any).emojiText as Phaser.GameObjects.Text;
+        if (emojiText) emojiText.setVisible(true);
         this.tweens.add({
           targets: card.container,
           scaleX: 1, duration: 180, ease: 'Quad.out',
@@ -261,7 +276,10 @@ export default class MemoryMatchScene extends BaseEngine {
       });
 
       a.isMatched = true; b.isMatched = true;
-      this.pairsText.setText(`Pairs: ${this.score + 1}/${this.maxScore}`);
+      // BUG FIX: this.score was already incremented by recordAnswer() above,
+      // so `this.score + 1` over-counted (showed "7/6" on final pair).
+      // Use this.score directly.
+      this.pairsText.setText(`Pairs: ${this.score}/${this.maxScore}`);
 
       // Match celebration: scale pulse + fade
       this.tweens.add({
@@ -306,6 +324,9 @@ export default class MemoryMatchScene extends BaseEngine {
                 c.back.setVisible(true);
                 c.front.setVisible(false);
                 c.label.setVisible(false);
+                // Hide the emoji illustration when flipping back
+                const emojiText = (c as any).emojiText as Phaser.GameObjects.Text;
+                if (emojiText) emojiText.setVisible(false);
                 c.isFlipped = false;
                 this.tweens.add({
                   targets: c.container, scaleX: 1, duration: 140,

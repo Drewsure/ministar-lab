@@ -330,15 +330,13 @@ export default function Home() {
               className="mx-auto rounded-3xl overflow-hidden shadow-2xl"
               style={{
                 width: '100%',
-                maxWidth: '900px',
-                // HEIGHT FIX: Use viewport-relative height that works on both
-                // mobile and PC. On iPhone mini (640px tall), 60vh = 384px —
-                // fits after header/buttons. On PC (1080px tall), 60vh = 648px
-                // — caps the game so it's not zoomed. Phaser FIT scales the
-                // 800×600 game inside this frame, maintaining aspect ratio.
-                height: '60vh',
-                maxHeight: '600px',
-                minHeight: '300px',
+                maxWidth: '1280px',
+                // HEIGHT: Use viewport-relative height that works on both
+                // mobile and PC. On wide PC screens, use more vertical space.
+                // On mobile, cap so buttons/header still fit.
+                height: '70vh',
+                maxHeight: '720px',
+                minHeight: '320px',
                 border: `1px solid color-mix(in oklab, var(--brand-accent) 30%, transparent)`,
                 boxShadow: `0 30px 80px -20px ${brand.primaryColor}80`,
               }}

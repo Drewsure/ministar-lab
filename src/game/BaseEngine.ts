@@ -102,8 +102,14 @@ export abstract class BaseEngine extends Phaser.Scene {
     this.events.once('shutdown', () => { try { this.tweens.killAll(); } catch {} try { this.time.removeAllEvents(); } catch {} });
     this.events.once('destroy', () => { try { this.tweens.killAll(); } catch {} try { this.time.removeAllEvents(); } catch {} });
 
-    // Periodic tween cleanup (every 8s)
-    this.time.addEvent({ delay: 8000, loop: true, callback: () => { if (!this.isFinished) { try { this.tweens.killAll(); } catch {} } } });
+    // NOTE: The periodic `tweens.killAll()` every 8s was REMOVED — it was the
+    // ROOT CAUSE of the "stuck cards" bug in Memory Match. When it fired during
+    // a card-flip animation (scaleX 1→0→1), the tween's onComplete never ran,
+    // leaving the card permanently stuck in a half-flip state (scaleX=0,
+    // isFlipped=true, back still visible, unclickable). Phaser's tween manager
+    // auto-GCs completed tweens, so this carpet-bomb was unnecessary.
+    // The shutdown/destroy handlers above + GameObject.destroy override below
+    // are sufficient for cleanup.
 
     // GameObject.destroy override
     const PhaserNS = Phaser as any;
@@ -261,19 +267,25 @@ export abstract class BaseEngine extends Phaser.Scene {
       this.add.text(this.scale.width / 2, this.scale.height / 2 + 110, badges.join('  ·  '), { fontFamily: 'Inter, sans-serif', fontSize: '13px', color: '#' + this.theme.warning.toString(16).padStart(6, '0'), fontStyle: 'bold', align: 'center', wordWrap: { width: 500 } }).setOrigin(0.5).setDepth(501);
     }
 
-    // Play Again button
-    const btnBg = this.add.rectangle(this.scale.width / 2 - 110, this.scale.height / 2 + 80, 180, 48, statusColor, 0.9).setDepth(501);
-    const btn = this.add.text(this.scale.width / 2 - 110, this.scale.height / 2 + 80, 'Play Again', { fontFamily: 'Inter, sans-serif', fontSize: '18px', color: '#000000', fontStyle: 'bold' }).setOrigin(0.5).setDepth(502).setInteractive({ useHandCursor: true });
+    // Play Again button (restart from level 1)
+    const btnBg = this.add.rectangle(this.scale.width / 2 - 130, this.scale.height / 2 + 80, 160, 44, statusColor, 0.9).setDepth(501);
+    const btn = this.add.text(this.scale.width / 2 - 130, this.scale.height / 2 + 80, '🔄 Play Again', { fontFamily: 'Inter, sans-serif', fontSize: '16px', color: '#000000', fontStyle: 'bold' }).setOrigin(0.5).setDepth(502).setInteractive({ useHandCursor: true });
     btn.on('pointerdown', () => { audioBus.play('tap'); this.scene.restart({ config: this.registry.get('launchConfig') }); });
 
-    // New Game button
-    const btnBg2 = this.add.rectangle(this.scale.width / 2 + 110, this.scale.height / 2 + 80, 180, 48, this.theme.card, 0.9).setStrokeStyle(2, this.theme.accent, 0.8).setDepth(501);
-    const btn2 = this.add.text(this.scale.width / 2 + 110, this.scale.height / 2 + 80, 'New Game', { fontFamily: 'Inter, sans-serif', fontSize: '18px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5).setDepth(502).setInteractive({ useHandCursor: true });
+    // New Game button (exit to library)
+    const btnBg2 = this.add.rectangle(this.scale.width / 2, this.scale.height / 2 + 80, 160, 44, this.theme.card, 0.9).setStrokeStyle(2, this.theme.accent, 0.8).setDepth(501);
+    const btn2 = this.add.text(this.scale.width / 2, this.scale.height / 2 + 80, '🎮 New Game', { fontFamily: 'Inter, sans-serif', fontSize: '16px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5).setDepth(502).setInteractive({ useHandCursor: true });
     btn2.on('pointerdown', () => { audioBus.play('tap'); try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ministar-exit-game')); } catch {} try { this.game.destroy(true); } catch {} });
 
+    // Game Complete button (exit to library — fixes Level 3 "freeze" where
+    // the user finished all levels but had no clear exit affordance)
+    const btnBg3 = this.add.rectangle(this.scale.width / 2 + 130, this.scale.height / 2 + 80, 160, 44, this.theme.success, 0.9).setDepth(501);
+    const btn3 = this.add.text(this.scale.width / 2 + 130, this.scale.height / 2 + 80, '✓ Complete', { fontFamily: 'Inter, sans-serif', fontSize: '16px', color: '#000000', fontStyle: 'bold' }).setOrigin(0.5).setDepth(502).setInteractive({ useHandCursor: true });
+    btn3.on('pointerdown', () => { audioBus.play('tap'); try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ministar-exit-game')); } catch {} try { this.game.destroy(true); } catch {} });
+
     // Animate overlay in
-    overlay.setAlpha(0); titleText.setAlpha(0); subText.setAlpha(0); statsText.setAlpha(0); btnBg.setAlpha(0); btn.setAlpha(0); btnBg2.setAlpha(0); btn2.setAlpha(0);
-    this.tweens.add({ targets: [overlay, titleText, subText, statsText, btnBg, btn, btnBg2, btn2], alpha: { from: 0, to: 1 }, duration: 400, ease: 'Cubic.out' });
+    overlay.setAlpha(0); titleText.setAlpha(0); subText.setAlpha(0); statsText.setAlpha(0); btnBg.setAlpha(0); btn.setAlpha(0); btnBg2.setAlpha(0); btn2.setAlpha(0); btnBg3.setAlpha(0); btn3.setAlpha(0);
+    this.tweens.add({ targets: [overlay, titleText, subText, statsText, btnBg, btn, btnBg2, btn2, btnBg3, btn3], alpha: { from: 0, to: 1 }, duration: 400, ease: 'Cubic.out' });
   }
 
   protected checkWin() { if (this.score >= this.maxScore && !this.isFinished) { this.time.delayedCall(400, () => this.finishGame(true)); } }
