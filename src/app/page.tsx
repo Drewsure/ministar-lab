@@ -345,15 +345,15 @@ export default function Home() {
             </div>
 
             <div
-              className="rounded-3xl overflow-hidden shadow-2xl"
+              className="rounded-2xl overflow-hidden shadow-lg"
               style={{
-                // AGGRESSIVE FULLSCREEN: Fill 100% of available width + height.
-                // No max-width constraint. Height = viewport minus header/buttons.
+                // FULLSCREEN: Fill 100% of available space.
+                // width: 100% = fills parent (which is w-full, no max-w)
+                // height: calc(100vh - 120px) = fills viewport minus header+buttons
                 width: '100%',
-                height: 'calc(100vh - 140px)',
-                minHeight: '400px',
-                border: `1px solid color-mix(in oklab, var(--brand-accent) 30%, transparent)`,
-                boxShadow: `0 30px 80px -20px ${brand.primaryColor}80`,
+                height: 'calc(100vh - 120px)',
+                minHeight: '350px',
+                border: `2px solid color-mix(in oklab, var(--brand-accent) 50%, transparent)`,
               }}
             >
               <GameCanvas config={launch} onExit={exitGame} />

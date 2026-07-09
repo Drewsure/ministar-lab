@@ -134,30 +134,36 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
       // Load the scene module (only the active one — keeps bundle light)
       const SceneClass = (await sceneLoader()).default;
 
-      // FULLSCREEN FIX: Use Scale.RESIZE so the canvas fills the container
-      // completely. The container is now 95vw × 85vh (nearly fullscreen).
-      // All scenes use this.scale.width/height for positioning, so they adapt.
+      // FULLSCREEN FIX: Phaser follows the PARENT CONTAINER's dimensions,
+      // not window size. The parent must have explicit width/height.
+      // Scale.RESIZE makes the canvas match the parent exactly.
       const container = containerRef.current!;
+
+      // FORCE the container to fill its parent completely
+      container.style.width = '100%';
+      container.style.height = '100%';
+      container.style.display = 'block';
+      container.style.overflow = 'hidden';
 
       const bgColor = '#' + (theme?.bg ?? 0x000000).toString(16).padStart(6, '0');
 
-      // Start with default size — RESIZE mode will adjust to container
-      const gameWidth = 800;
-      const gameHeight = 600;
+      // Get actual parent dimensions for the game
+      const parentW = container.parentElement?.clientWidth || container.clientWidth || 800;
+      const parentH = container.parentElement?.clientHeight || container.clientHeight || 600;
 
       const sceneConfig: Phaser.Types.Core.GameConfig = {
         type: Phaser.AUTO,
         parent: container,
-        width: gameWidth,
-        height: gameHeight,
+        width: parentW,
+        height: parentH,
         backgroundColor: bgColor,
         scale: {
-          // RESIZE = canvas matches container exactly, no letterboxing.
-          // Scenes use this.scale.width/height so they adapt to any size.
+          // RESIZE = canvas matches parent exactly, fills 100%
           mode: Phaser.Scale.RESIZE,
           autoCenter: Phaser.Scale.CENTER_BOTH,
-          width: gameWidth,
-          height: gameHeight,
+          width: parentW,
+          height: parentH,
+          parent: container,
         },
         physics: {
           default: 'arcade',
@@ -200,11 +206,8 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
         try {
           if (cancelled || !gameRef.current || gameRef.current !== game) return;
 
-          // CRITICAL: Do NOT set any width/height/maxWidth/maxHeight inline
-          // styles on the canvas. Phaser's Scale.FIT mode controls the canvas
-          // size completely. Any inline style overrides Phaser's scaling →
-          // canvas overflows on mobile (zoomed in) or squishes on PC.
-          // Only set accessibility + touch styles.
+          // FULLSCREEN FIX: Force canvas to fill parent 100%.
+          // Phaser RESIZE mode + these styles = canvas always fills container.
           const canvas = container.querySelector('canvas');
           if (canvas) {
             canvas.setAttribute('tabindex', '0');
@@ -212,8 +215,8 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
             canvas.style.touchAction = 'none';
             canvas.style.pointerEvents = 'auto';
             canvas.style.display = 'block';
-            canvas.style.margin = '0 auto';
-            // Do NOT set width/height — Phaser FIT handles it
+            canvas.style.width = '100%';
+            canvas.style.height = '100%';
           }
 
           if (!game.scene.getScene(sceneKey)) {
@@ -244,10 +247,10 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
   }, [config?.mode, config?.theme, config?.terms.length, config?.unit, config?.qrSlug]);
 
   return (
-    <div style={{ touchAction: 'none', width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+    <div style={{ touchAction: 'none', width: '100%', height: '100%', display: 'block', position: 'relative' }}>
       <div
         ref={containerRef}
-        style={{ touchAction: 'none', pointerEvents: 'auto', width: '100%', height: '100%' }}
+        style={{ touchAction: 'none', pointerEvents: 'auto', width: '100%', height: '100%', display: 'block' }}
       />
     </div>
   );
