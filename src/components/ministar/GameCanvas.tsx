@@ -112,16 +112,16 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
       // Load the scene module (only the active one — keeps bundle light)
       const SceneClass = (await sceneLoader()).default;
 
-      // Responsive sizing — use 16:9 (1280×720) for desktop/wide screens,
-      // 4:3 (800×600) for mobile/portrait. FIT mode scales uniformly.
+      // FULLSCREEN FIX: Use Scale.RESIZE so the canvas fills the container
+      // completely. The container is now 95vw × 85vh (nearly fullscreen).
+      // All scenes use this.scale.width/height for positioning, so they adapt.
       const container = containerRef.current!;
 
       const bgColor = '#' + (theme?.bg ?? 0x000000).toString(16).padStart(6, '0');
 
-      // Detect viewport — wide screens get 16:9, narrow get 4:3
-      const isWide = typeof window !== 'undefined' && window.innerWidth > 1024;
-      const gameWidth = isWide ? 1280 : 800;
-      const gameHeight = isWide ? 720 : 600;
+      // Start with default size — RESIZE mode will adjust to container
+      const gameWidth = 800;
+      const gameHeight = 600;
 
       const sceneConfig: Phaser.Types.Core.GameConfig = {
         type: Phaser.AUTO,
@@ -130,8 +130,9 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
         height: gameHeight,
         backgroundColor: bgColor,
         scale: {
-          // FIT = scale uniformly to fit container, maintain aspect ratio.
-          mode: Phaser.Scale.FIT,
+          // RESIZE = canvas matches container exactly, no letterboxing.
+          // Scenes use this.scale.width/height so they adapt to any size.
+          mode: Phaser.Scale.RESIZE,
           autoCenter: Phaser.Scale.CENTER_BOTH,
           width: gameWidth,
           height: gameHeight,

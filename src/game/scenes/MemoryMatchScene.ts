@@ -80,7 +80,7 @@ export default class MemoryMatchScene extends BaseEngine {
       if (!this.canInteract) return;
       for (const card of this.cards) {
         if (card.isFlipped || card.isMatched) continue;
-        const cardW = 100, cardH = 120;
+        const cardW = 140, cardH = 160;
         if (Math.abs(x - card.container.x) < cardW / 2 && Math.abs(y - card.container.y) < cardH / 2) {
           // ESL: speak the card's text when flipped
           audioBus.speak(card.text);
@@ -105,7 +105,7 @@ export default class MemoryMatchScene extends BaseEngine {
     });
     Phaser.Utils.Array.Shuffle(cards);
 
-    const cardW = 100, cardH = 120;
+    const cardW = 140, cardH = 160;
     const cols = Math.min(cards.length, 4);
     const rows = Math.ceil(cards.length / cols);
     const gap = 14;
@@ -125,13 +125,13 @@ export default class MemoryMatchScene extends BaseEngine {
       // clear emoji illustration + readable word label.
       // Determine if the card text is an emoji (short) or a word
       const isEmoji = c.text.length <= 2 && /\p{Emoji}/u.test(c.text);
-      const emojiText = this.add.text(0, -16, isEmoji ? c.text : (c.term.emoji ?? '⭐'), {
+      const emojiText = this.add.text(0, -20, isEmoji ? c.text : (c.term.emoji ?? '⭐'), {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '48px',
+        fontSize: '72px',
       }).setOrigin(0.5).setVisible(false);
-      const label = this.add.text(0, 22, c.text, {
+      const label = this.add.text(0, 32, c.text, {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '16px',
+        fontSize: '22px',
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
         align: 'center',
@@ -209,23 +209,28 @@ export default class MemoryMatchScene extends BaseEngine {
     audioBus.play('flip');
 
     card.isFlipped = true;
-    // 3D flip: scaleX 1→0, swap, scaleX 0→1
+    // BULLETPROOF FLIP: Use setTimeout for the swap instead of tween onComplete.
+    // Tween onComplete can be killed by scene transitions or other tweens,
+    // leaving the card stuck in a half-flip state. setTimeout ALWAYS fires.
+    // Phase 1: scaleX 1→0 (180ms)
     this.tweens.add({
       targets: card.container,
       scaleX: 0, duration: 180, ease: 'Quad.in',
-      onComplete: () => {
-        card.back.setVisible(false);
-        card.front.setVisible(true);
-        card.label.setVisible(true);
-        // Show the big emoji illustration on the card front
-        const emojiText = (card as any).emojiText as Phaser.GameObjects.Text;
-        if (emojiText) emojiText.setVisible(true);
-        this.tweens.add({
-          targets: card.container,
-          scaleX: 1, duration: 180, ease: 'Quad.out',
-        });
-      },
     });
+    // Swap at 180ms (when scaleX reaches 0) — using setTimeout, NOT onComplete
+    setTimeout(() => {
+      if (!card.container || !card.container.active) return; // card destroyed
+      card.back.setVisible(false);
+      card.front.setVisible(true);
+      card.label.setVisible(true);
+      const emojiText = (card as any).emojiText as Phaser.GameObjects.Text;
+      if (emojiText) emojiText.setVisible(true);
+      // Phase 2: scaleX 0→1 (180ms)
+      this.tweens.add({
+        targets: card.container,
+        scaleX: 1, duration: 180, ease: 'Quad.out',
+      });
+    }, 180);
 
     this.flippedQueue.push(card);
     if (this.flippedQueue.length === 2) {
@@ -315,27 +320,32 @@ export default class MemoryMatchScene extends BaseEngine {
       this.tweens.add({
         targets: [a.container, b.container],
         x: '+=8', duration: 50, yoyo: true, repeat: 3,
-        onComplete: () => {
-          // Flip back
-          [a, b].forEach(c => {
-            this.tweens.add({
-              targets: c.container, scaleX: 0, duration: 140,
-              onComplete: () => {
-                c.back.setVisible(true);
-                c.front.setVisible(false);
-                c.label.setVisible(false);
-                // Hide the emoji illustration when flipping back
-                const emojiText = (c as any).emojiText as Phaser.GameObjects.Text;
-                if (emojiText) emojiText.setVisible(false);
-                c.isFlipped = false;
-                this.tweens.add({
-                  targets: c.container, scaleX: 1, duration: 140,
-                });
-              },
-            });
-          });
-        },
       });
+      // BULLETPROOF FLIP-BACK: Use setTimeout instead of nested tween onComplete.
+      // Shake takes 400ms (50ms × 4 × 2 yoyo). Start flip-back at 400ms.
+      setTimeout(() => {
+        [a, b].forEach(c => {
+          if (!c.container || !c.container.active) return;
+          // Phase 1: scaleX 1→0
+          this.tweens.add({
+            targets: c.container, scaleX: 0, duration: 140,
+          });
+          // Swap at 140ms
+          setTimeout(() => {
+            if (!c.container || !c.container.active) return;
+            c.back.setVisible(true);
+            c.front.setVisible(false);
+            c.label.setVisible(false);
+            const emojiText = (c as any).emojiText as Phaser.GameObjects.Text;
+            if (emojiText) emojiText.setVisible(false);
+            c.isFlipped = false;
+            // Phase 2: scaleX 0→1
+            this.tweens.add({
+              targets: c.container, scaleX: 1, duration: 140,
+            });
+          }, 140);
+        });
+      }, 400);
     }
     this.flippedQueue = [];
     // ETERNAL_VIGILANCE: canInteract must wait 800ms (not 400ms) — the

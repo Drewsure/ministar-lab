@@ -329,14 +329,14 @@ export default function Home() {
             <div
               className="mx-auto rounded-3xl overflow-hidden shadow-2xl"
               style={{
-                width: '100%',
-                maxWidth: '1280px',
-                // HEIGHT: Use viewport-relative height that works on both
-                // mobile and PC. On wide PC screens, use more vertical space.
-                // On mobile, cap so buttons/header still fit.
-                height: '70vh',
-                maxHeight: '720px',
-                minHeight: '320px',
+                width: '95vw',
+                maxWidth: '1400px',
+                // FULLSCREEN: Use 85vh so the game fills most of the viewport.
+                // On PC (1080px tall): 85vh = 918px — fills the screen.
+                // On iPhone mini (640px tall): 85vh = 544px — fills the screen.
+                height: '85vh',
+                maxHeight: '900px',
+                minHeight: '400px',
                 border: `1px solid color-mix(in oklab, var(--brand-accent) 30%, transparent)`,
                 boxShadow: `0 30px 80px -20px ${brand.primaryColor}80`,
               }}
