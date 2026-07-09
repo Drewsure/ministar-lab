@@ -49,7 +49,7 @@ export default class SpinWheelScene extends BaseEngine {
     // ---- Wheel (center-top) ----
     const wheelX = this.scale.width / 2;
     const wheelY = 280;
-    const wheelRadius = 140;
+    const wheelRadius = 200;
 
     this.wheel = this.add.container(wheelX, wheelY).setDepth(30);
 
@@ -86,7 +86,7 @@ export default class SpinWheelScene extends BaseEngine {
       const ty = Math.sin(midAngle) * textRadius;
       const txt = this.add.text(tx, ty, term.emoji ?? term.term.slice(0, 4), {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '20px',
+        fontSize: '24px',
         color: '#ffffff',
         fontStyle: 'bold',
       }).setOrigin(0.5).setRotation(midAngle + Math.PI / 2);
@@ -141,8 +141,8 @@ export default class SpinWheelScene extends BaseEngine {
     });
 
     // ---- Spin button ----
-    const btnY = wheelY + wheelRadius + 50;
-    const spinBtnBg = this.add.rectangle(0, 0, 180, 50, this.theme.success, 0.9)
+    const btnY = wheelY + wheelRadius + 60;
+    const spinBtnBg = this.add.rectangle(0, 0, 220, 56, this.theme.success, 0.9)
       .setStrokeStyle(2, 0xffffff, 0.8);
     const spinBtnTxt = this.add.text(0, 0, '🎲 SPIN!', {
       fontFamily: 'Inter, sans-serif',
@@ -151,7 +151,7 @@ export default class SpinWheelScene extends BaseEngine {
       fontStyle: 'bold',
     }).setOrigin(0.5);
     this.spinBtn = this.add.container(wheelX, btnY, [spinBtnBg, spinBtnTxt])
-      .setSize(180, 50).setDepth(40);
+      .setSize(220, 56).setDepth(40);
 
     // Use global pointerdown for reliability (Phaser 4 per-object input can be unreliable)
     this.spinBtnX = wheelX;
@@ -165,7 +165,7 @@ export default class SpinWheelScene extends BaseEngine {
       this.answerButtons.forEach((btn) => {
         const opt = btn.getData('opt') as { isCorrect: boolean; term: TermItem };
         const btnWorldY = 530 + (btn.getData('y') as number);
-        if (opt && Math.abs(p.x - 400) < 160 && Math.abs(p.y - btnWorldY) < 25) {
+        if (opt && Math.abs(p.x - 400) < 200 && Math.abs(p.y - btnWorldY) < 28) {
           // ESL FIX (user feedback): "should have the statement vocalized along
           // with other two statements in order for correct choice to be made".
           // TAP ONCE = hear the definition spoken. TAP TWICE = confirm answer.
@@ -269,7 +269,7 @@ export default class SpinWheelScene extends BaseEngine {
     ];
     Phaser.Utils.Array.Shuffle(options);
 
-    const btnW = 320, btnH = 50, gap = 8;
+    const btnW = 400, btnH = 56, gap = 10;
     const startY = -(options.length * (btnH + gap)) / 2;
 
     options.forEach((opt, i) => {
@@ -278,7 +278,7 @@ export default class SpinWheelScene extends BaseEngine {
         .setStrokeStyle(2, this.theme.accent, 0.6);
       const txt = this.add.text(0, y, opt.term.definition ?? opt.term.term, {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '18px',
+        fontSize: '20px',
         color: this.hex(this.theme.text),
         align: 'center',
         wordWrap: { width: btnW - 20 },

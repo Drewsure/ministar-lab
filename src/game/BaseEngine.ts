@@ -289,25 +289,37 @@ export abstract class BaseEngine extends Phaser.Scene {
       this.add.text(this.scale.width / 2, this.scale.height / 2 + 110, badges.join('  ·  '), { fontFamily: 'Inter, sans-serif', fontSize: '13px', color: '#' + this.theme.warning.toString(16).padStart(6, '0'), fontStyle: 'bold', align: 'center', wordWrap: { width: 500 } }).setOrigin(0.5).setDepth(501);
     }
 
-    // BUTTONS: Position responsively across the screen width
+    // BUTTONS: Bigger with backgrounds, stacked vertically so they don't overlap
     const btnY = this.scale.height / 2 + 100;
-    const btnSpacing = Math.min(160, (this.scale.width - 60) / 3);
-    const btnStartX = this.scale.width / 2 - btnSpacing;
+    const btnW = Math.min(280, this.scale.width - 40);
+    const btnH = 50;
 
-    // Play Again button (restart from level 1)
-    const btnBg = this.add.rectangle(btnStartX, btnY, btnSpacing - 10, 44, statusColor, 0.9).setDepth(501);
-    const btn = this.add.text(btnStartX, btnY, '🔄 Play Again', { fontFamily: 'Inter, sans-serif', fontSize: '15px', color: '#000000', fontStyle: 'bold' }).setOrigin(0.5).setDepth(502).setInteractive({ useHandCursor: true });
+    // Play Again button
+    const btnBg = this.add.rectangle(this.scale.width / 2, btnY, btnW, btnH, statusColor, 0.95)
+      .setStrokeStyle(2, 0xffffff, 0.5).setDepth(501).setInteractive({ useHandCursor: true });
+    const btn = this.add.text(this.scale.width / 2, btnY, '🔄 Play Again', {
+      fontFamily: 'Inter, sans-serif', fontSize: '22px', color: '#000000', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(502).setInteractive({ useHandCursor: true });
     btn.on('pointerdown', () => { audioBus.play('tap'); this.scene.restart({ config: this.registry.get('launchConfig') }); });
+    btnBg.on('pointerdown', () => { audioBus.play('tap'); this.scene.restart({ config: this.registry.get('launchConfig') }); });
 
-    // New Game button (exit to library)
-    const btnBg2 = this.add.rectangle(btnStartX + btnSpacing, btnY, btnSpacing - 10, 44, this.theme.card, 0.9).setStrokeStyle(2, this.theme.accent, 0.8).setDepth(501);
-    const btn2 = this.add.text(btnStartX + btnSpacing, btnY, '🎮 New Game', { fontFamily: 'Inter, sans-serif', fontSize: '15px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5).setDepth(502).setInteractive({ useHandCursor: true });
+    // New Game button
+    const btnBg2 = this.add.rectangle(this.scale.width / 2, btnY + 60, btnW, btnH, this.theme.card, 0.95)
+      .setStrokeStyle(2, this.theme.accent, 0.8).setDepth(501).setInteractive({ useHandCursor: true });
+    const btn2 = this.add.text(this.scale.width / 2, btnY + 60, '🎮 New Game', {
+      fontFamily: 'Inter, sans-serif', fontSize: '22px', color: '#ffffff', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(502).setInteractive({ useHandCursor: true });
     btn2.on('pointerdown', () => { audioBus.play('tap'); try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ministar-exit-game')); } catch {} try { this.game.destroy(true); } catch {} });
+    btnBg2.on('pointerdown', () => { audioBus.play('tap'); try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ministar-exit-game')); } catch {} try { this.game.destroy(true); } catch {} });
 
     // Game Complete button
-    const btnBg3 = this.add.rectangle(btnStartX + btnSpacing * 2, btnY, btnSpacing - 10, 44, this.theme.success, 0.9).setDepth(501);
-    const btn3 = this.add.text(btnStartX + btnSpacing * 2, btnY, '✓ Complete', { fontFamily: 'Inter, sans-serif', fontSize: '15px', color: '#000000', fontStyle: 'bold' }).setOrigin(0.5).setDepth(502).setInteractive({ useHandCursor: true });
+    const btnBg3 = this.add.rectangle(this.scale.width / 2, btnY + 120, btnW, btnH, this.theme.success, 0.95)
+      .setStrokeStyle(2, 0xffffff, 0.5).setDepth(501).setInteractive({ useHandCursor: true });
+    const btn3 = this.add.text(this.scale.width / 2, btnY + 120, '✓ Complete', {
+      fontFamily: 'Inter, sans-serif', fontSize: '22px', color: '#000000', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(502).setInteractive({ useHandCursor: true });
     btn3.on('pointerdown', () => { audioBus.play('tap'); try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ministar-exit-game')); } catch {} try { this.game.destroy(true); } catch {} });
+    btnBg3.on('pointerdown', () => { audioBus.play('tap'); try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ministar-exit-game')); } catch {} try { this.game.destroy(true); } catch {} });
 
     // Animate overlay in
     overlay.setAlpha(0); titleText.setAlpha(0); subText.setAlpha(0); statsText.setAlpha(0); stats2.setAlpha(0); stats3.setAlpha(0); btnBg.setAlpha(0); btn.setAlpha(0); btnBg2.setAlpha(0); btn2.setAlpha(0); btnBg3.setAlpha(0); btn3.setAlpha(0);
@@ -374,11 +386,21 @@ export abstract class BaseEngine extends Phaser.Scene {
   }
 
   private _createPauseButton() {
-    const btn = this.add.text(15, 95, '⏸', { fontFamily: 'Inter, sans-serif', fontSize: '22px' }).setDepth(300).setInteractive({ useHandCursor: true });
+    // BIGGER pause button — was 22px, now 32px with background
+    const btnBg = this.add.rectangle(50, 110, 60, 40, this.theme.card, 0.9)
+      .setStrokeStyle(2, this.theme.accent, 0.7).setDepth(299);
+    const btn = this.add.text(50, 110, '⏸', {
+      fontFamily: 'Inter, sans-serif', fontSize: '28px',
+    }).setOrigin(0.5).setDepth(300).setInteractive({ useHandCursor: true });
     btn.on('pointerdown', () => {
       if (this.isFinished) return;
-      // FIX: Don't use scene.pause() — it freezes ALL input including the
-      // resume button. Use a flag instead so input keeps working.
+      if (this._isPaused) { this._isPaused = false; if (this.pauseOverlay) this.pauseOverlay.setVisible(false); }
+      else { this._isPaused = true; this._showPauseOverlay(); }
+    });
+    // Make the bg clickable too
+    btnBg.setInteractive({ useHandCursor: true });
+    btnBg.on('pointerdown', () => {
+      if (this.isFinished) return;
       if (this._isPaused) { this._isPaused = false; if (this.pauseOverlay) this.pauseOverlay.setVisible(false); }
       else { this._isPaused = true; this._showPauseOverlay(); }
     });
@@ -386,13 +408,30 @@ export abstract class BaseEngine extends Phaser.Scene {
 
   private _showPauseOverlay() {
     if (this.pauseOverlay) { this.pauseOverlay.setVisible(true); return; }
-    const overlay = this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x000000, 0.7).setDepth(450);
-    const title = this.add.text(this.scale.width / 2, this.scale.height / 2 - 60, '⏸ Paused', { fontFamily: 'Inter, sans-serif', fontSize: '32px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5).setDepth(451);
-    const resumeBtn = this.add.text(this.scale.width / 2, this.scale.height / 2 + 10, '▶ Resume', { fontFamily: 'Inter, sans-serif', fontSize: '20px', color: '#22c55e', fontStyle: 'bold' }).setOrigin(0.5).setDepth(451).setInteractive({ useHandCursor: true });
-    // FIX: Don't call scene.resume() — just clear the flag
+    const cx = this.scale.width / 2;
+    const cy = this.scale.height / 2;
+    const overlay = this.add.rectangle(cx, cy, this.scale.width, this.scale.height, 0x000000, 0.8).setDepth(450);
+    const title = this.add.text(cx, cy - 80, '⏸ Paused', {
+      fontFamily: 'Inter, sans-serif', fontSize: '40px', color: '#ffffff', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(451);
+
+    // BIGGER buttons with backgrounds — not overlapping, easily readable
+    const resumeBg = this.add.rectangle(cx, cy + 10, 240, 56, 0x22c55e, 0.95)
+      .setStrokeStyle(2, 0xffffff, 0.5).setDepth(451).setInteractive({ useHandCursor: true });
+    const resumeBtn = this.add.text(cx, cy + 10, '▶ Resume', {
+      fontFamily: 'Inter, sans-serif', fontSize: '24px', color: '#000000', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(452).setInteractive({ useHandCursor: true });
     resumeBtn.on('pointerdown', () => { this._isPaused = false; if (this.pauseOverlay) this.pauseOverlay.setVisible(false); });
-    const quitBtn = this.add.text(this.scale.width / 2, this.scale.height / 2 + 50, '✗ Quit to Library', { fontFamily: 'Inter, sans-serif', fontSize: '18px', color: '#ef4444', fontStyle: 'bold' }).setOrigin(0.5).setDepth(451).setInteractive({ useHandCursor: true });
+    resumeBg.on('pointerdown', () => { this._isPaused = false; if (this.pauseOverlay) this.pauseOverlay.setVisible(false); });
+
+    const quitBg = this.add.rectangle(cx, cy + 80, 240, 56, 0xef4444, 0.95)
+      .setStrokeStyle(2, 0xffffff, 0.5).setDepth(451).setInteractive({ useHandCursor: true });
+    const quitBtn = this.add.text(cx, cy + 80, '✗ Quit to Library', {
+      fontFamily: 'Inter, sans-serif', fontSize: '22px', color: '#ffffff', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(452).setInteractive({ useHandCursor: true });
     quitBtn.on('pointerdown', () => { try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ministar-exit-game')); } catch {} try { this.game.destroy(true); } catch {} });
-    this.pauseOverlay = this.add.container(0, 0, [overlay, title, resumeBtn, quitBtn]).setDepth(450);
+    quitBg.on('pointerdown', () => { try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ministar-exit-game')); } catch {} try { this.game.destroy(true); } catch {} });
+
+    this.pauseOverlay = this.add.container(0, 0, [overlay, title, resumeBg, resumeBtn, quitBg, quitBtn]).setDepth(450);
   }
 }

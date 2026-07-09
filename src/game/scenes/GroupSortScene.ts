@@ -19,6 +19,8 @@ interface SortTerm {
   term: TermItem;
   container: Phaser.GameObjects.Container;
   placed: boolean;
+  homeX: number;
+  homeY: number;
 }
 
 interface Category {
@@ -161,7 +163,7 @@ export default class GroupSortScene extends BaseEngine {
       const container = this.add.container(x, y, [glow, shadow, bg, shine, txt])
         .setSize(termW, termH).setInteractive({ useHandCursor: true, draggable: true }).setDepth(40);
 
-      const sortTerm: SortTerm = { term, container, placed: false };
+      const sortTerm: SortTerm = { term, container, placed: false, homeX: x, homeY: y };
       this.sortTerms.push(sortTerm);
       container.setData('sortTerm', sortTerm);
 
@@ -221,11 +223,11 @@ export default class GroupSortScene extends BaseEngine {
     });
 
     if (!closestCat) {
-      // Not dropped on any bucket — return to original position with bounce
+      // Not dropped on any bucket — return to HOME position with bounce
       this.tweens.add({
         targets: sortTerm.container,
-        x: sortTerm.container.x,
-        y: sortTerm.container.y,
+        x: sortTerm.homeX,
+        y: sortTerm.homeY,
         duration: 300, ease: 'Back.out',
       });
       return;
