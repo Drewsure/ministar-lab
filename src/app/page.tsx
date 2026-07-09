@@ -263,13 +263,13 @@ export default function Home() {
         </section>
       )}
 
-      <main className={launch ? "flex-1 mx-auto w-full px-2 pb-2" : "flex-1 mx-auto max-w-7xl w-full px-4 sm:px-6 pb-12"}>
+      <main className={launch ? "flex-1 w-full px-1 pb-1" : "flex-1 mx-auto max-w-7xl w-full px-4 sm:px-6 pb-12"}>
         {launch ? (
           // -----------------------------------------------------------------
-          // GAME VIEW
+          // GAME VIEW — FULL WIDTH, NO MAX-W CONSTRAINT
           // -----------------------------------------------------------------
           <div className="ministar-rise">
-            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
               <div>
                 <div className="text-xs uppercase tracking-widest opacity-60" style={{ color: 'var(--brand-text)' }}>
                   Now playing · {THEMES[launch.theme].name}
@@ -281,7 +281,6 @@ export default function Home() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
-                    // Restart the game by toggling launch
                     const cfg = launch;
                     setLaunch(null);
                     setTimeout(() => setLaunch(cfg), 100);
@@ -346,16 +345,13 @@ export default function Home() {
             </div>
 
             <div
-              className="mx-auto rounded-3xl overflow-hidden shadow-2xl"
+              className="rounded-3xl overflow-hidden shadow-2xl"
               style={{
-                // FULLSCREEN: Fill the entire available space.
-                // Width: 100% of parent (which is max-w-7xl but we override)
-                // Height: calc(100vh - 200px) to leave room for header + buttons.
-                // This fills the screen on both PC and mobile.
+                // AGGRESSIVE FULLSCREEN: Fill 100% of available width + height.
+                // No max-width constraint. Height = viewport minus header/buttons.
                 width: '100%',
-                maxWidth: '100%',
-                height: 'calc(100vh - 200px)',
-                minHeight: '350px',
+                height: 'calc(100vh - 140px)',
+                minHeight: '400px',
                 border: `1px solid color-mix(in oklab, var(--brand-accent) 30%, transparent)`,
                 boxShadow: `0 30px 80px -20px ${brand.primaryColor}80`,
               }}
@@ -363,7 +359,7 @@ export default function Home() {
               <GameCanvas config={launch} onExit={exitGame} />
             </div>
 
-            <div className="text-center mt-4 text-xs opacity-60" style={{ color: 'var(--brand-text)' }}>
+            <div className="text-center mt-2 text-xs opacity-60" style={{ color: 'var(--brand-text)' }}>
               Tap to play · Tap any text to hear it · Press P to pause
             </div>
           </div>
