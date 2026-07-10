@@ -26,6 +26,7 @@ export default class SpinWheelScene extends BaseEngine {
   private spinBtn!: Phaser.GameObjects.Container;
   private spinBtnX = 0;
   private spinBtnY = 0;
+  private optionsContainerY = 530;
   private answerButtons: Phaser.GameObjects.Container[] = [];
   private isSpinning = false;
   private landedTerm?: TermItem;
@@ -153,19 +154,22 @@ export default class SpinWheelScene extends BaseEngine {
     this.spinBtn = this.add.container(wheelX, btnY, [spinBtnBg, spinBtnTxt])
       .setSize(220, 56).setDepth(40);
 
-    // Use global pointerdown for reliability (Phaser 4 per-object input can be unreliable)
+    // Use global pointerdown for reliability
     this.spinBtnX = wheelX;
     this.spinBtnY = btnY;
+    this.optionsContainerY = 530; // store for hit-test
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
       // Check if SPIN button was clicked
-      if (!this.isSpinning && Math.abs(p.x - this.spinBtnX) < 90 && Math.abs(p.y - this.spinBtnY) < 25) {
+      if (!this.isSpinning && Math.abs(p.x - this.spinBtnX) < 110 && Math.abs(p.y - this.spinBtnY) < 28) {
         this.spin();
       }
-      // Check if any answer button was clicked (they're in optionsContainer at y=530)
+      // Check if any answer button was clicked
       this.answerButtons.forEach((btn) => {
         const opt = btn.getData('opt') as { isCorrect: boolean; term: TermItem };
-        const btnWorldY = 530 + (btn.getData('y') as number);
-        if (opt && Math.abs(p.x - 400) < 200 && Math.abs(p.y - btnWorldY) < 28) {
+        // Use wheelX (dynamic center) not hardcoded 400
+        const btnWorldX = this.spinBtnX + (btn.getData('x') as number || 0);
+        const btnWorldY = this.optionsContainerY + (btn.getData('y') as number);
+        if (opt && Math.abs(p.x - this.spinBtnX) < 200 && Math.abs(p.y - btnWorldY) < 28) {
           // ESL FIX (user feedback): "should have the statement vocalized along
           // with other two statements in order for correct choice to be made".
           // TAP ONCE = hear the definition spoken. TAP TWICE = confirm answer.
@@ -176,7 +180,7 @@ export default class SpinWheelScene extends BaseEngine {
             audioBus.speak(opt.term.definition ?? opt.term.term);
             const bg = btn.getAt(0) as Phaser.GameObjects.Rectangle;
             bg.setStrokeStyle(3, this.theme.warning, 1);
-            this.juice.scorePopup(btn.x + 400, btnWorldY, '🔊 Tap again to choose', this.theme.warning);
+            this.juice.scorePopup(this.spinBtnX, btnWorldY, '🔊 Tap again to choose', this.theme.warning);
           } else {
             // Second tap: confirm answer
             audioBus.speak(opt.term.definition ?? opt.term.term);

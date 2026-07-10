@@ -389,15 +389,15 @@ export abstract class BaseEngine extends Phaser.Scene {
   }
 
   // AAA ENTRANCE: Title card with game name, fades in from black,
-  // holds for 1.5s, then fades out. Camera also fades in simultaneously.
+  // holds for 1.2s, then fades out. Does NOT block input (no setInteractive).
   private _showEntranceCard() {
     const cx = this.scale.width / 2;
     const cy = this.scale.height / 2;
 
-    // Camera fade in from black (800ms)
-    this.cameras.main.fadeIn(800, 0, 0, 0);
+    // Camera fade in from black (600ms)
+    this.cameras.main.fadeIn(600, 0, 0, 0);
 
-    // Title card overlay
+    // Title card overlay — NOT interactive (doesn't block game input)
     const cardBg = this.add.rectangle(cx, cy, this.scale.width, this.scale.height, 0x000000, 0.85)
       .setDepth(600);
 
@@ -453,61 +453,36 @@ export abstract class BaseEngine extends Phaser.Scene {
       fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(601).setAlpha(0);
 
-    // Decorative emoji border (4 corners)
-    const corners = ['✨', '⭐', '🎮', '🎯'];
-    const cornerOffsets = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
-    const cornerEmojis: Phaser.GameObjects.Text[] = [];
-    corners.forEach((emoji, i) => {
-      const [dx, dy] = cornerOffsets[i];
-      const t = this.add.text(cx + dx * 200, cy + dy * 120, emoji, {
-        fontSize: '36px',
-      }).setOrigin(0.5).setDepth(601).setAlpha(0);
-      cornerEmojis.push(t);
-    });
-
-    // Animate: title scales in, subtitle fades, corners pulse
+    // Animate: title scales in, subtitle fades
     this.tweens.add({
       targets: title,
       alpha: 1,
       scale: { from: 0.5, to: 1 },
-      duration: 400,
+      duration: 300,
       ease: 'Back.out',
     });
     this.tweens.add({
       targets: subtitle,
       alpha: 1,
-      duration: 400,
-      delay: 200,
+      duration: 300,
+      delay: 150,
       ease: 'Cubic.out',
     });
-    cornerEmojis.forEach((e, i) => {
-      this.tweens.add({
-        targets: e,
-        alpha: { from: 0, to: 1 },
-        scale: { from: 0.3, to: 1.2 },
-        duration: 500,
-        delay: 100 + i * 100,
-        yoyo: true,
-        repeat: 1,
-        ease: 'Back.out',
-      });
-    });
 
-    // Fade out after 1.5s
-    this.time.delayedCall(1500, () => {
-      this.tweens.add({
-        targets: [cardBg, title, subtitle, ...cornerEmojis],
-        alpha: 0,
-        duration: 400,
-        ease: 'Cubic.in',
-        onComplete: () => {
-          cardBg.destroy();
-          title.destroy();
-          subtitle.destroy();
-          cornerEmojis.forEach(e => e.destroy());
-        },
-      });
-    });
+    // Fade out after 1.2s — use setTimeout (bulletproof, can't be killed)
+    setTimeout(() => {
+      try {
+        this.tweens.add({
+          targets: [cardBg, title, subtitle],
+          alpha: 0,
+          duration: 300,
+          ease: 'Cubic.in',
+          onComplete: () => {
+            try { cardBg.destroy(); title.destroy(); subtitle.destroy(); } catch {}
+          },
+        });
+      } catch {}
+    }, 1200);
   }
 
   private _createPauseButton() {
