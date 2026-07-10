@@ -29,6 +29,7 @@ cd C:\Users\User\ministar-lab
 git add .
 git commit -m "<descriptive message>"
 git push
+Start-Process "https://ministar-lab.vercel.app"
 ```
 
 ### Step 3: Add a one-line note about the password
@@ -36,6 +37,14 @@ git push
 ```
 If `git push` asks for password: username = Drewsure, password = GitHub PAT from https://github.com/settings/tokens (classic, repo scope)
 ```
+
+### Step 4: ALWAYS include the Vercel URL
+
+The last line of the PowerShell block MUST be:
+```
+Start-Process "https://ministar-lab.vercel.app"
+```
+This opens the live application after push so the user can verify immediately. NEVER omit this line.
 
 ---
 
@@ -90,7 +99,7 @@ rm -f download/ministar-src-clean.zip
 
 When the user says "ship it" or "deploy" or "push to GitHub":
 1. Run the zip command
-2. Paste the ONE PowerShell block
+2. Paste the ONE PowerShell block (MUST include `Start-Process "https://ministar-lab.vercel.app"` as the last line)
 3. Add the password note
 4. Stop. No alternatives. No options. No essays.
 

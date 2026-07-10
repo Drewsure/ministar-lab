@@ -651,10 +651,10 @@ export default class MazeChaseScene extends BaseEngine {
       this.checkWin();
       return;
     }
-    // AAAA — FIX: Re-spawn ALL targets with the new active term.
-    // Previous code only changed the prompt text but didn't update the
-    // targets in the maze — so the prompt said "Find: Banana" but the
-    // maze still had the old target. Now we regenerate the maze + targets.
+    // FIX: Don't regenerate maze — it destroys walls/targets groups and
+    // breaks physics colliders (player-to-walls collider is lost because
+    // spawnPlayer() is not called again). Just update the active term
+    // and respawn targets/enemies on the EXISTING maze.
     this.activeTerm = Phaser.Utils.Array.GetRandom(remaining);
     const promptLabel = this.activeTerm.emoji
       ? `Find: ${this.activeTerm.emoji} ${this.activeTerm.term}`
@@ -668,9 +668,7 @@ export default class MazeChaseScene extends BaseEngine {
       audioBus.speak(speakText2);
     });
     this.time.delayedCall(500, () => { if (!this.isFinished) audioBus.speak(speakText2); });
-    // Regenerate maze + targets for the new round
-    this.generateMaze();
-    this.renderMaze();
+    // Only respawn targets + enemies (keeps existing maze + walls + colliders)
     this.spawnTargetsAndEnemies();
   }
 

@@ -99,7 +99,14 @@ export default function Home() {
   const [terms, setTerms] = useState<TermItem[]>(DEFAULT_TERMS);
   const [launch, setLaunch] = useState<GameLaunchConfig | null>(null);
   const [lastBrand, setLastBrand] = useState(brand.subdomain);
-  const [stats, setStats] = useState<StudentStats>(() => loadStats());
+  const [stats, setStats] = useState<StudentStats>({ xp: 0, level: 1, streak: 0, lastPlayed: '', gamesPlayed: 0, bestStreak: 0, streakFreezes: 1, tokens: 0, mysteryBoxesOpened: 0 });
+  const [statsLoaded, setStatsLoaded] = useState(false);
+
+  // Load stats AFTER hydration to prevent SSR mismatch
+  useEffect(() => {
+    setStats(loadStats());
+    setStatsLoaded(true);
+  }, []);
 
   // Sync theme when brand changes
   if (brand.subdomain !== lastBrand) {
@@ -215,7 +222,7 @@ export default function Home() {
             </p>
 
             {/* AAA 2029 — Student Stats Bar */}
-            {!launch && stats.gamesPlayed > 0 && (
+            {!launch && statsLoaded && stats.gamesPlayed > 0 && (
               <div className="flex items-center justify-center gap-3 mt-4 flex-wrap">
                 <div className="rounded-xl px-4 py-2 text-sm font-semibold"
                   style={{
@@ -469,7 +476,7 @@ export default function Home() {
             </div>
 
             {/* Achievement Badges — Blooket-grade engagement */}
-            {stats.gamesPlayed > 0 && (
+            {statsLoaded && stats.gamesPlayed > 0 && (
               <div className="rounded-2xl mb-6 p-4"
                 style={{
                   background: 'color-mix(in oklab, var(--brand-card) 50%, transparent)',

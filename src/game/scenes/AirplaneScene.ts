@@ -399,9 +399,9 @@ export default class AirplaneScene extends BaseEngine {
   }
 
   private updateAirplane() {
-    // AAAA — Plane speed: SLOWER at start (200 was too fast for level 1)
-    const baseSpeed = 200; // was 340
-    const speed = baseSpeed * this.speedMultiplier;
+    // Plane speed: faster base (350 was 200 — too slow per user feedback)
+    const baseSpeed = 350;
+    const speed = baseSpeed * Math.max(this.speedMultiplier, 0.6); // min 0.6x so it's never too slow
     const pointer = this.input.activePointer;
 
     let vx = 0;

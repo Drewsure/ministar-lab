@@ -49,8 +49,8 @@ export default class SpinWheelScene extends BaseEngine {
 
     // ---- Wheel (center-top) ----
     const wheelX = this.scale.width / 2;
-    const wheelY = 280;
-    const wheelRadius = 200;
+    const wheelY = 240;
+    const wheelRadius = 180;
 
     this.wheel = this.add.container(wheelX, wheelY).setDepth(30);
 
@@ -87,7 +87,7 @@ export default class SpinWheelScene extends BaseEngine {
       const ty = Math.sin(midAngle) * textRadius;
       const txt = this.add.text(tx, ty, term.emoji ?? term.term.slice(0, 4), {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '24px',
+        fontSize: '32px',
         color: '#ffffff',
         fontStyle: 'bold',
       }).setOrigin(0.5).setRotation(midAngle + Math.PI / 2);
@@ -157,7 +157,7 @@ export default class SpinWheelScene extends BaseEngine {
     // Use global pointerdown for reliability
     this.spinBtnX = wheelX;
     this.spinBtnY = btnY;
-    this.optionsContainerY = 530; // store for hit-test
+    this.optionsContainerY = 510; // store for hit-test
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
       // Check if SPIN button was clicked
       if (!this.isSpinning && Math.abs(p.x - this.spinBtnX) < 110 && Math.abs(p.y - this.spinBtnY) < 28) {
