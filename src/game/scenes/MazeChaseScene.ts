@@ -620,11 +620,12 @@ export default class MazeChaseScene extends BaseEngine {
       term: 'enemy',
       response: 'enemy-collision',
       success: false,
-      coordinate: { x: (e as Phaser.GameObjects.Image).x, y: (e as Phaser.GameObjects.Image).y, t: this.time.now },
+      coordinate: { x: (e as Phaser.GameObjects.Text).x, y: (e as Phaser.GameObjects.Text).y, t: this.time.now },
     });
 
-    // Hit-stop: brief physics freeze for impact
-    this.juice.hitStop(100);
+    // FIX: Don't use juice.hitStop — it calls physics.world.pause() then
+    // uses time.delayedCall to resume. If the delayedCall is killed,
+    // physics NEVER resumes → permanent freeze. Just bounce back instead.
     this.bouncePlayerBack();
     this.time.delayedCall(900, () => this.targetHits.delete(e));
   }
@@ -634,9 +635,10 @@ export default class MazeChaseScene extends BaseEngine {
     const targetX = this.mazeOffsetX + CELL / 2;
     const targetY = this.mazeOffsetY + CELL / 2;
     this.physics.moveTo(this.player, targetX, targetY, 600);
-    this.time.delayedCall(280, () => {
+    // FIX: Use setTimeout instead of time.delayedCall — can't be killed
+    setTimeout(() => {
       if (this.player && this.player.active) this.player.setVelocity(0, 0);
-    });
+    }, 280);
     // Clear any active path
     this.path = [];
     this.pathIdx = 0;

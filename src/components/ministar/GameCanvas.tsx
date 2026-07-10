@@ -86,20 +86,19 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
     };
     window.addEventListener('ministar-exit-game', handleExit);
     // ORIENTATION CHANGE: When phone rotates, Phaser needs to resize.
-    // Listen for resize + orientationchange events and call game.scale.refresh().
+    // Use a longer delay + multiple refresh calls to handle iOS Safari's
+    // slow orientation change animation.
     const handleResize = () => {
       if (gameRef.current) {
         try {
-          // Delay slightly so the browser finishes rotating
-          setTimeout(() => {
-            if (gameRef.current) {
-              gameRef.current.scale.refresh();
-              gameRef.current.scale.resize(
-                gameRef.current.scale.parent?.clientWidth || window.innerWidth,
-                gameRef.current.scale.parent?.clientHeight || window.innerHeight
-              );
-            }
-          }, 200);
+          // Refresh at 100ms, 500ms, and 1000ms to catch iOS's slow rotation
+          [100, 500, 1000].forEach(delay => {
+            setTimeout(() => {
+              if (gameRef.current) {
+                gameRef.current.scale.refresh();
+              }
+            }, delay);
+          });
         } catch {}
       }
     };

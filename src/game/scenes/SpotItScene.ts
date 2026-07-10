@@ -43,8 +43,8 @@ export default class SpotItScene extends BaseEngine {
   private round = 0;
   private maxRounds = 8;
   private symbols: SpotItSymbol[] = [];
-  private card1Center = { x: 220, y: 360 };
-  private card2Center = { x: 580, y: 360 };
+  private card1Center = { x: 0, y: 0 };
+  private card2Center = { x: 0, y: 0 };
   private cardRadius = 130;
   private symbolsPerCard = 5;
   private canInteract = true;
@@ -58,6 +58,10 @@ export default class SpotItScene extends BaseEngine {
 
   protected buildWorld() {
     this.maxRounds = this.maxScore;
+
+    // DYNAMIC CARD POSITIONS: centered based on actual screen width
+    this.card1Center = { x: this.scale.width * 0.28, y: this.scale.height * 0.58 };
+    this.card2Center = { x: this.scale.width * 0.72, y: this.scale.height * 0.58 };
 
     // ---- Title ----
     this.add.text(

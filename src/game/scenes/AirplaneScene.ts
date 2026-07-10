@@ -220,31 +220,18 @@ export default class AirplaneScene extends BaseEngine {
     if (this.isFinished || !this.activePrompt) return;
 
     const bannerW = 140, bannerH = 48;
-    const gap = 30;
-    const cols = 3;
-    const totalW = cols * bannerW + (cols - 1) * gap;
-    const startX = (this.scale.width - totalW) / 2 + bannerW / 2;
 
-    // Build 3 banners: 1 correct, 2 wrong (decoys from other terms)
+    // USER REQUEST: "one cloud dropping per row - not 3 at the same time"
+    // Spawn ONE cloud per row. Alternate between correct and wrong words
+    // so the player has to read each one and decide.
     const decoys = this.terms.filter(t => t.id !== this.activePrompt!.id);
-    Phaser.Utils.Array.Shuffle(decoys);
-    const row: { term: TermItem; isCorrect: boolean }[] = [
-      { term: this.activePrompt, isCorrect: true },
-      { term: decoys[0] ?? this.activePrompt, isCorrect: false },
-      { term: decoys[1] ?? this.activePrompt, isCorrect: false },
-    ];
-    Phaser.Utils.Array.Shuffle(row);
+    const isCorrect = Math.random() < 0.5; // 50% chance correct
+    const term = isCorrect ? this.activePrompt : (Phaser.Utils.Array.GetRandom(decoys) ?? this.activePrompt);
 
-    // PACING FIX (user feedback "excessive and slow"): Stagger spawns
-    // — spawn one banner every 350ms (was 600ms — too slow). Banners are
-    // smaller (140×48 was 180×64) so they're not "excessive". Fall speed
-    // variation minimal (0.9/1.0/1.1 was 0.8/1.0/1.2 — too extreme).
-    row.forEach((entry, i) => {
-      this.time.delayedCall(i * 350, () => {
-        if (this.isFinished) return;
-        this._spawnSingleBanner(entry, startX + i * (bannerW + gap), bannerW, bannerH, i);
-      });
-    });
+    // Random x position across the screen
+    const x = Phaser.Math.Between(bannerW, this.scale.width - bannerW);
+
+    this._spawnSingleBanner({ term, isCorrect }, x, bannerW, bannerH, 0);
   }
 
   private _spawnSingleBanner(entry: { term: TermItem; isCorrect: boolean }, x: number, bannerW: number, bannerH: number, idx: number) {
