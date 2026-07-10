@@ -263,7 +263,7 @@ export default function Home() {
         </section>
       )}
 
-      <main className={launch ? "flex-1 w-full px-1 pb-1" : "flex-1 mx-auto max-w-7xl w-full px-4 sm:px-6 pb-12"}>
+      <main className="flex-1 mx-auto max-w-7xl w-full px-4 sm:px-6 pb-12">
         {launch ? (
           // -----------------------------------------------------------------
           // GAME VIEW — FULL WIDTH, NO MAX-W CONSTRAINT
@@ -347,12 +347,15 @@ export default function Home() {
             <div
               className="rounded-2xl overflow-hidden shadow-lg"
               style={{
-                // FULLSCREEN: Fill 100% of available space.
-                // width: 100% = fills parent (which is w-full, no max-w)
-                // height: calc(100vh - 120px) = fills viewport minus header+buttons
+                // RESPONSIVE: aspect-ratio:4/3 matches the game's 800×600 ratio.
+                // FIT mode scales the game to fill this container EXACTLY —
+                // no letterboxing, no black bars, no squishing.
+                // max-width caps it on large PC screens.
+                // width:100% makes it fill available space on mobile.
                 width: '100%',
-                height: 'calc(100vh - 120px)',
-                minHeight: '350px',
+                maxWidth: '900px',
+                aspectRatio: '4 / 3',
+                margin: '0 auto',
                 border: `2px solid color-mix(in oklab, var(--brand-accent) 50%, transparent)`,
               }}
             >

@@ -69,9 +69,9 @@ export abstract class BaseEngine extends Phaser.Scene {
     this.hud = new Hud(this, this.theme, (state) => this.onHudUpdate(state));
     this.startTime = Date.now();
 
-    // Level badge
-    this.levelBg = this.add.rectangle(this.scale.width / 2, 45, 140, 44, 0x000000, 0.7).setStrokeStyle(2, this.theme.warning, 0.8).setDepth(250);
-    this.levelBadge = this.add.text(this.scale.width / 2, 45, `LEVEL ${this.level}`, { fontFamily: 'Inter, sans-serif', fontSize: '22px', color: this.hex(this.theme.warning), fontStyle: 'bold' }).setOrigin(0.5).setDepth(251);
+    // Level badge — CHECK 2: top-LEFT (x=80), 120×36, "LVL 1"
+    this.levelBg = this.add.rectangle(80, 45, 120, 36, 0x000000, 0.7).setStrokeStyle(2, this.theme.warning, 0.8).setDepth(250);
+    this.levelBadge = this.add.text(80, 45, `LVL ${this.level}`, { fontFamily: 'Inter, sans-serif', fontSize: '16px', color: this.hex(this.theme.warning), fontStyle: 'bold' }).setOrigin(0.5).setDepth(251);
 
     // Urgency vignette
     this.urgencyVignette = this.add.graphics();
@@ -90,8 +90,11 @@ export abstract class BaseEngine extends Phaser.Scene {
 
     this.buildWorld();
 
+    // AAA ENTRANCE: Camera fade-in from black + title card overlay
+    this._showEntranceCard();
+
     // Spoken instructions on entry
-    this.time.delayedCall(800, () => { if (!this.isFinished) this.speakGameInstructions(); });
+    this.time.delayedCall(1200, () => { if (!this.isFinished) this.speakGameInstructions(); });
 
     // HUD loop
     this.events.on('update', () => {
@@ -382,6 +385,128 @@ export abstract class BaseEngine extends Phaser.Scene {
       if (event) event.stopPropagation();
       const current = (text.getData('speakText') as string) ?? speak ?? text.text;
       audioBus.speak(current);
+    });
+  }
+
+  // AAA ENTRANCE: Title card with game name, fades in from black,
+  // holds for 1.5s, then fades out. Camera also fades in simultaneously.
+  private _showEntranceCard() {
+    const cx = this.scale.width / 2;
+    const cy = this.scale.height / 2;
+
+    // Camera fade in from black (800ms)
+    this.cameras.main.fadeIn(800, 0, 0, 0);
+
+    // Title card overlay
+    const cardBg = this.add.rectangle(cx, cy, this.scale.width, this.scale.height, 0x000000, 0.85)
+      .setDepth(600);
+
+    // Game title
+    const gameNames: Record<string, string> = {
+      'MazeChaseScene': '🌽 Maze Chase',
+      'QuizScene': '❓ Quiz',
+      'AirplaneScene': '✈️ Airplane Catch',
+      'GameshowScene': '🎮 Gameshow',
+      'MemoryMatchScene': '🃏 Memory Match',
+      'MatchUpScene': '🔗 Match Up',
+      'BalloonPopScene': '🎈 Balloon Pop',
+      'WhackAMoleScene': '🔨 Whack-a-Mole',
+      'AnagramScene': '🔤 Anagram',
+      'WordsearchScene': '🔍 Word Search',
+      'BridgeBuilderScene': '🌉 Bridge Builder',
+      'CrosswordScene': '📝 Crossword',
+      'FlashCardsScene': '📇 Flash Cards',
+      'SpinWheelScene': '🎡 Spin the Wheel',
+      'GroupSortScene': '📊 Group Sort',
+      'TypeAnswerScene': '⌨️ Type Answer',
+      'SpotItScene': '👁️ Spot It!',
+      'LabelItScene': '🏷️ Label It',
+      'SpeakItScene': '🗣️ Speak It',
+      'EndlessRunnerScene': '🏃 Endless Runner',
+      'PhysicsPuzzlerScene': '🎯 Physics Puzzler',
+      'SnakingScene': '🐍 Word Snake',
+      'TrainingAcademyScene': '🎓 Training Academy',
+      'RescueQuestScene': '🦸 Rescue Quest',
+      'StarFarmScene': '🌾 Star Farm',
+      'TreasureHuntScene': '🗺️ Treasure Hunt',
+      'MonsterFighterScene': '⚔️ Monster Fighter',
+      'TowerDefenseScene': '🏰 Tower Defense',
+      'RhythmTapScene': '🎵 Rhythm Tap',
+      'SpaceExplorerScene': '🚀 Space Explorer',
+      'StoryAdventureScene': '📖 Story Adventure',
+    };
+    const titleText = gameNames[this.scene.key] ?? 'MiniStar Games';
+    const title = this.add.text(cx, cy - 30, titleText, {
+      fontFamily: 'Inter, sans-serif',
+      fontSize: '48px',
+      color: '#' + this.theme.warning.toString(16).padStart(6, '0'),
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 6,
+    }).setOrigin(0.5).setDepth(601).setAlpha(0);
+
+    // Subtitle
+    const subtitle = this.add.text(cx, cy + 25, 'Get Ready!', {
+      fontFamily: 'Inter, sans-serif',
+      fontSize: '24px',
+      color: '#ffffff',
+      fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(601).setAlpha(0);
+
+    // Decorative emoji border (4 corners)
+    const corners = ['✨', '⭐', '🎮', '🎯'];
+    const cornerOffsets = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
+    const cornerEmojis: Phaser.GameObjects.Text[] = [];
+    corners.forEach((emoji, i) => {
+      const [dx, dy] = cornerOffsets[i];
+      const t = this.add.text(cx + dx * 200, cy + dy * 120, emoji, {
+        fontSize: '36px',
+      }).setOrigin(0.5).setDepth(601).setAlpha(0);
+      cornerEmojis.push(t);
+    });
+
+    // Animate: title scales in, subtitle fades, corners pulse
+    this.tweens.add({
+      targets: title,
+      alpha: 1,
+      scale: { from: 0.5, to: 1 },
+      duration: 400,
+      ease: 'Back.out',
+    });
+    this.tweens.add({
+      targets: subtitle,
+      alpha: 1,
+      duration: 400,
+      delay: 200,
+      ease: 'Cubic.out',
+    });
+    cornerEmojis.forEach((e, i) => {
+      this.tweens.add({
+        targets: e,
+        alpha: { from: 0, to: 1 },
+        scale: { from: 0.3, to: 1.2 },
+        duration: 500,
+        delay: 100 + i * 100,
+        yoyo: true,
+        repeat: 1,
+        ease: 'Back.out',
+      });
+    });
+
+    // Fade out after 1.5s
+    this.time.delayedCall(1500, () => {
+      this.tweens.add({
+        targets: [cardBg, title, subtitle, ...cornerEmojis],
+        alpha: 0,
+        duration: 400,
+        ease: 'Cubic.in',
+        onComplete: () => {
+          cardBg.destroy();
+          title.destroy();
+          subtitle.destroy();
+          cornerEmojis.forEach(e => e.destroy());
+        },
+      });
     });
   }
 

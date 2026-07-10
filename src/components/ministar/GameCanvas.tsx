@@ -134,35 +134,31 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
       // Load the scene module (only the active one — keeps bundle light)
       const SceneClass = (await sceneLoader()).default;
 
-      // FULLSCREEN FIX: Phaser follows the PARENT CONTAINER's dimensions,
-      // not window size. The parent must have explicit width/height.
-      // Scale.RESIZE makes the canvas match the parent exactly.
+      // RESPONSIVE FIX (research-backed): Use Scale.FIT with a container
+      // that matches the game's 4:3 aspect ratio. FIT scales uniformly,
+      // maintaining proportions. The container uses aspect-ratio:4/3 so
+      // it matches the game's ratio — NO letterboxing, NO black bars.
+      // All game elements stay centered + proportional on ANY screen.
       const container = containerRef.current!;
-
-      // FORCE the container to fill its parent completely
-      container.style.width = '100%';
-      container.style.height = '100%';
-      container.style.display = 'block';
-      container.style.overflow = 'hidden';
 
       const bgColor = '#' + (theme?.bg ?? 0x000000).toString(16).padStart(6, '0');
 
-      // Get actual parent dimensions for the game
-      const parentW = container.parentElement?.clientWidth || container.clientWidth || 800;
-      const parentH = container.parentElement?.clientHeight || container.clientHeight || 600;
+      const gameWidth = 800;
+      const gameHeight = 600;
 
       const sceneConfig: Phaser.Types.Core.GameConfig = {
         type: Phaser.AUTO,
         parent: container,
-        width: parentW,
-        height: parentH,
+        width: gameWidth,
+        height: gameHeight,
         backgroundColor: bgColor,
         scale: {
-          // RESIZE = canvas matches parent exactly, fills 100%
-          mode: Phaser.Scale.RESIZE,
+          // FIT = scales uniformly, maintains 4:3 aspect ratio.
+          // Combined with aspect-ratio:4/3 container = no letterboxing.
+          mode: Phaser.Scale.FIT,
           autoCenter: Phaser.Scale.CENTER_BOTH,
-          width: parentW,
-          height: parentH,
+          width: gameWidth,
+          height: gameHeight,
           parent: container,
         },
         physics: {
@@ -206,8 +202,9 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
         try {
           if (cancelled || !gameRef.current || gameRef.current !== game) return;
 
-          // FULLSCREEN FIX: Force canvas to fill parent 100%.
-          // Phaser RESIZE mode + these styles = canvas always fills container.
+          // FIT mode: Phaser controls canvas CSS size. Don't override with
+          // width/height 100% — that caused RESIZE behavior (squishing).
+          // Only set accessibility + touch styles.
           const canvas = container.querySelector('canvas');
           if (canvas) {
             canvas.setAttribute('tabindex', '0');
@@ -215,8 +212,7 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
             canvas.style.touchAction = 'none';
             canvas.style.pointerEvents = 'auto';
             canvas.style.display = 'block';
-            canvas.style.width = '100%';
-            canvas.style.height = '100%';
+            canvas.style.margin = '0 auto';
           }
 
           if (!game.scene.getScene(sceneKey)) {
