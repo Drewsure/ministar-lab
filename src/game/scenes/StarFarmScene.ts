@@ -543,7 +543,7 @@ export default class StarFarmScene extends BaseEngine {
 
     // Player sprite (uses generated texture)
     this.playerSprite = this.add.sprite(this.playerX, this.playerY, 'farmer-down-0')
-      .setDepth(100).setScale(1.5);
+      .setDepth(100).setScale(1.2);
 
     // Keep emoji as fallback (hidden) for any code that references playerEmoji
     this.playerEmoji = this.add.text(this.playerX, this.playerY, '', {
@@ -563,9 +563,9 @@ export default class StarFarmScene extends BaseEngine {
   }
 
   private _generatePlayerSprites() {
-    // Generate 4-direction × 2-frame walk cycle sprites procedurally
-    // (down, up, left, right — 2 frames each = 8 textures)
-    if (this.textures.exists('farmer-down-0')) return; // already generated
+    // Generate detailed farmer sprites: 4 directions × 2 walk frames = 8 textures
+    // Bigger canvas (48×56), more detail, better proportions, shading
+    if (this.textures.exists('farmer-down-0')) return;
 
     const dirs = ['down', 'up', 'left', 'right'];
     for (const dir of dirs) {
@@ -573,51 +573,112 @@ export default class StarFarmScene extends BaseEngine {
         const key = `farmer-${dir}-${frame}`;
         const g = this.add.graphics();
 
-        // Body (blue overalls)
+        // === SHADOW ===
+        g.fillStyle(0x000000, 0.2);
+        g.fillEllipse(0, 22, 20, 6);
+
+        // === LEGS === (dark brown boots + blue jeans)
+        const legOffset = frame === 0 ? 0 : 3;
+        // Left leg
+        g.fillStyle(0x1e3a5f, 1); // dark blue jeans
+        g.fillRoundedRect(-8, 8, 6, 10 + legOffset, 2);
+        g.fillStyle(0x4a2e1a, 1); // brown boot
+        g.fillRoundedRect(-8, 16 + legOffset, 6, 5, 2);
+        // Right leg
+        g.fillStyle(0x1e3a5f, 1);
+        g.fillRoundedRect(2, 8, 6, 10 - legOffset, 2);
+        g.fillStyle(0x4a2e1a, 1);
+        g.fillRoundedRect(2, 16 - legOffset, 6, 5, 2);
+
+        // === BODY === (red plaid shirt — Stardew style)
+        g.fillStyle(0xcc3322, 1); // red shirt
+        g.fillRoundedRect(-10, -4, 20, 16, 4);
+        // Plaid pattern (dark red lines)
+        g.fillStyle(0x992211, 0.4);
+        g.fillRect(-10, -4, 20, 1); // horizontal line 1
+        g.fillRect(-10, 0, 20, 1);  // horizontal line 2
+        g.fillRect(-10, 4, 20, 1);  // horizontal line 3
+        g.fillRect(-7, -4, 1, 16);  // vertical line 1
+        g.fillRect(-2, -4, 1, 16);  // vertical line 2
+        g.fillRect(3, -4, 1, 16);   // vertical line 3
+        g.fillRect(7, -4, 1, 16);   // vertical line 4
+
+        // === OVERALLS === (blue straps)
         g.fillStyle(0x2563eb, 1);
-        g.fillRoundedRect(-8, -2, 16, 14, 3);
+        g.fillRect(-8, -4, 3, 16); // left strap
+        g.fillRect(5, -4, 3, 16);  // right strap
 
-        // Head (skin tone)
+        // === ARMS === (skin tone, animated swing)
         g.fillStyle(0xfdbcb4, 1);
-        g.fillCircle(0, -10, 7);
+        const armOffset = frame === 0 ? 0 : 3;
+        // Left arm
+        g.fillRoundedRect(-14, -2 + armOffset, 5, 10, 2);
+        g.fillCircle(-12, 8 + armOffset, 3); // hand
+        // Right arm
+        g.fillRoundedRect(9, -2 - armOffset, 5, 10, 2);
+        g.fillCircle(11, 8 - armOffset, 3); // hand
 
-        // Hat (straw hat — brown)
+        // === NECK ===
+        g.fillStyle(0xfdbcb4, 1);
+        g.fillRect(-3, -8, 6, 4);
+
+        // === HEAD === (skin tone, bigger)
+        g.fillStyle(0xfdbcb4, 1);
+        g.fillCircle(0, -14, 9);
+
+        // === HAIR === (brown, under hat)
+        g.fillStyle(0x5a3a1a, 1);
+        g.fillEllipse(0, -18, 18, 6);
+
+        // === HAT === (straw hat — wide brim + crown, Stardew style)
+        // Brim (wide ellipse)
         g.fillStyle(0xd4a574, 1);
-        g.fillEllipse(0, -15, 20, 6);
+        g.fillEllipse(0, -20, 28, 8);
+        // Brim shadow
+        g.fillStyle(0xb88a5a, 0.5);
+        g.fillEllipse(0, -19, 26, 4);
+        // Crown (top of hat)
         g.fillStyle(0xc4955a, 1);
-        g.fillRect(-5, -18, 10, 4);
+        g.fillRoundedRect(-7, -25, 14, 8, 2);
+        // Hat band (red)
+        g.fillStyle(0xcc3322, 1);
+        g.fillRect(-7, -21, 14, 2);
 
-        // Arms (skin tone)
-        g.fillStyle(0xfdbcb4, 1);
-        const armOffset = frame === 0 ? 0 : 2;
-        g.fillCircle(-9, 0 + armOffset, 3);
-        g.fillCircle(9, 0 - armOffset, 3);
-
-        // Legs (dark blue) — walk frame offset
-        g.fillStyle(0x1e40af, 1);
-        const legOffset = frame === 0 ? 0 : 2;
-        g.fillRect(-6, 10, 4, 6 + legOffset);
-        g.fillRect(2, 10, 4, 6 - legOffset);
-
-        // Direction-specific face details
+        // === FACE === (direction-specific)
         if (dir === 'down') {
-          // Eyes
+          // Eyes (white + black pupil)
+          g.fillStyle(0xffffff, 1);
+          g.fillCircle(-3, -14, 2);
+          g.fillCircle(3, -14, 2);
           g.fillStyle(0x000000, 1);
-          g.fillCircle(-2, -10, 1);
-          g.fillCircle(2, -10, 1);
+          g.fillCircle(-3, -14, 1);
+          g.fillCircle(3, -14, 1);
+          // Smile
+          g.fillStyle(0x000000, 0.5);
+          g.fillRect(-3, -10, 6, 1);
         } else if (dir === 'up') {
-          // Back of head — no eyes, just hair
-          g.fillStyle(0x6b4423, 1);
-          g.fillCircle(0, -11, 5);
+          // Back of head — hair only
+          g.fillStyle(0x5a3a1a, 1);
+          g.fillCircle(0, -14, 8);
         } else if (dir === 'left') {
+          // Side profile — one eye
+          g.fillStyle(0xffffff, 1);
+          g.fillCircle(-5, -14, 2);
           g.fillStyle(0x000000, 1);
-          g.fillCircle(-3, -10, 1);
+          g.fillCircle(-5, -14, 1);
+          // Nose
+          g.fillStyle(0xe8a89a, 1);
+          g.fillCircle(-8, -13, 1.5);
         } else if (dir === 'right') {
+          g.fillStyle(0xffffff, 1);
+          g.fillCircle(5, -14, 2);
           g.fillStyle(0x000000, 1);
-          g.fillCircle(3, -10, 1);
+          g.fillCircle(5, -14, 1);
+          g.fillStyle(0xe8a89a, 1);
+          g.fillCircle(8, -13, 1.5);
         }
 
-        g.generateTexture(key, 28, 32);
+        g.generateTexture(key, 48, 56);
         g.destroy();
       }
     }
