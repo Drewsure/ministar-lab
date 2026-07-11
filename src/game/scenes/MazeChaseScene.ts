@@ -331,10 +331,19 @@ export default class MazeChaseScene extends BaseEngine {
   // TARGETS + ENEMIES
   // ===========================================================================
   private spawnTargetsAndEnemies() {
-    if (this.targetsGroup) this.targetsGroup.destroy(true);
-    if (this.enemiesGroup) this.enemiesGroup.destroy(true);
-    this.targetsGroup = this.physics.add.group();
-    this.enemiesGroup = this.physics.add.group();
+    // FIX: Don't destroy groups — destroying them breaks physics colliders
+    // that reference those groups. Instead, clear children + recreate groups
+    // only if they don't exist yet.
+    if (this.targetsGroup) {
+      this.targetsGroup.clear(true, true); // remove children, destroy them
+    } else {
+      this.targetsGroup = this.physics.add.group();
+    }
+    if (this.enemiesGroup) {
+      this.enemiesGroup.clear(true, true);
+    } else {
+      this.enemiesGroup = this.physics.add.group();
+    }
     this.targetHits.clear();
 
     const roundTerms = this.pickTerms(this.maxScore);
@@ -388,10 +397,15 @@ export default class MazeChaseScene extends BaseEngine {
       this.spawnEnemy(cell);
     }
 
-    // Collisions
-    this.physics.add.overlap(this.player, this.targetsGroup, this.handleTargetCollision, undefined, this);
-    this.physics.add.overlap(this.player, this.enemiesGroup, this.handleEnemyCollision, undefined, this);
+    // Collisions — only add once (not on every respawn)
+    if (!this._collidersAdded) {
+      this.physics.add.overlap(this.player, this.targetsGroup, this.handleTargetCollision, undefined, this);
+      this.physics.add.overlap(this.player, this.enemiesGroup, this.handleEnemyCollision, undefined, this);
+      this._collidersAdded = true;
+    }
   }
+
+  private _collidersAdded = false;
 
   private spawnTarget(cell: { x: number; y: number }, term: TermItem, isCorrect: boolean) {
     const px = this.mazeOffsetX + cell.x * CELL + CELL / 2;
@@ -674,7 +688,11 @@ export default class MazeChaseScene extends BaseEngine {
     });
     this.time.delayedCall(500, () => { if (!this.isFinished) audioBus.speak(speakText2); });
     // Only respawn targets + enemies (keeps existing maze + walls + colliders)
-    this.spawnTargetsAndEnemies();
+    try {
+      this.spawnTargetsAndEnemies();
+    } catch (e) {
+      console.error('[MiniStar] advanceRound spawnTargetsAndEnemies error:', e);
+    }
   }
 
   // ===========================================================================

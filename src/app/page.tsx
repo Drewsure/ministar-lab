@@ -352,26 +352,28 @@ export default function Home() {
             </div>
 
             <div
-              className="rounded-2xl overflow-hidden shadow-lg"
               style={{
-                // ANDROID FIX: Don't use CSS aspect-ratio (not supported on
-                // older Android tablet browsers — container gets zero height).
-                // Instead use position:relative + padding-bottom:75% (4:3 ratio)
-                // which works on ALL browsers. The GameCanvas fills the absolute
-                // positioned inner container.
-                position: 'relative',
+                // MAXIMIZE GAME AREA: Fill the full available viewport.
+                // The game (800×600 4:3) uses Scale.FIT — it scales to fit
+                // inside this container while maintaining aspect ratio.
+                // By making the container as large as possible (width:100%,
+                // height: calc(100vh - 160px)), the game is as big as possible.
+                // Flex centering ensures the canvas is centered.
                 width: '100%',
-                maxWidth: '900px',
-                paddingBottom: '75%', // 4:3 aspect ratio (height = 75% of width)
+                maxWidth: '1100px',
                 margin: '0 auto',
+                height: 'calc(100vh - 160px)',
+                minHeight: '300px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 border: `2px solid color-mix(in oklab, var(--brand-accent) 50%, transparent)`,
-                height: 0,
+                borderRadius: '16px',
                 overflow: 'hidden',
+                background: '#000',
               }}
             >
-              <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
-                <GameCanvas config={launch} onExit={exitGame} />
-              </div>
+              <GameCanvas config={launch} onExit={exitGame} />
             </div>
 
             <div className="text-center mt-2 text-xs opacity-60" style={{ color: 'var(--brand-text)' }}>

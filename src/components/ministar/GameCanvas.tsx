@@ -242,10 +242,10 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
   }, [config?.mode, config?.theme, config?.terms.length, config?.unit, config?.qrSlug]);
 
   return (
-    <div style={{ touchAction: 'none', width: '100%', height: '100%', display: 'block', position: 'relative' }}>
+    <div style={{ touchAction: 'none', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div
         ref={containerRef}
-        style={{ touchAction: 'none', pointerEvents: 'auto', width: '100%', height: '100%', display: 'block' }}
+        style={{ touchAction: 'none', pointerEvents: 'auto', width: '100%', height: '100%' }}
       />
     </div>
   );

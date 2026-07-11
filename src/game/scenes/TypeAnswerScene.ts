@@ -239,14 +239,16 @@ export default class TypeAnswerScene extends BaseEngine {
 
   private handleKey(e: KeyboardEvent) {
     if (!this.canSubmit) return;
+    e.preventDefault(); // Stop browser from double-processing
+    e.stopPropagation();
     const k = e.key.toUpperCase();
     if (k === 'BACKSPACE') { this.deleteLetter(); return; }
     if (k === 'ENTER') { this.submit(); return; }
     if (k.length === 1 && k >= 'A' && k <= 'Z') {
-      // DEBOUNCE: Android software keyboards can fire keydown twice for one
-      // keypress. Ignore if the same key was pressed within 150ms.
+      // DEBOUNCE: Android/Windows can fire keydown twice for one keypress.
+      // Ignore if the same key was pressed within 200ms.
       const now = Date.now();
-      if (k === this._lastKey && now - this._lastKeyTime < 150) return;
+      if (k === this._lastKey && now - this._lastKeyTime < 200) return;
       this._lastKey = k;
       this._lastKeyTime = now;
       this.typeLetter(k);
