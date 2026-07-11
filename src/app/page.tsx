@@ -354,19 +354,24 @@ export default function Home() {
             <div
               className="rounded-2xl overflow-hidden shadow-lg"
               style={{
-                // RESPONSIVE: aspect-ratio:4/3 matches the game's 800×600 ratio.
-                // FIT mode scales the game to fill this container EXACTLY —
-                // no letterboxing, no black bars, no squishing.
-                // max-width caps it on large PC screens.
-                // width:100% makes it fill available space on mobile.
+                // ANDROID FIX: Don't use CSS aspect-ratio (not supported on
+                // older Android tablet browsers — container gets zero height).
+                // Instead use position:relative + padding-bottom:75% (4:3 ratio)
+                // which works on ALL browsers. The GameCanvas fills the absolute
+                // positioned inner container.
+                position: 'relative',
                 width: '100%',
                 maxWidth: '900px',
-                aspectRatio: '4 / 3',
+                paddingBottom: '75%', // 4:3 aspect ratio (height = 75% of width)
                 margin: '0 auto',
                 border: `2px solid color-mix(in oklab, var(--brand-accent) 50%, transparent)`,
+                height: 0,
+                overflow: 'hidden',
               }}
             >
-              <GameCanvas config={launch} onExit={exitGame} />
+              <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
+                <GameCanvas config={launch} onExit={exitGame} />
+              </div>
             </div>
 
             <div className="text-center mt-2 text-xs opacity-60" style={{ color: 'var(--brand-text)' }}>

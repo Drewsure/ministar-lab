@@ -122,12 +122,16 @@ export default class TypeAnswerScene extends BaseEngine {
     // Global pointer handler for reliable keyboard clicks
     this.setupGlobalPointer((x, y) => {
       if (!this.canSubmit) return;
+      // DEBOUNCE: prevent double-tap on Android
+      const now = Date.now();
+      if (now - this._lastKeyTime < 150) return;
       // Hit-test letter keys
       for (const key of this.keyboardKeys) {
         if (Math.abs(x - key.x) < 18 && Math.abs(y - key.y) < 18) {
           const txt = key.getAt(1) as Phaser.GameObjects.Text;
           if (txt) {
-            // ESL: speak the letter when tapped
+            this._lastKey = txt.text;
+            this._lastKeyTime = now;
             audioBus.speak(txt.text);
             this.typeLetter(txt.text);
           }
@@ -238,8 +242,19 @@ export default class TypeAnswerScene extends BaseEngine {
     const k = e.key.toUpperCase();
     if (k === 'BACKSPACE') { this.deleteLetter(); return; }
     if (k === 'ENTER') { this.submit(); return; }
-    if (k.length === 1 && k >= 'A' && k <= 'Z') this.typeLetter(k);
+    if (k.length === 1 && k >= 'A' && k <= 'Z') {
+      // DEBOUNCE: Android software keyboards can fire keydown twice for one
+      // keypress. Ignore if the same key was pressed within 150ms.
+      const now = Date.now();
+      if (k === this._lastKey && now - this._lastKeyTime < 150) return;
+      this._lastKey = k;
+      this._lastKeyTime = now;
+      this.typeLetter(k);
+    }
   }
+
+  private _lastKey = '';
+  private _lastKeyTime = 0;
 
   private typeLetter(letter: string) {
     if (!this.canSubmit || !this.currentTerm) return;
