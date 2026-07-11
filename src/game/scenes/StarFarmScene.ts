@@ -534,169 +534,50 @@ export default class StarFarmScene extends BaseEngine {
     this.playerTargetX = this.playerX;
     this.playerTargetY = this.playerY;
 
-    // Generate procedural farmer sprite textures (walk cycle: 4 frames)
-    this._generatePlayerSprites();
-
+    // USE EMOJI as character — renders at full vector quality on all devices.
+    // Procedural Graphics API drawings look terrible; emoji are OS-quality.
     // Shadow ellipse under player
-    this.playerShadow = this.add.ellipse(this.playerX, this.playerY + 14, 28, 10, 0x000000, 0.3)
+    this.playerShadow = this.add.ellipse(this.playerX, this.playerY + 18, 30, 10, 0x000000, 0.35)
       .setDepth(99);
 
-    // Player sprite (uses generated texture)
-    this.playerSprite = this.add.sprite(this.playerX, this.playerY, 'farmer-down-0')
-      .setDepth(100).setScale(1.2);
+    // Player = large emoji text (👨‍🌾 farmer)
+    this.playerEmoji = this.add.text(this.playerX, this.playerY, '👨‍🌾', {
+      fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, Inter, sans-serif',
+      fontSize: '40px',
+    }).setOrigin(0.5).setDepth(100);
 
-    // Keep emoji as fallback (hidden) for any code that references playerEmoji
-    this.playerEmoji = this.add.text(this.playerX, this.playerY, '', {
-      fontFamily: 'Inter, sans-serif', fontSize: '1px',
-    }).setOrigin(0.5).setDepth(100).setVisible(false);
+    // No sprite — use emoji directly
+    // (keep playerSprite field as undefined; all code checks if it exists)
 
     // Idle bob
     this.tweens.add({
-      targets: this.playerSprite,
-      y: this.playerY - 3,
-      duration: 800, yoyo: true, repeat: 50, ease: 'Sine.inOut',
+      targets: this.playerEmoji,
+      y: this.playerY - 4,
+      duration: 900, yoyo: true, repeat: 50, ease: 'Sine.inOut',
     });
 
-    // Camera follows player smoothly
-    this.cameras.main.startFollow(this.playerSprite, true, 0.1, 0.1);
+    // Camera follows player emoji
+    this.cameras.main.startFollow(this.playerEmoji, true, 0.1, 0.1);
     this.cameras.main.setZoom(1.0);
   }
 
-  private _generatePlayerSprites() {
-    // Generate detailed farmer sprites: 4 directions × 2 walk frames = 8 textures
-    // Bigger canvas (48×56), more detail, better proportions, shading
-    if (this.textures.exists('farmer-down-0')) return;
-
-    const dirs = ['down', 'up', 'left', 'right'];
-    for (const dir of dirs) {
-      for (let frame = 0; frame < 2; frame++) {
-        const key = `farmer-${dir}-${frame}`;
-        const g = this.add.graphics();
-
-        // === SHADOW ===
-        g.fillStyle(0x000000, 0.2);
-        g.fillEllipse(0, 22, 20, 6);
-
-        // === LEGS === (dark brown boots + blue jeans)
-        const legOffset = frame === 0 ? 0 : 3;
-        // Left leg
-        g.fillStyle(0x1e3a5f, 1); // dark blue jeans
-        g.fillRoundedRect(-8, 8, 6, 10 + legOffset, 2);
-        g.fillStyle(0x4a2e1a, 1); // brown boot
-        g.fillRoundedRect(-8, 16 + legOffset, 6, 5, 2);
-        // Right leg
-        g.fillStyle(0x1e3a5f, 1);
-        g.fillRoundedRect(2, 8, 6, 10 - legOffset, 2);
-        g.fillStyle(0x4a2e1a, 1);
-        g.fillRoundedRect(2, 16 - legOffset, 6, 5, 2);
-
-        // === BODY === (red plaid shirt — Stardew style)
-        g.fillStyle(0xcc3322, 1); // red shirt
-        g.fillRoundedRect(-10, -4, 20, 16, 4);
-        // Plaid pattern (dark red lines)
-        g.fillStyle(0x992211, 0.4);
-        g.fillRect(-10, -4, 20, 1); // horizontal line 1
-        g.fillRect(-10, 0, 20, 1);  // horizontal line 2
-        g.fillRect(-10, 4, 20, 1);  // horizontal line 3
-        g.fillRect(-7, -4, 1, 16);  // vertical line 1
-        g.fillRect(-2, -4, 1, 16);  // vertical line 2
-        g.fillRect(3, -4, 1, 16);   // vertical line 3
-        g.fillRect(7, -4, 1, 16);   // vertical line 4
-
-        // === OVERALLS === (blue straps)
-        g.fillStyle(0x2563eb, 1);
-        g.fillRect(-8, -4, 3, 16); // left strap
-        g.fillRect(5, -4, 3, 16);  // right strap
-
-        // === ARMS === (skin tone, animated swing)
-        g.fillStyle(0xfdbcb4, 1);
-        const armOffset = frame === 0 ? 0 : 3;
-        // Left arm
-        g.fillRoundedRect(-14, -2 + armOffset, 5, 10, 2);
-        g.fillCircle(-12, 8 + armOffset, 3); // hand
-        // Right arm
-        g.fillRoundedRect(9, -2 - armOffset, 5, 10, 2);
-        g.fillCircle(11, 8 - armOffset, 3); // hand
-
-        // === NECK ===
-        g.fillStyle(0xfdbcb4, 1);
-        g.fillRect(-3, -8, 6, 4);
-
-        // === HEAD === (skin tone, bigger)
-        g.fillStyle(0xfdbcb4, 1);
-        g.fillCircle(0, -14, 9);
-
-        // === HAIR === (brown, under hat)
-        g.fillStyle(0x5a3a1a, 1);
-        g.fillEllipse(0, -18, 18, 6);
-
-        // === HAT === (straw hat — wide brim + crown, Stardew style)
-        // Brim (wide ellipse)
-        g.fillStyle(0xd4a574, 1);
-        g.fillEllipse(0, -20, 28, 8);
-        // Brim shadow
-        g.fillStyle(0xb88a5a, 0.5);
-        g.fillEllipse(0, -19, 26, 4);
-        // Crown (top of hat)
-        g.fillStyle(0xc4955a, 1);
-        g.fillRoundedRect(-7, -25, 14, 8, 2);
-        // Hat band (red)
-        g.fillStyle(0xcc3322, 1);
-        g.fillRect(-7, -21, 14, 2);
-
-        // === FACE === (direction-specific)
-        if (dir === 'down') {
-          // Eyes (white + black pupil)
-          g.fillStyle(0xffffff, 1);
-          g.fillCircle(-3, -14, 2);
-          g.fillCircle(3, -14, 2);
-          g.fillStyle(0x000000, 1);
-          g.fillCircle(-3, -14, 1);
-          g.fillCircle(3, -14, 1);
-          // Smile
-          g.fillStyle(0x000000, 0.5);
-          g.fillRect(-3, -10, 6, 1);
-        } else if (dir === 'up') {
-          // Back of head — hair only
-          g.fillStyle(0x5a3a1a, 1);
-          g.fillCircle(0, -14, 8);
-        } else if (dir === 'left') {
-          // Side profile — one eye
-          g.fillStyle(0xffffff, 1);
-          g.fillCircle(-5, -14, 2);
-          g.fillStyle(0x000000, 1);
-          g.fillCircle(-5, -14, 1);
-          // Nose
-          g.fillStyle(0xe8a89a, 1);
-          g.fillCircle(-8, -13, 1.5);
-        } else if (dir === 'right') {
-          g.fillStyle(0xffffff, 1);
-          g.fillCircle(5, -14, 2);
-          g.fillStyle(0x000000, 1);
-          g.fillCircle(5, -14, 1);
-          g.fillStyle(0xe8a89a, 1);
-          g.fillCircle(8, -13, 1.5);
-        }
-
-        g.generateTexture(key, 48, 56);
-        g.destroy();
-      }
-    }
-  }
+  // Removed _generatePlayerSprites — emoji doesn't need texture generation
 
   private _updatePlayerSprite() {
-    // Update player sprite texture based on direction + walk frame
-    if (!this.playerSprite) return;
-    const frame = this.playerMoving ? Math.floor(Date.now() / 150) % 2 : 0;
-    const key = `farmer-${this.playerDir}-${frame}`;
-    if (this.textures.exists(key)) {
-      this.playerSprite.setTexture(key);
+    // Update player emoji direction + walk bob
+    if (!this.playerEmoji) return;
+    // Flip for left direction (emoji doesn't have separate frames, so flip)
+    this.playerEmoji.setFlipX(this.playerDir === 'left');
+    // Walk bob — scale oscillation while moving
+    if (this.playerMoving) {
+      const bob = Math.sin(Date.now() / 100) * 0.08;
+      this.playerEmoji.setScale(1 + bob * 0.3, 1 - bob);
+    } else {
+      this.playerEmoji.setScale(1, 1);
     }
-    // Flip for left direction
-    this.playerSprite.setFlipX(this.playerDir === 'left');
     // Shadow follows
     if (this.playerShadow) {
-      this.playerShadow.setPosition(this.playerX, this.playerY + 14);
+      this.playerShadow.setPosition(this.playerX, this.playerY + 18);
     }
   }
 
@@ -805,13 +686,13 @@ export default class StarFarmScene extends BaseEngine {
       this.playerDir = dy > 0 ? 'down' : 'up';
     }
     // Update sprite + shadow
-    if (this.playerSprite) {
-      this.playerSprite.setPosition(this.playerX, this.playerY);
-      this.playerSprite.setFlipX(this.playerDir === 'left');
+    if (this.playerEmoji) {
+      this.playerEmoji.setPosition(this.playerX, this.playerY);
+      this.playerEmoji.setFlipX(this.playerDir === 'left');
       // Quick squash
       this.tweens.add({
         targets: this.playerSprite,
-        scaleX: { from: 1.7, to: 1.5 }, scaleY: { from: 1.3, to: 1.5 },
+        scaleX: { from: 1.2, to: 1 }, scaleY: { from: 0.8, to: 1 },
         duration: 100, ease: 'Quad.out',
       });
     }
@@ -826,7 +707,7 @@ export default class StarFarmScene extends BaseEngine {
     const dist = Math.hypot(dx, dy);
     if (dist < 3) {
       this.playerMoving = false;
-      if (this.playerSprite) this.playerSprite.setScale(1.5, 1.5);
+      if (this.playerEmoji) this.playerEmoji.setScale(1, 1);
       return;
     }
     const speed = 120; // px per second
@@ -841,10 +722,10 @@ export default class StarFarmScene extends BaseEngine {
     }
     // Walk bob — scale Y oscillation
     const bob = Math.sin(Date.now() / 80) * 0.1;
-    if (this.playerSprite) {
-      this.playerSprite.setScale(1.5 + bob * 0.5, 1.5 - bob);
-      this.playerSprite.setPosition(this.playerX, this.playerY);
-      this.playerSprite.setFlipX(this.playerDir === 'left');
+    if (this.playerEmoji) {
+      this.playerEmoji.setScale(1 + bob * 0.3, 1 - bob);
+      this.playerEmoji.setPosition(this.playerX, this.playerY);
+      this.playerEmoji.setFlipX(this.playerDir === 'left');
     }
     if (this.playerShadow) this.playerShadow.setPosition(this.playerX, this.playerY + 14);
     // Continue
@@ -882,7 +763,7 @@ export default class StarFarmScene extends BaseEngine {
       onComplete: () => toolFx.destroy(),
     });
     // Player squash
-    if (this.playerSprite) {
+    if (this.playerEmoji) {
       this.tweens.add({
         targets: this.playerSprite,
         scaleX: { from: 1.8, to: 1.5 }, scaleY: { from: 1.2, to: 1.5 },
