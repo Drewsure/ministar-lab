@@ -160,38 +160,29 @@ export default class SpinWheelScene extends BaseEngine {
     this.optionsContainerY = 510; // store for hit-test
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
       // Check if SPIN button was clicked
-      if (!this.isSpinning && Math.abs(p.x - this.spinBtnX) < 110 && Math.abs(p.y - this.spinBtnY) < 28) {
+      if (!this.isSpinning && !this.landedTerm && Math.abs(p.x - this.spinBtnX) < 110 && Math.abs(p.y - this.spinBtnY) < 28) {
         this.spin();
+        return;
       }
-      // Check if any answer button was clicked
-      this.answerButtons.forEach((btn) => {
-        const opt = btn.getData('opt') as { isCorrect: boolean; term: TermItem };
-        // Use wheelX (dynamic center) not hardcoded 400
-        const btnWorldX = this.spinBtnX + (btn.getData('x') as number || 0);
-        const btnWorldY = this.optionsContainerY + (btn.getData('y') as number);
-        if (opt && Math.abs(p.x - this.spinBtnX) < 200 && Math.abs(p.y - btnWorldY) < 28) {
-          // ESL FIX (user feedback): "should have the statement vocalized along
-          // with other two statements in order for correct choice to be made".
-          // TAP ONCE = hear the definition spoken. TAP TWICE = confirm answer.
-          const wasHeard = btn.getData('heard') as boolean;
-          if (!wasHeard) {
-            // First tap: speak the definition, highlight this option as "heard"
-            btn.setData('heard', true);
-            audioBus.speak(opt.term.definition ?? opt.term.term);
-            const bg = btn.getAt(0) as Phaser.GameObjects.Rectangle;
-            bg.setStrokeStyle(3, this.theme.warning, 1);
-            this.juice.scorePopup(this.spinBtnX, btnWorldY, '🔊 Tap again to choose', this.theme.warning);
-          } else {
-            // Second tap: confirm answer
+      // Check if any answer button was clicked — SINGLE TAP = select
+      if (this.landedTerm && this.answerButtons.length > 0) {
+        for (const btn of this.answerButtons) {
+          const opt = btn.getData('opt') as { isCorrect: boolean; term: TermItem };
+          if (!opt) continue;
+          const btnWorldY = this.optionsContainerY + (btn.getData('y') as number);
+          // Check if tap is within button bounds (centered on spinBtnX, at btnWorldY)
+          if (Math.abs(p.x - this.spinBtnX) < 200 && Math.abs(p.y - btnWorldY) < 30) {
+            // Speak the definition, then select
             audioBus.speak(opt.term.definition ?? opt.term.term);
             this.selectOption(opt.isCorrect, opt.term, btn);
+            return;
           }
         }
-      });
+      }
     });
 
     // ---- Options container (for definition selection after spin) ----
-    this.optionsContainer = this.add.container(wheelX, 530).setDepth(40);
+    this.optionsContainer = this.add.container(wheelX, this.optionsContainerY).setDepth(40);
   }
 
   protected onTick(_remainingMs: number) { /* HUD */ }
@@ -310,13 +301,28 @@ export default class SpinWheelScene extends BaseEngine {
     const bg = btn.getAt(0) as Phaser.GameObjects.Rectangle;
     bg.setFillStyle(isCorrect ? this.theme.success : this.theme.danger, 1);
 
-    this.time.delayedCall(800, () => {
-      // Reset for next spin
-      this.promptText.setText('🎡 Spin the Wheel!');
-      this.answerButtons.forEach(b => b.destroy());
-      this.answerButtons = [];
-      this.landedTerm = undefined;
-    });
+    // FEEDBACK: Show Correct! or Try again!
+    const feedbackMsg = isCorrect ? '✅ Correct!' : '❌ Try again!';
+    const feedbackColor = isCorrect ? this.theme.success : this.theme.danger;
+    this.juice.scorePopup(this.spinBtnX, this.optionsContainerY - 40, feedbackMsg, feedbackColor);
+    this.juice.flash(feedbackColor, 0.3, 250);
+    if (isCorrect) {
+      audioBus.play('correct');
+      this.juice.burst(btn.x, btn.y, 'correct');
+    } else {
+      audioBus.play('incorrect');
+      this.juice.shake('light');
+    }
+
+    // Close answers after 1.2s and reset for next spin
+    setTimeout(() => {
+      try {
+        this.promptText.setText('🎡 Spin the Wheel!');
+        this.answerButtons.forEach(b => { try { b.destroy(); } catch {} });
+        this.answerButtons = [];
+        this.landedTerm = undefined;
+      } catch {}
+    }, 1200);
 
     if (isCorrect) {
       this.checkWin();

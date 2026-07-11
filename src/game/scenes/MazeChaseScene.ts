@@ -129,6 +129,10 @@ export default class MazeChaseScene extends BaseEngine {
     // Tap-to-move: single tap sets a path destination via A*
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
       audioBus.init();
+      // Don't pathfind if tapping a DPad button
+      for (const btn of this.dpadButtons) {
+        if (Math.abs(p.x - btn.x) < 35 && Math.abs(p.y - btn.y) < 35) return;
+      }
       this.handleTap(p.x, p.y);
     });
 
@@ -796,6 +800,10 @@ export default class MazeChaseScene extends BaseEngine {
     if (this.cursors?.up.isDown    || this.wasd?.W.isDown) vy -= 1;
     if (this.cursors?.down.isDown  || this.wasd?.S.isDown) vy += 1;
 
+    // ---- DPad input (mobile) — merge with keyboard ----
+    vx += this.dpadDir.x;
+    vy += this.dpadDir.y;
+
     if (vx !== 0 || vy !== 0) {
       // Keyboard takes over — cancel any active path
       this.path = [];
@@ -855,31 +863,37 @@ export default class MazeChaseScene extends BaseEngine {
   // ON-SCREEN D-PAD — mobile controls for Maze Chase
   // ===========================================================================
   private dpadButtons: Phaser.GameObjects.Text[] = [];
+  private dpadDir = { x: 0, y: 0 }; // current DPad direction (held)
+
   private _createDPad() {
-    const btnSize = '36px';
+    const btnSize = '40px';
     const baseX = 70;
     const baseY = this.scale.height - 70;
     const dirs = [
-      { label: '◀', x: baseX - 50, y: baseY, dir: { x: -1, y: 0 } },
-      { label: '▲', x: baseX, y: baseY - 50, dir: { x: 0, y: -1 } },
-      { label: '▼', x: baseX, y: baseY + 50, dir: { x: 0, y: 1 } },
-      { label: '▶', x: baseX + 50, y: baseY, dir: { x: 1, y: 0 } },
+      { label: '◀', x: baseX - 55, y: baseY, dir: { x: -1, y: 0 } },
+      { label: '▲', x: baseX, y: baseY - 55, dir: { x: 0, y: -1 } },
+      { label: '▼', x: baseX, y: baseY + 55, dir: { x: 0, y: 1 } },
+      { label: '▶', x: baseX + 55, y: baseY, dir: { x: 1, y: 0 } },
     ];
     dirs.forEach(d => {
       const btn = this.add.text(d.x, d.y, d.label, {
         fontFamily: 'Inter, sans-serif', fontSize: btnSize, color: '#ffffff',
         backgroundColor: '#' + this.theme.accent.toString(16).padStart(6, '0'),
-        padding: { x: 16, y: 10 },
+        padding: { x: 18, y: 12 },
         fontStyle: 'bold',
       }).setOrigin(0.5).setDepth(400).setInteractive({ useHandCursor: true });
+
+      // HOLD to move — pointerdown sets direction, pointerup clears it
       btn.on('pointerdown', () => {
         this.path = [];
         this.pathIdx = 0;
-        const body = this.player.body as Phaser.Physics.Arcade.Body;
-        if (body) {
-          const speed = this.lod.isMobile ? 110 : 140;
-          body.setVelocity(d.dir.x * speed, d.dir.y * speed);
-        }
+        this.dpadDir = d.dir;
+      });
+      btn.on('pointerup', () => {
+        this.dpadDir = { x: 0, y: 0 };
+      });
+      btn.on('pointerout', () => {
+        this.dpadDir = { x: 0, y: 0 };
       });
       this.dpadButtons.push(btn);
     });
