@@ -638,14 +638,15 @@ export default class MazeChaseScene extends BaseEngine {
     // Push player back to start cell
     const targetX = this.mazeOffsetX + CELL / 2;
     const targetY = this.mazeOffsetY + CELL / 2;
-    this.physics.moveTo(this.player, targetX, targetY, 600);
-    // FIX: Use setTimeout instead of time.delayedCall — can't be killed
-    setTimeout(() => {
-      if (this.player && this.player.active) this.player.setVelocity(0, 0);
-    }, 280);
+    // Don't use physics.moveTo — it overrides keyboard velocity.
+    // Instead, teleport the player back instantly (less jarring, more reliable)
+    this.player.setPosition(targetX, targetY);
+    (this.player.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
     // Clear any active path
     this.path = [];
     this.pathIdx = 0;
+    // Clear DPad direction
+    this.dpadDir = { x: 0, y: 0 };
   }
 
   private advanceRound() {
@@ -804,13 +805,17 @@ export default class MazeChaseScene extends BaseEngine {
     vx += this.dpadDir.x;
     vy += this.dpadDir.y;
 
+    // CRITICAL: Player is a Text object, not a Sprite. setVelocity() does NOT
+    // exist on Text — must use body.setVelocity() instead.
+    const pBody = this.player.body as Phaser.Physics.Arcade.Body;
+    if (!pBody) return;
+
     if (vx !== 0 || vy !== 0) {
       // Keyboard takes over — cancel any active path
       this.path = [];
       this.pathIdx = 0;
       const mag = Math.hypot(vx, vy);
-      // AAAA — Use physics velocity (respects wall colliders!)
-      this.player.setVelocity((vx / mag) * speed, (vy / mag) * speed);
+      pBody.setVelocity((vx / mag) * speed, (vy / mag) * speed);
       this.playerDir = vy < 0 ? 'up' : vy > 0 ? 'down' : vx < 0 ? 'left' : 'right';
     } else if (this.path.length > 0 && this.pathIdx < this.path.length) {
       // Follow A* path — use physics velocity toward target
@@ -820,17 +825,17 @@ export default class MazeChaseScene extends BaseEngine {
       const dist = Math.hypot(dx, dy);
       if (dist < 8) {
         this.pathIdx++;
-        this.player.setVelocity(0, 0);
+        pBody.setVelocity(0, 0);
       } else {
         // Move toward target using physics velocity
-        this.player.setVelocity((dx / dist) * speed, (dy / dist) * speed);
+        pBody.setVelocity((dx / dist) * speed, (dy / dist) * speed);
         this.playerDir = Math.abs(dx) > Math.abs(dy)
           ? (dx < 0 ? 'left' : 'right')
           : (dy < 0 ? 'up' : 'down');
       }
     } else {
       // No input — stop
-      this.player.setVelocity(0, 0);
+      pBody.setVelocity(0, 0);
     }
 
     // Update directional indicator

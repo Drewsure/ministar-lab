@@ -90,11 +90,13 @@ export abstract class BaseEngine extends Phaser.Scene {
 
     this.buildWorld();
 
-    // AAA ENTRANCE: Camera fade-in from black + title card overlay
-    this._showEntranceCard();
+    // Skip entrance card — it was causing input delays and confusion.
+    // The game starts immediately after buildWorld.
+    // Camera fade in is quick (300ms) and doesn't block input.
+    this.cameras.main.fadeIn(300, 0, 0, 0);
 
     // Spoken instructions on entry
-    this.time.delayedCall(1200, () => { if (!this.isFinished) this.speakGameInstructions(); });
+    this.time.delayedCall(600, () => { if (!this.isFinished) this.speakGameInstructions(); });
 
     // HUD loop
     this.events.on('update', () => {
