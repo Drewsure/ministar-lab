@@ -26,7 +26,7 @@ export default class SpinWheelScene extends BaseEngine {
   private spinBtn!: Phaser.GameObjects.Container;
   private spinBtnX = 0;
   private spinBtnY = 0;
-  private optionsContainerY = 530;
+  private optionsContainerY = 480;
   private answerButtons: Phaser.GameObjects.Container[] = [];
   private isSpinning = false;
   private landedTerm?: TermItem;
@@ -157,7 +157,7 @@ export default class SpinWheelScene extends BaseEngine {
     // Use global pointerdown for reliability
     this.spinBtnX = wheelX;
     this.spinBtnY = btnY;
-    this.optionsContainerY = 510; // store for hit-test
+    this.optionsContainerY = 480; // below the wheel + spin button
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
       // Check if SPIN button was clicked
       if (!this.isSpinning && !this.landedTerm && Math.abs(p.x - this.spinBtnX) < 110 && Math.abs(p.y - this.spinBtnY) < 28) {
@@ -169,9 +169,10 @@ export default class SpinWheelScene extends BaseEngine {
         for (const btn of this.answerButtons) {
           const opt = btn.getData('opt') as { isCorrect: boolean; term: TermItem };
           if (!opt) continue;
-          const btnWorldY = this.optionsContainerY + (btn.getData('y') as number);
-          // Check if tap is within button bounds (centered on spinBtnX, at btnWorldY)
-          if (Math.abs(p.x - this.spinBtnX) < 200 && Math.abs(p.y - btnWorldY) < 30) {
+          const btnWorldY = btn.getData('worldY') as number;
+          const btnW = Math.min(400, this.scale.width - 40);
+          // Check if tap is within button bounds
+          if (Math.abs(p.x - this.spinBtnX) < btnW / 2 && Math.abs(p.y - btnWorldY) < 28) {
             // Speak the definition, then select
             audioBus.speak(opt.term.definition ?? opt.term.term);
             this.selectOption(opt.isCorrect, opt.term, btn);
@@ -253,28 +254,31 @@ export default class SpinWheelScene extends BaseEngine {
     if (!this.landedTerm) return;
     this.promptText.setText(`Match: ${this.landedTerm.emoji ?? ''} ${this.landedTerm.term}`);
 
-    // 4 options: 1 correct (landed term's definition), 3 decoys
+    // 3 options: 1 correct (landed term's definition), 2 decoys
     const decoys = this.terms.filter(t => t.id !== this.landedTerm!.id && t.definition);
     Phaser.Utils.Array.Shuffle(decoys);
     const options = [
       { term: this.landedTerm, isCorrect: true },
       { term: decoys[0] ?? this.landedTerm, isCorrect: false },
       { term: decoys[1] ?? this.landedTerm, isCorrect: false },
-      { term: decoys[2] ?? this.landedTerm, isCorrect: false },
     ];
     Phaser.Utils.Array.Shuffle(options);
 
-    const btnW = 400, btnH = 56, gap = 10;
-    const startY = -(options.length * (btnH + gap)) / 2;
+    // Position buttons below the wheel, stacked vertically
+    const btnW = Math.min(400, this.scale.width - 40);
+    const btnH = 48;
+    const gap = 8;
+    const startY = this.optionsContainerY - (options.length * (btnH + gap)) / 2 + btnH / 2;
 
     options.forEach((opt, i) => {
-      const y = startY + i * (btnH + gap);
-      const bg = this.add.rectangle(0, y, btnW, btnH, this.theme.card, 0.9)
-        .setStrokeStyle(2, this.theme.accent, 0.6);
+      const y = startY + i * (btnH + gap) - this.optionsContainerY; // local Y relative to container
+      const bg = this.add.rectangle(0, y, btnW, btnH, this.theme.card, 0.95)
+        .setStrokeStyle(3, this.theme.accent, 0.7);
       const txt = this.add.text(0, y, opt.term.definition ?? opt.term.term, {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '20px',
-        color: this.hex(this.theme.text),
+        fontSize: '18px',
+        color: '#ffffff',
+        fontStyle: 'bold',
         align: 'center',
         wordWrap: { width: btnW - 20 },
       }).setOrigin(0.5);
@@ -283,6 +287,7 @@ export default class SpinWheelScene extends BaseEngine {
         .setSize(btnW, btnH).setDepth(40);
       container.setData('opt', opt);
       container.setData('y', y);
+      container.setData('worldY', this.optionsContainerY + y); // store world Y for hit-test
 
       this.answerButtons.push(container);
       this.optionsContainer.add(container);
