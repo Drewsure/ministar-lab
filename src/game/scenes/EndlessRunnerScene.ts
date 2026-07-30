@@ -120,10 +120,13 @@ export default class EndlessRunnerScene extends BaseEngine {
 
   protected onTick(_remainingMs: number) {
     if (this.isFinished || !this.currentPrompt) return;
-    this.currentPrompt.y += this.speed * 0.016;
+    // PHYSICS FIX: Frame-rate independent using actual delta time.
+    // Was: speed * 0.016 (hardcoded 60fps — breaks on 120Hz/30fps displays)
+    const dt = this.game.loop.delta / 1000;
+    this.currentPrompt.y += this.speed * dt;
     this.optionTexts.forEach((t) => { if (t && t.active) t.y = this.currentPrompt!.y; });
     if (this.currentPrompt.y >= this.scale.height - 100) this.checkAnswer();
-    this.distance += this.speed * 0.016 * 0.1;
+    this.distance += this.speed * dt * 0.1;
     this.distanceText.setText(`${Math.floor(this.distance)}m`);
     // FIX: Slower speed cap + level-based cap (was 200, now 120 + level*20)
     const maxSpeed = 120 + (this.level - 1) * 20;

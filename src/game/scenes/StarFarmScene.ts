@@ -744,7 +744,9 @@ export default class StarFarmScene extends BaseEngine {
     //    tree, house). This prevents jittering on tile boundaries by clamping
     //    the player position to the center of walkable cells.
 
-    const dt = 0.05; // 50ms per frame (20fps physics step)
+    // PHYSICS FIX: Use actual delta time instead of fixed 0.05.
+    // Was: const dt = 0.05 (hardcoded 50ms — breaks on 120Hz/30fps displays)
+    const dt = this.game.loop.delta / 1000; // actual seconds since last frame
 
     // Direction to target
     const dx = this.playerTargetX - this.playerX;
@@ -841,8 +843,8 @@ export default class StarFarmScene extends BaseEngine {
       this.playerShadow.setPosition(this.playerX, this.playerY + 18);
     }
 
-    // Continue loop
-    this.walkAnimTimer = this.time.delayedCall(50, () => this._walkAnim());
+    // Continue loop — use actual frame delta for timing
+    this.walkAnimTimer = this.time.delayedCall(16, () => this._walkAnim());
   }
 
   private _floatText(text: string, x: number, y: number, color: number) {

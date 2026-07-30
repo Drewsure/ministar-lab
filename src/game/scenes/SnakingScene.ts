@@ -67,7 +67,10 @@ export default class SnakingScene extends BaseEngine {
 
   protected onTick(_remainingMs: number) {
     if (!this.isMoving || this.isFinished) return;
-    this.moveTimer += 16;
+    // PHYSICS FIX: Frame-rate independent using actual delta time.
+    // Was: moveTimer += 16 (hardcoded 60fps)
+    const dt = this.game.loop.delta;
+    this.moveTimer += dt;
     if (this.moveTimer >= this.moveInterval) { this.moveTimer = 0; this.moveSnake(); }
   }
 

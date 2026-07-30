@@ -828,33 +828,62 @@ export default class MazeChaseScene extends BaseEngine {
     const pBody = this.player.body as Phaser.Physics.Arcade.Body;
     if (!pBody) return;
 
+    // GAME FEEL FIX: Exponential easing instead of instant velocity snap.
+    // Was: pBody.setVelocity((vx/mag)*speed, ...) — instant full speed (feels "floaty")
+    // Now: Accelerate toward target velocity using exponential lerp.
+    // This gives responsive start + smooth deceleration = "snappy but not twitchy"
+    const targetVX = (vx !== 0 || vy !== 0) ? (vx / Math.hypot(vx, vy)) * speed : 0;
+    const targetVY = (vx !== 0 || vy !== 0) ? (vy / Math.hypot(vx, vy)) * speed : 0;
+    const currentVX = pBody.velocity.x;
+    const currentVY = pBody.velocity.y;
+
+    // Exponential easing: velocity += (target - current) * rate
+    // rate = 0.3 gives ~3 frames to reach 90% of target (snappy at 60fps)
+    const easeRate = 0.3;
+    let newVX = currentVX + (targetVX - currentVX) * easeRate;
+    let newVY = currentVY + (targetVY - currentVY) * easeRate;
+
+    // GAME FEEL FIX: Near-zero velocity clamping (prevents jitter at stop).
+    // If velocity is below threshold and no input, snap to 0.
+    if (vx === 0 && vy === 0 && this.path.length === 0) {
+      if (Math.abs(newVX) < 3) newVX = 0;
+      if (Math.abs(newVY) < 3) newVY = 0;
+    }
+
+    pBody.setVelocity(newVX, newVY);
+
     if (vx !== 0 || vy !== 0) {
       // Keyboard takes over — cancel any active path
-      // GC FIX: Use .length = 0 instead of = [] to avoid allocating a new array
       this.path.length = 0;
       this.pathIdx = 0;
-      const mag = Math.hypot(vx, vy);
-      pBody.setVelocity((vx / mag) * speed, (vy / mag) * speed);
       this.playerDir = vy < 0 ? 'up' : vy > 0 ? 'down' : vx < 0 ? 'left' : 'right';
     } else if (this.path.length > 0 && this.pathIdx < this.path.length) {
-      // Follow A* path — use physics velocity toward target
+      // Follow A* path — use exponential easing toward path node
       const target = this.path[this.pathIdx];
       const dx = target.x - this.player.x;
       const dy = target.y - this.player.y;
       const dist = Math.hypot(dx, dy);
       if (dist < 8) {
         this.pathIdx++;
-        pBody.setVelocity(0, 0);
+        // Decelerate when reaching path node
+        pBody.setVelocity(pBody.velocity.x * 0.5, pBody.velocity.y * 0.5);
       } else {
-        // Move toward target using physics velocity
-        pBody.setVelocity((dx / dist) * speed, (dy / dist) * speed);
+        // GAME FEEL: Eased movement toward path node
+        const pathTargetVX = (dx / dist) * speed;
+        const pathTargetVY = (dy / dist) * speed;
+        const easedVX = pBody.velocity.x + (pathTargetVX - pBody.velocity.x) * 0.3;
+        const easedVY = pBody.velocity.y + (pathTargetVY - pBody.velocity.y) * 0.3;
+        pBody.setVelocity(easedVX, easedVY);
         this.playerDir = Math.abs(dx) > Math.abs(dy)
           ? (dx < 0 ? 'left' : 'right')
           : (dy < 0 ? 'up' : 'down');
       }
     } else {
-      // No input — stop
-      pBody.setVelocity(0, 0);
+      // No input — decelerate to stop (exponential, not instant)
+      pBody.setVelocity(pBody.velocity.x * 0.8, pBody.velocity.y * 0.8);
+      // Snap to 0 if below threshold
+      if (Math.abs(pBody.velocity.x) < 3) pBody.setVelocity(0, pBody.velocity.y);
+      if (Math.abs(pBody.velocity.y) < 3) pBody.setVelocity(pBody.velocity.x, 0);
     }
 
     // Update directional indicator
