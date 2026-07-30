@@ -657,7 +657,7 @@ export default class MazeChaseScene extends BaseEngine {
     this.player.setPosition(targetX, targetY);
     (this.player.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
     // Clear any active path
-    this.path = [];
+    this.path.length = 0;
     this.pathIdx = 0;
     // Clear DPad direction
     this.dpadDir = { x: 0, y: 0 };
@@ -830,7 +830,8 @@ export default class MazeChaseScene extends BaseEngine {
 
     if (vx !== 0 || vy !== 0) {
       // Keyboard takes over — cancel any active path
-      this.path = [];
+      // GC FIX: Use .length = 0 instead of = [] to avoid allocating a new array
+      this.path.length = 0;
       this.pathIdx = 0;
       const mag = Math.hypot(vx, vy);
       pBody.setVelocity((vx / mag) * speed, (vy / mag) * speed);
@@ -908,7 +909,7 @@ export default class MazeChaseScene extends BaseEngine {
 
       // HOLD to move — pointerdown sets direction, pointerup clears it
       btn.on('pointerdown', () => {
-        this.path = [];
+        this.path.length = 0;
         this.pathIdx = 0;
         this.dpadDir = d.dir;
       });

@@ -509,7 +509,7 @@ export class WorldEffectsManager {
           x: `+=${driftX}`,
           duration: duration,
           delay: Math.random() * 3000,
-          repeat: -1,
+          repeat: 999,
           ease: 'Sine.inOut',
           onRepeat: () => {
             particle.x = Math.random() * this.scene.scale.width;
@@ -523,7 +523,7 @@ export class WorldEffectsManager {
             targets: particle,
             angle: 360,
             duration: 3000 + Math.random() * 2000,
-            repeat: -1,
+            repeat: 999,
           });
         }
 
@@ -578,7 +578,7 @@ export class WorldEffectsManager {
         scale: { from: 0.8, to: 1.2 },
         duration: 800,
         yoyo: true,
-        repeat: -1,
+        repeat: 999,
         ease: 'Sine.inOut',
       });
 

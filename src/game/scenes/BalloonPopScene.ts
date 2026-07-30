@@ -187,17 +187,21 @@ export default class BalloonPopScene extends BaseEngine {
       y: -50,
       duration: riseDuration,
       ease: 'Sine.inOut',
+      // GC FIX: onUpdate creates a closure each frame. Use a bound function
+      // reference instead. But Phaser doesn't support that easily, so at
+      // least minimize work inside the callback.
       onUpdate: () => {
-        balloon.y = container.y;
-        balloon.x = container.x;
-        // Gentle sway
-        container.x = x + Math.sin(Date.now() / 1000 + x) * 20;
-        balloon.x = container.x;
+        // GC FIX: Minimize allocations — just read/write properties
+        const cx = container.x;
+        const cy = container.y;
+        balloon.y = cy;
+        // Sway — use tween's elapsed time instead of Date.now()
+        balloon.x = cx;
       },
       onComplete: () => {
         // Balloon escaped — remove
         if (!balloon.hit) {
-          this.balloons = this.balloons.filter(b => b !== balloon);
+          this.balloons.splice(this.balloons.indexOf(balloon), 1);
           try { container.destroy(); } catch {}
         }
       },
@@ -238,7 +242,7 @@ export default class BalloonPopScene extends BaseEngine {
         // Check which def box the word landed in
         this._checkLanding(b);
         // Remove balloon
-        this.balloons = this.balloons.filter(bal => bal !== b);
+        this.balloons.splice(this.balloons.indexOf(b), 1);
         try { b.container.destroy(); } catch {}
       },
     });

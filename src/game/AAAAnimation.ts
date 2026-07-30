@@ -192,7 +192,7 @@ export function pulseGlow(
       alpha: { from: 0.2, to: 0.5 * intensity },
       duration: 800,
       yoyo: true,
-      repeat: -1,
+      repeat: 999,
       ease: EASING.sineInOut as any,
     });
 
@@ -231,7 +231,7 @@ export function shimmer(
       targets: shimmerText,
       alpha: { from: 0, to: 0.6, to: 0 },
       duration: 1500,
-      repeat: -1,
+      repeat: 999,
       repeatDelay: 2000,
       ease: EASING.sineInOut as any,
     });

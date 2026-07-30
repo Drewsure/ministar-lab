@@ -204,7 +204,7 @@ export default function Home() {
               }}
             >
               <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: brand.accentColor }} />
-              AAA 2029 · 25 Games · 10 Worlds · Audio Learning
+              AAA 2029 · 32 Games · 10 Worlds · Audio Learning
             </div>
             <h1
               className="text-3xl sm:text-5xl font-black tracking-tight mb-2"
@@ -563,7 +563,7 @@ export default function Home() {
             © 2029 {brand.displayName} · MiniStar Learning Games
           </div>
           <div className="flex items-center gap-4">
-            <span>25 Games</span>
+            <span>32 Games</span>
             <span>·</span>
             <span>10 Worlds</span>
             <span>·</span>

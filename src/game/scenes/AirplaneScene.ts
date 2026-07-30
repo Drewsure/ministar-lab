@@ -372,7 +372,7 @@ export default class AirplaneScene extends BaseEngine {
       // Speed ramp every 4 catches
       if (this.catches % 4 === 0) {
         this.speedMultiplier = Math.min(2.5, this.speedMultiplier + 0.2);
-        this.juice.zoomPunch(1.05, 250);
+        // REMOVED zoomPunch — causes camera freeze;
       }
       // Advance prompt to next term
       const remaining = this.terms.filter(t => t.id !== this.activePrompt!.id);

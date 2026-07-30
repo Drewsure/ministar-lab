@@ -103,6 +103,13 @@ export type GameModeId =
   | 'snaking'
   | 'training-academy'
   | 'rescue-quest'
+  | 'farm-life'
+  | 'monster-fighter'
+  | 'tower-defense'
+  | 'rhythm-tap'
+  | 'space-explorer'
+  | 'story-adventure'
+  | 'treasure-hunt'
   | 'star-farm';
 
 export interface GameModeMeta {

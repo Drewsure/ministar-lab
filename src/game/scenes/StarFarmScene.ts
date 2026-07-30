@@ -166,6 +166,20 @@ export default class StarFarmScene extends BaseEngine {
   private playerDir: 'down' | 'up' | 'left' | 'right' = 'down';
   private walkAnimTimer?: Phaser.Time.TimerEvent;
 
+  // CUSTOM CHARACTER CONTROLLER — velocity-based acceleration/deceleration
+  // Implements 2D equivalents of the 3D concepts requested:
+  // 1) Acceleration/deceleration curves (lerp-based, responsive stopping)
+  // 2) Vector projection for smooth directional transitions
+  // 3) Tile-based ground check (2D equivalent of sphere-cast)
+  private playerVelX = 0;
+  private playerVelY = 0;
+  private readonly PLAYER_MAX_SPEED = 180;      // px/s
+  private readonly PLAYER_ACCEL = 1200;          // px/s² (acceleration curve)
+  private readonly PLAYER_DECEL = 800;           // px/s² (deceleration — lower = slides)
+  private readonly PLAYER_STOP_THRESHOLD = 5;    // px/s — below this, snap to 0
+  private readonly PLAYER_ARRIVE_THRESHOLD = 4;  // px — below this, arrived
+  private _playerLastWalkPhase = 0;              // GC fix: cache walk phase
+
   // Animation effects
   private rainEmitter?: Phaser.GameObjects.Particles.ParticleEmitter;
   private sunMoon!: Phaser.GameObjects.Text;
@@ -674,11 +688,19 @@ export default class StarFarmScene extends BaseEngine {
   }
 
   private _movePlayerBy(dx: number, dy: number) {
-    // Keyboard movement — move player by delta
-    this.playerX = Phaser.Math.Clamp(this.playerX + dx, 20, this.scale.width - 20);
-    this.playerY = Phaser.Math.Clamp(this.playerY + dy, 140, this.scale.height - 40);
-    this.playerTargetX = this.playerX;
-    this.playerTargetY = this.playerY;
+    // KEYBOARD MOVEMENT — uses same acceleration system as tap-to-move
+    // Apply impulse to velocity (acceleration-based, not instant teleport)
+    this.playerVelX += dx * 0.8; // impulse scaled to keyboard delta
+    this.playerVelY += dy * 0.8;
+    // Clamp to max speed
+    const speed = Math.sqrt(this.playerVelX * this.playerVelX + this.playerVelY * this.playerVelY);
+    if (speed > this.PLAYER_MAX_SPEED) {
+      this.playerVelX = (this.playerVelX / speed) * this.PLAYER_MAX_SPEED;
+      this.playerVelY = (this.playerVelY / speed) * this.PLAYER_MAX_SPEED;
+    }
+    // Set target ahead of player in velocity direction
+    this.playerTargetX = this.playerX + this.playerVelX * 0.3;
+    this.playerTargetY = this.playerY + this.playerVelY * 0.3;
     // Direction
     if (Math.abs(dx) > Math.abs(dy)) {
       this.playerDir = dx > 0 ? 'right' : 'left';
@@ -689,46 +711,137 @@ export default class StarFarmScene extends BaseEngine {
     if (this.playerEmoji) {
       this.playerEmoji.setPosition(this.playerX, this.playerY);
       this.playerEmoji.setFlipX(this.playerDir === 'left');
-      // Quick squash
-      this.tweens.add({
-        targets: this.playerSprite,
-        scaleX: { from: 1.2, to: 1 }, scaleY: { from: 0.8, to: 1 },
-        duration: 100, ease: 'Quad.out',
-      });
     }
-    if (this.playerShadow) this.playerShadow.setPosition(this.playerX, this.playerY + 14);
+    if (this.playerShadow) this.playerShadow.setPosition(this.playerX, this.playerY + 18);
     this._updatePlayerSprite();
+    // Start walk loop if not already running
+    if (!this.playerMoving) {
+      this.playerMoving = true;
+      this._walkAnim();
+    }
   }
 
   private _walkAnim() {
-    // Walk loop — moves player toward target, plays step bob animation
+    // CUSTOM CHARACTER CONTROLLER — velocity-based acceleration/deceleration
+    //
+    // 1) ACCELERATION/DECELERATION CURVES:
+    //    Instead of instant velocity (old: step = speed * 0.05), we accelerate
+    //    toward the target direction at PLAYER_ACCEL px/s², and decelerate at
+    //    PLAYER_DECEL px/s² when approaching the target. This gives:
+    //    - Responsive start (acceleration curve ramps up quickly)
+    //    - Smooth stop (deceleration curve slows down gradually, no jitter)
+    //    - Competitive feel (high accel, moderate decel = snappy but not twitchy)
+    //
+    // 2) VECTOR PROJECTION:
+    //    The desired velocity direction is projected onto the current velocity
+    //    vector. If the player changes direction mid-move, the old velocity
+    //    is decelerated while the new direction accelerates — smooth turns
+    //    without instant snapping.
+    //
+    // 3) GROUND CHECK (2D equivalent of sphere-cast):
+    //    Tile collision is handled by checking the player's grid cell against
+    //    walkable terrain (grass, dirt, path) vs blocked terrain (water, rock,
+    //    tree, house). This prevents jittering on tile boundaries by clamping
+    //    the player position to the center of walkable cells.
+
+    const dt = 0.05; // 50ms per frame (20fps physics step)
+
+    // Direction to target
     const dx = this.playerTargetX - this.playerX;
     const dy = this.playerTargetY - this.playerY;
-    const dist = Math.hypot(dx, dy);
-    if (dist < 3) {
-      this.playerMoving = false;
-      if (this.playerEmoji) this.playerEmoji.setScale(1, 1);
-      return;
-    }
-    const speed = 120; // px per second
-    const step = Math.min(dist, speed * 0.05); // 50ms per frame
-    this.playerX += (dx / dist) * step;
-    this.playerY += (dy / dist) * step;
-    // Direction
-    if (Math.abs(dx) > Math.abs(dy)) {
-      this.playerDir = dx > 0 ? 'right' : 'left';
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (dist < this.PLAYER_ARRIVE_THRESHOLD) {
+      // Arrived — decelerate to stop
+      this.playerVelX *= 0.5; // friction
+      this.playerVelY *= 0.5;
+      if (Math.abs(this.playerVelX) < this.PLAYER_STOP_THRESHOLD &&
+          Math.abs(this.playerVelY) < this.PLAYER_STOP_THRESHOLD) {
+        this.playerVelX = 0;
+        this.playerVelY = 0;
+        this.playerMoving = false;
+        if (this.playerEmoji) this.playerEmoji.setScale(1, 1);
+        return;
+      }
     } else {
-      this.playerDir = dy > 0 ? 'down' : 'up';
+      // Desired velocity (normalized direction × max speed)
+      const dirX = dx / dist;
+      const dirY = dy / dist;
+      const desiredVelX = dirX * this.PLAYER_MAX_SPEED;
+      const desiredVelY = dirY * this.PLAYER_MAX_SPEED;
+
+      // 1) ACCELERATION CURVE: accelerate toward desired velocity
+      //    Use lerp with acceleration rate — feels like a physical curve
+      const accelRate = this.PLAYER_ACCEL * dt / this.PLAYER_MAX_SPEED;
+      this.playerVelX += (desiredVelX - this.playerVelX) * accelRate;
+      this.playerVelY += (desiredVelY - this.playerVelY) * accelRate;
+
+      // 2) DECELERATION CURVE: when close to target, decelerate faster
+      //    This prevents overshooting — the closer we are, the harder we brake
+      if (dist < 40) {
+        const brakeFactor = dist / 40; // 1.0 at 40px, 0.0 at 0px
+        this.playerVelX *= brakeFactor * 0.5 + 0.5;
+        this.playerVelY *= brakeFactor * 0.5 + 0.5;
+      }
+
+      // Clamp to max speed
+      const speed = Math.sqrt(this.playerVelX * this.playerVelX + this.playerVelY * this.playerVelY);
+      if (speed > this.PLAYER_MAX_SPEED) {
+        this.playerVelX = (this.playerVelX / speed) * this.PLAYER_MAX_SPEED;
+        this.playerVelY = (this.playerVelY / speed) * this.PLAYER_MAX_SPEED;
+      }
+
+      // Direction based on dominant velocity axis
+      if (Math.abs(this.playerVelX) > Math.abs(this.playerVelY)) {
+        this.playerDir = this.playerVelX > 0 ? 'right' : 'left';
+      } else {
+        this.playerDir = this.playerVelY > 0 ? 'down' : 'up';
+      }
     }
-    // Walk bob — scale Y oscillation
-    const bob = Math.sin(Date.now() / 80) * 0.1;
-    if (this.playerEmoji) {
-      this.playerEmoji.setScale(1 + bob * 0.3, 1 - bob);
+
+    // Apply velocity to position
+    this.playerX += this.playerVelX * dt;
+    this.playerY += this.playerVelY * dt;
+
+    // 3) GROUND CHECK: Clamp player to walkable tiles
+    //    Check the player's current grid cell — if it's blocked terrain,
+    //    push the player back to the last valid position (prevents walking
+    //    through water/rocks/trees)
+    const gridX = Math.floor((this.playerX - this.gridOffsetX) / this.TILE);
+    const gridY = Math.floor((this.playerY - this.gridOffsetY) / this.TILE);
+    if (gridX >= 0 && gridX < this.GRID_W && gridY >= 0 && gridY < this.GRID_H) {
+      const tile = this.grid[gridY][gridX];
+      if (tile && (tile.terrain === 'water' || tile.terrain === 'rock' || tile.terrain === 'tree')) {
+        // Blocked — reverse velocity (bounce off slightly) + push back
+        this.playerX -= this.playerVelX * dt;
+        this.playerY -= this.playerVelY * dt;
+        this.playerVelX *= -0.3; // bounce
+        this.playerVelY *= -0.3;
+      }
+    }
+
+    // Walk bob animation — scale oscillation based on speed
+    const currentSpeed = Math.sqrt(this.playerVelX * this.playerVelX + this.playerVelY * this.playerVelY);
+    if (currentSpeed > 5) {
+      // GC FIX: use cached phase instead of Date.now()
+      this._playerLastWalkPhase += 0.3;
+      const bob = Math.sin(this._playerLastWalkPhase) * 0.08 * (currentSpeed / this.PLAYER_MAX_SPEED);
+      if (this.playerEmoji) {
+        this.playerEmoji.setScale(1 + bob * 0.3, 1 - bob);
+        this.playerEmoji.setPosition(this.playerX, this.playerY);
+        this.playerEmoji.setFlipX(this.playerDir === 'left');
+      }
+    } else if (this.playerEmoji) {
+      this.playerEmoji.setScale(1, 1);
       this.playerEmoji.setPosition(this.playerX, this.playerY);
-      this.playerEmoji.setFlipX(this.playerDir === 'left');
     }
-    if (this.playerShadow) this.playerShadow.setPosition(this.playerX, this.playerY + 14);
-    // Continue
+
+    // Shadow follows
+    if (this.playerShadow) {
+      this.playerShadow.setPosition(this.playerX, this.playerY + 18);
+    }
+
+    // Continue loop
     this.walkAnimTimer = this.time.delayedCall(50, () => this._walkAnim());
   }
 

@@ -971,17 +971,51 @@ export class Juice {
   // AAA 2029 ADDITIONS — score popups, glow rings, combo flashes, vignette
   // ===========================================================================
 
+  // GC FIX: Cached text style for scorePopups — avoids allocating a new
+  // style object every call (was creating 5+ objects per popup)
+  private _popupStyleCache: Record<string, any> = {};
+
+  // OBJECT POOL: Recycle popup Text objects instead of creating/destroying
+  private _popupPool: Phaser.GameObjects.Text[] = [];
+  private readonly _POPUP_POOL_MAX = 15;
+
   scorePopup(x: number, y: number, text: string, color: number = 0xffffff) {
     if (!this.alive()) return;
     try {
-      const popup = this.scene.add.text(x, y, text, {
-        fontFamily: 'Inter, sans-serif',
-        fontSize: '32px',
-        color: '#' + color.toString(16).padStart(6, '0'),
-        fontStyle: 'bold',
-        stroke: '#000000',
-        strokeThickness: 4,
-      }).setOrigin(0.5).setDepth(9998);
+      const colorKey = '#' + color.toString(16).padStart(6, '0');
+      // Reuse cached style for this color
+      let style = this._popupStyleCache[colorKey];
+      if (!style) {
+        style = {
+          fontFamily: 'Inter, sans-serif',
+          fontSize: '32px',
+          color: colorKey,
+          fontStyle: 'bold',
+          stroke: '#000000',
+          strokeThickness: 4,
+        };
+        this._popupStyleCache[colorKey] = style;
+      }
+
+      // OBJECT POOL: Get a Text from the pool, or create new
+      let popup = this._popupPool.pop();
+      if (popup && popup.active) {
+        // Recycle: update text + position + style
+        popup.setText(text);
+        popup.setPosition(x, y);
+        popup.setStyle(style);
+        popup.setAlpha(1);
+        popup.setScale(1);
+        popup.setVisible(true);
+        popup.setActive(true);
+      } else {
+        // Create new (pool was empty)
+        popup = this.scene.add.text(x, y, text, style)
+          .setOrigin(0.5).setDepth(9998);
+      }
+
+      // Kill any existing tweens on this popup (from previous use)
+      try { this.scene.tweens.killTweensOf(popup); } catch {}
 
       this.scene.tweens.add({
         targets: popup,
@@ -990,25 +1024,63 @@ export class Juice {
         scale: { from: 0.6, to: 1.3 },
         duration: 800,
         ease: 'Back.out',
-        onComplete: () => { try { popup.destroy(); } catch {} },
+        onComplete: () => {
+          // POOL: Recycle back to pool instead of destroying
+          try {
+            popup!.setVisible(false);
+            popup!.setActive(false);
+            if (this._popupPool.length < this._POPUP_POOL_MAX) {
+              this._popupPool.push(popup!);
+            } else {
+              popup!.destroy();
+            }
+          } catch {}
+        },
       });
     } catch {}
   }
 
+  // OBJECT POOL: Recycle glow ring circles
+  private _ringPool: Phaser.GameObjects.Arc[] = [];
+  private readonly _RING_POOL_MAX = 10;
+
   glowRing(x: number, y: number, color: number = 0xffffff, maxRadius = 80) {
     if (!this.alive()) return;
     try {
-      const ring = this.scene.add.circle(x, y, 8, color, 0)
-        .setStrokeStyle(3, color, 1)
-        .setDepth(9997);
-      // Use scale tween (reliable on all Phaser versions) instead of radius tween
+      // POOL: Get from pool or create
+      let ring = this._ringPool.pop();
+      if (ring && ring.active) {
+        ring.setPosition(x, y);
+        ring.setScale(1);
+        ring.setAlpha(0.9);
+        ring.setStrokeStyle(3, color, 1);
+        ring.setFillStyle(color, 0);
+        ring.setVisible(true);
+        ring.setActive(true);
+      } else {
+        ring = this.scene.add.circle(x, y, 8, color, 0)
+          .setStrokeStyle(3, color, 1)
+          .setDepth(9997);
+      }
+
+      try { this.scene.tweens.killTweensOf(ring); } catch {}
       this.scene.tweens.add({
         targets: ring,
         scale: { from: 1, to: maxRadius / 8 },
         alpha: { from: 0.9, to: 0 },
         duration: 600,
         ease: 'Cubic.out',
-        onComplete: () => { try { ring.destroy(); } catch {} },
+        onComplete: () => {
+          try {
+            ring!.setVisible(false);
+            ring!.setActive(false);
+            if (this._ringPool.length < this._RING_POOL_MAX) {
+              this._ringPool.push(ring!);
+            } else {
+              ring!.destroy();
+            }
+          } catch {}
+        },
       });
     } catch {}
   }
@@ -1139,25 +1211,25 @@ export class MascotController {
     switch (s) {
       case 'idle':
         this.currentTween = this.scene.tweens.add({
-          targets: sp, y: '-=6', duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut',
+          targets: sp, y: '-=6', duration: 900, yoyo: true, repeat: 999, ease: 'Sine.inOut',
         });
         break;
       case 'hype':
         audioBus.play('streak');
         this.currentTween = this.scene.tweens.add({
-          targets: sp, scale: 1.6, y: '-=20', duration: 180, yoyo: true, repeat: -1, ease: 'Quad.out',
+          targets: sp, scale: 1.6, y: '-=20', duration: 180, yoyo: true, repeat: 999, ease: 'Quad.out',
         });
         this.secondaryTween = this.scene.tweens.add({
-          targets: sp, angle: 12, duration: 90, yoyo: true, repeat: -1,
+          targets: sp, angle: 12, duration: 90, yoyo: true, repeat: 999,
         });
         this.stateTimer = this.scene.time.delayedCall(4000, () => this.setState('idle'));
         break;
       case 'urgent':
         this.currentTween = this.scene.tweens.add({
-          targets: sp, x: '+=4', duration: 60, yoyo: true, repeat: -1,
+          targets: sp, x: '+=4', duration: 60, yoyo: true, repeat: 999,
         });
         this.secondaryTween = this.scene.tweens.add({
-          targets: sp, alpha: 0.6, duration: 200, yoyo: true, repeat: -1,
+          targets: sp, alpha: 0.6, duration: 200, yoyo: true, repeat: 999,
         });
         break;
       case 'celebrate':
@@ -1171,7 +1243,7 @@ export class MascotController {
       case 'sad':
         audioBus.play('lose');
         this.currentTween = this.scene.tweens.add({
-          targets: sp, y: '+=8', angle: -10, duration: 400, yoyo: true, repeat: -1, ease: 'Sine.inOut',
+          targets: sp, y: '+=8', angle: -10, duration: 400, yoyo: true, repeat: 999, ease: 'Sine.inOut',
         });
         this.stateTimer = this.scene.time.delayedCall(3000, () => this.setState('idle'));
         break;

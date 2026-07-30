@@ -4,6 +4,8 @@ import { ThemeAtlas, Juice, Hud } from './Juice';
 import { audioBus } from '../lib/audio';
 import { getLod } from '../lib/lod';
 import { makeAnsweredEvent, makeCompletedEvent, pushEvent, getActor, verifyTelemetry } from '../lib/telemetry';
+import { GlobalPoolManager } from './GlobalPoolManager';
+import { EventBus, GAME_EVENTS } from './EventBus';
 
 export abstract class BaseEngine extends Phaser.Scene {
   protected theme!: ThemeManifest;
@@ -20,7 +22,7 @@ export abstract class BaseEngine extends Phaser.Scene {
   protected maxScore = 0;
   protected answeredEvents: XapiEvent[] = [];
   protected isFinished = false;
-  protected _isPaused = false; // FIX: flag-based pause (scene.pause() freezes input)
+  protected _isPaused = false;
   protected lod = getLod();
   protected level = 1;
   protected levelBadge?: Phaser.GameObjects.Text;
@@ -30,6 +32,10 @@ export abstract class BaseEngine extends Phaser.Scene {
   protected urgencyActive = false;
   private pauseOverlay?: Phaser.GameObjects.Container;
   private _lastSfxTime = 0;
+
+  // AAA ARCHITECTURE: Global Pool Manager + Event Bus
+  protected poolManager: GlobalPoolManager = GlobalPoolManager.getInstance();
+  protected eventBus: EventBus = new EventBus();
 
   protected abstract buildWorld(): void;
   protected abstract onTick(_remainingMs: number): void;
@@ -51,6 +57,24 @@ export abstract class BaseEngine extends Phaser.Scene {
   }
 
   create() {
+    // AAA ARCHITECTURE: Initialize Global Pool Manager for this scene
+    this.poolManager.init(this);
+
+    // AAA ARCHITECTURE: Wire up Event Bus listeners
+    // VFX system listens for burst/flash/shake/popup events
+    this.eventBus.on(GAME_EVENTS.VFX_BURST, (p: { x: number; y: number; kind: any }) => {
+      try { this.juice?.burst(p.x, p.y, p.kind); } catch {}
+    });
+    this.eventBus.on(GAME_EVENTS.VFX_FLASH, (p: { color: number; alpha: number; durationMs: number }) => {
+      try { this.juice?.flash(p.color, p.alpha, p.durationMs); } catch {}
+    });
+    this.eventBus.on(GAME_EVENTS.VFX_SHAKE, (p: { intensity: any }) => {
+      try { this.juice?.shake(p.intensity); } catch {}
+    });
+    this.eventBus.on(GAME_EVENTS.VFX_POPUP, (p: { x: number; y: number; text: string; color: number }) => {
+      try { this.juice?.scorePopup(p.x, p.y, p.text, p.color); } catch {}
+    });
+
     ThemeAtlas.build(this, this.theme);
     this.cameras.main.setBackgroundColor(this.theme.bg);
     const bgKey = 'bg-' + this.theme.id;
@@ -109,8 +133,19 @@ export abstract class BaseEngine extends Phaser.Scene {
     });
 
     // CRITICAL: Shutdown/destroy cleanup
-    this.events.once('shutdown', () => { try { this.tweens.killAll(); } catch {} try { this.time.removeAllEvents(); } catch {} });
-    this.events.once('destroy', () => { try { this.tweens.killAll(); } catch {} try { this.time.removeAllEvents(); } catch {} });
+    this.events.once('shutdown', () => {
+      try { this.tweens.killAll(); } catch {}
+      try { this.time.removeAllEvents(); } catch {}
+      // AAA: Flush pool + destroy event bus on shutdown
+      this.poolManager.flushAll();
+      this.eventBus.removeAllListeners();
+    });
+    this.events.once('destroy', () => {
+      try { this.tweens.killAll(); } catch {}
+      try { this.time.removeAllEvents(); } catch {}
+      this.poolManager.flushAll();
+      this.eventBus.destroy();
+    });
 
     // NOTE: The periodic `tweens.killAll()` every 8s was REMOVED — it was the
     // ROOT CAUSE of the "stuck cards" bug in Memory Match. When it fired during
@@ -133,37 +168,42 @@ export abstract class BaseEngine extends Phaser.Scene {
     }
   }
 
+  // GC FIX: Static instruction map — created once, not per scene instance
+  private static readonly _GAME_INSTRUCTIONS: Record<string, string> = {
+    'MazeChaseScene': 'Welcome to Maze Chase! Move through the maze, collect the correct words, and dodge the ghosts! Use arrow keys or tap to move.',
+    'QuizScene': 'Welcome to Quiz! Read each question, tap to hear it, then tap the correct answer!',
+    'AirplaneScene': 'Welcome to Airplane! Steer your rocket left and right to catch the correct banners! Watch out for storm clouds!',
+    'GameshowScene': 'Welcome to the Gameshow! Answer each question before time runs out!',
+    'MemoryMatchScene': 'Welcome to Memory Match! Flip cards to find matching pairs! Tap any card to hear it!',
+    'MatchUpScene': 'Welcome to Match Up! Drag the words on the left to their meanings on the right! Tap any text to hear it!',
+    'BalloonPopScene': 'Welcome to Balloon Pop! Pop balloons to drop words into matching definitions!',
+    'WhackAMoleScene': 'Welcome to Whack a Mole! Bonk the mole showing the correct answer! They pop up fast!',
+    'AnagramScene': 'Welcome to Anagram! Tap the letters in the correct order to spell the word!',
+    'WordsearchScene': 'Welcome to Word Search! Drag across letters to find the hidden words!',
+    'BridgeBuilderScene': 'Welcome to Bridge Builder! Guess letters to spell the word!',
+    'CrosswordScene': 'Welcome to Crossword! Tap a cell, then type letters to fill in the grid!',
+    'FlashCardsScene': 'Welcome to Flash Cards! Tap a card to flip it and hear the word!',
+    'SpinWheelScene': 'Welcome to Spin Wheel! Spin the wheel, then match the term to its definition!',
+    'GroupSortScene': 'Welcome to Group Sort! Drag each word into the correct category box!',
+    'TypeAnswerScene': 'Welcome to Type Answer! Read the meaning, then type the correct word!',
+    'SpotItScene': 'Welcome to Spot It! Find the one symbol that appears on both cards! Tap it fast!',
+    'EndlessRunnerScene': 'Welcome to Endless Runner! Switch lanes to catch the correct word! Tap left or right side of screen!',
+    'PhysicsPuzzlerScene': 'Welcome to Physics Puzzler! Aim your cannon and fire at the correct word block!',
+    'SnakingScene': 'Welcome to Word Snake! Guide the snake to eat the correct word! Use arrow keys or tap to steer!',
+    'SpeakItScene': 'Welcome to Speak It! Listen to the word, then tap the matching word below!',
+    'TrainingAcademyScene': 'Welcome to Training Academy! Say the action command to make the mascot move!',
+    'RescueQuestScene': 'Welcome to Rescue Quest! Say the verb to clear each obstacle and rescue the friend!',
+    'LabelItScene': 'Welcome to Label It! Tap the word that matches the definition!',
+    'StarFarmScene': 'Welcome to Star Farm! A complete farming adventure! Tap the hoe, then tap a tile to till soil. Water it, plant seeds, and harvest crops!',
+  };
+
   protected speakGameInstructions() {
-    const instructions: Record<string, string> = {
-      'MazeChaseScene': 'Welcome to Maze Chase! Move through the maze, collect the correct words, and dodge the ghosts! Use arrow keys or tap to move.',
-      'QuizScene': 'Welcome to Quiz! Read each question, tap to hear it, then tap the correct answer!',
-      'AirplaneScene': 'Welcome to Airplane! Steer your rocket left and right to catch the correct banners! Watch out for storm clouds!',
-      'GameshowScene': 'Welcome to the Gameshow! Answer each question before time runs out!',
-      'MemoryMatchScene': 'Welcome to Memory Match! Flip cards to find matching pairs! Tap any card to hear it!',
-      'MatchUpScene': 'Welcome to Match Up! Drag the words on the left to their meanings on the right! Tap any text to hear it!',
-      'BalloonPopScene': 'Welcome to Balloon Pop! Pop the balloon carrying the correct word!',
-      'WhackAMoleScene': 'Welcome to Whack a Mole! Bonk the mole showing the correct answer! They pop up fast!',
-      'AnagramScene': 'Welcome to Anagram! Tap the letters in the correct order to spell the word!',
-      'WordsearchScene': 'Welcome to Word Search! Drag across letters to find the hidden words!',
-      'BridgeBuilderScene': 'Welcome to Bridge Builder! Guess letters to spell the word!',
-      'CrosswordScene': 'Welcome to Crossword! Tap a cell, then type letters to fill in the grid!',
-      'FlashCardsScene': 'Welcome to Flash Cards! Tap a card to flip it and hear the word!',
-      'SpinWheelScene': 'Welcome to Spin Wheel! Spin the wheel, then match the term to its definition!',
-      'GroupSortScene': 'Welcome to Group Sort! Drag each word into the correct category box!',
-      'TypeAnswerScene': 'Welcome to Type Answer! Read the meaning, then type the correct word!',
-      'SpotItScene': 'Welcome to Spot It! Find the one symbol that appears on both cards! Tap it fast!',
-      'EndlessRunnerScene': 'Welcome to Endless Runner! Switch lanes to catch the correct word! Tap left or right side of screen!',
-      'PhysicsPuzzlerScene': 'Welcome to Physics Puzzler! Aim your cannon and fire at the correct word block!',
-      'SnakingScene': 'Welcome to Word Snake! Guide the snake to eat the correct word! Use arrow keys or tap to steer!',
-      'SpeakItScene': 'Welcome to Speak It! Listen to the word, then tap the matching word below!',
-      'TrainingAcademyScene': 'Welcome to Training Academy! Say the action command to make the mascot move!',
-      'RescueQuestScene': 'Welcome to Rescue Quest! Say the verb to clear each obstacle and rescue the friend!',
-      'LabelItScene': 'Welcome to Label It! Tap the word that matches the definition!',
-      'StarFarmScene': 'Welcome to Star Farm! A complete farming adventure! Tap the hoe, then tap a tile to till soil. Water it, plant seeds, and harvest crops! Visit the shop to buy seeds and sell crops. Sleep to restore energy. Your farm saves automatically!',
-    };
-    const instruction = instructions[this.scene.key] ?? 'Welcome! Tap to play!';
+    const instruction = BaseEngine._GAME_INSTRUCTIONS[this.scene.key] ?? 'Welcome! Tap to play!';
     audioBus.speak(instruction);
   }
+
+  // GC FIX: Cache urgency pulse to avoid Graphics redraw every frame
+  private _urgencyPulsePhase = 0;
 
   protected onHudUpdate(state: { score: number; streak: number; remainingMs: number }) {
     if (state.remainingMs < 60000 && !this.urgencyActive && !this.isFinished) {
@@ -171,10 +211,17 @@ export abstract class BaseEngine extends Phaser.Scene {
       if (this.urgencyVignette) { this.urgencyVignette.setVisible(true); }
       audioBus.play('countdown');
     }
+    // GC FIX: Only redraw urgency vignette every 3rd frame (20fps) instead of
+    // every frame (60fps). Graphics.clear() + fillRect × 4 allocates command
+    // buffers each call — at 60fps that's 240 fillRect commands per second.
     if (this.urgencyActive && this.urgencyVignette) {
+      this._urgencyPulsePhase++;
+      if (this._urgencyPulsePhase % 3 !== 0) return; // skip 2 of every 3 frames
       const w = this.scale.width, h = this.scale.height, bw = 20;
+      const pulse = (Math.sin(this.time.now / 200) + 1) / 2;
+      const alpha = 0.3 + pulse * 0.4;
       this.urgencyVignette.clear();
-      this.urgencyVignette.fillStyle(this.theme.danger, 0.5);
+      this.urgencyVignette.fillStyle(this.theme.danger, alpha);
       this.urgencyVignette.fillRect(0, 0, w, bw);
       this.urgencyVignette.fillRect(0, h - bw, w, bw);
       this.urgencyVignette.fillRect(0, 0, bw, h);
@@ -188,24 +235,53 @@ export abstract class BaseEngine extends Phaser.Scene {
     const ev = makeAnsweredEvent({ actor, gameMode: this.scene.key, unit: this.unit, term: opts.term, response: opts.response, success: opts.success, score: this.score, maxScore: this.maxScore, durationMs: Date.now() - this.startTime, coordinate: opts.coordinate, streak: this.streak, tenantId: this.tenantId });
     this.answeredEvents.push(ev); pushEvent(ev);
 
+    // AAA ARCHITECTURE: Emit events through EventBus (decoupled)
+    // VFX, Audio, HUD, Level systems each listen independently
+    const burstX = opts.coordinate?.x ?? 400;
+    const burstY = opts.coordinate?.y ?? 300;
+
     if (opts.success) {
       this.score++; this.streak++;
-      try {
-        this.juice.burst(opts.coordinate?.x ?? 400, opts.coordinate?.y ?? 300, this.streak >= 3 ? 'streak' : 'correct');
-        this.juice.scorePopup(opts.coordinate?.x ?? this.scale.width / 2, opts.coordinate?.y ?? this.scale.height / 2, this.streak >= 3 ? `STREAK x${this.streak}!` : '+1', this.streak >= 3 ? this.theme.warning : this.theme.success);
-      } catch {}
+
+      // Emit events — systems react independently
+      this.eventBus.emit(GAME_EVENTS.ANSWER_CORRECT, {
+        term: opts.term,
+        coordinate: opts.coordinate,
+        streak: this.streak,
+        score: this.score,
+        maxScore: this.maxScore,
+      });
+      this.eventBus.emit(GAME_EVENTS.VFX_BURST, {
+        x: burstX, y: burstY,
+        kind: this.streak >= 3 ? 'streak' : 'correct',
+      });
+      this.eventBus.emit(GAME_EVENTS.VFX_POPUP, {
+        x: burstX, y: burstY,
+        text: this.streak >= 3 ? `STREAK x${this.streak}!` : '+1',
+        color: this.streak >= 3 ? this.theme.warning : this.theme.success,
+      });
+
       audioBus.speak(opts.term);
-      const baseFreq = 660;
-      const streakFreq = baseFreq * Math.pow(2, Math.min(this.streak, 6) / 12);
+      const semitones = Math.min(this.streak, 6) / 12;
+      const streakFreq = 660 * Math.pow(2, semitones);
       const now = Date.now();
       if (now - this._lastSfxTime > 300) { audioBus.play('correct', { freq: streakFreq }); this._lastSfxTime = now; }
       this.checkLevelUp();
     } else {
       this.streak = 0;
-      try {
-        this.juice.burst(opts.coordinate?.x ?? 400, opts.coordinate?.y ?? 300, 'incorrect');
-        this.juice.scorePopup(opts.coordinate?.x ?? this.scale.width / 2, opts.coordinate?.y ?? this.scale.height / 2, 'X', this.theme.danger);
-      } catch {}
+
+      this.eventBus.emit(GAME_EVENTS.ANSWER_WRONG, {
+        term: opts.term,
+        response: opts.response,
+        coordinate: opts.coordinate,
+      });
+      this.eventBus.emit(GAME_EVENTS.VFX_BURST, { x: burstX, y: burstY, kind: 'incorrect' });
+      this.eventBus.emit(GAME_EVENTS.VFX_POPUP, {
+        x: this.scale.width / 2, y: this.scale.height / 2,
+        text: 'X', color: this.theme.danger,
+      });
+      this.eventBus.emit(GAME_EVENTS.VFX_SHAKE, { intensity: 'light' });
+
       audioBus.play('incorrect');
     }
     this.hud.tick(this.score, this.streak, this.maxScore);
@@ -215,6 +291,15 @@ export abstract class BaseEngine extends Phaser.Scene {
     if (this.isFinished) return;
     this.isFinished = true;
     try { this.tweens.killAll(); } catch {}
+
+    // AAA ARCHITECTURE: Emit game end event
+    this.eventBus.emit(GAME_EVENTS.GAME_END, {
+      won, score: this.score, maxScore: this.maxScore,
+      durationMs: Date.now() - this.startTime,
+    });
+
+    // AAA ARCHITECTURE: Flush all pooled objects (bulk purge)
+    this.poolManager.flushAll();
     if (this.urgencyVignette) { try { this.urgencyVignette.destroy(); } catch {} this.urgencyVignette = undefined; }
     this.urgencyActive = false;
 

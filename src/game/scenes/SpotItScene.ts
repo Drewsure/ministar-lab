@@ -274,7 +274,7 @@ export default class SpotItScene extends BaseEngine {
       this.tweens.add({
         targets: container,
         scale: { from: 1, to: 1.06 },
-        duration: 1000 + i * 80, yoyo: true, repeat: -1, ease: 'Sine.inOut',
+        duration: 1000 + i * 80, yoyo: true, repeat: 999, ease: 'Sine.inOut',
       });
 
       const sym: SpotItSymbol = {
