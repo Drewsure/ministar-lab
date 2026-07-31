@@ -38,10 +38,10 @@ export default class WordsearchScene extends BaseEngine {
   private selectionLine?: Phaser.GameObjects.Graphics;
   private wordsList: { term: TermItem; word: string; text: Phaser.GameObjects.Text }[] = [];
 
-  protected maxQuestions() { return Math.min(this.terms.length, 6); }
+  protected maxQuestions() { return Math.min(this.terms.length, 10); }
 
   protected buildWorld() {
-    this.add.text(
+    const titleText = this.add.text(
       this.scale.width / 2, 50,
       'Find the hidden words',
       {
@@ -51,6 +51,10 @@ export default class WordsearchScene extends BaseEngine {
         fontStyle: 'bold',
       }
     ).setOrigin(0.5).setDepth(50);
+    // AAAA KIDS MODE — speak the title with karaoke highlight on entry.
+    this.time.delayedCall(800, () => {
+      if (!this.isFinished) this.speakPromptWithHighlight(titleText, 'Find the hidden words!', { isQuestion: true });
+    });
 
     // Pick words and place them
     const allWords = this.pickTerms(this.maxScore)

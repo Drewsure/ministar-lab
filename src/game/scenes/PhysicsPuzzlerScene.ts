@@ -17,7 +17,7 @@ export default class PhysicsPuzzlerScene extends BaseEngine {
   private shotsLeft = 15;
   private shotsText!: Phaser.GameObjects.Text;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 10); }
+  protected maxQuestions() { return Math.min(this.terms.length, 15); }
 
   protected buildWorld() {
     this.add.text(this.scale.width / 2, 105, 'Physics Puzzler', {
@@ -78,6 +78,10 @@ export default class PhysicsPuzzlerScene extends BaseEngine {
     this.promptText.setText(`Find: "${def}"`);
     this.promptText.setData('speakText', `Find the word for: ${def}`);
     this.promptBg.setData('speakText', `Find the word for: ${def}`);
+    // AAAA KIDS MODE — speak the prompt with karaoke highlight.
+    this.time.delayedCall(400, () => {
+      if (!this.isFinished) this.speakPromptWithHighlight(this.promptText, `Find the word for: ${def}`, { isQuestion: true });
+    });
     const blockCount = Math.min(6, pool.length);
     pool.slice(0, blockCount).forEach((term, i) => {
       const x = 100 + (i % 3) * 250, y = 260 + Math.floor(i / 3) * 120;

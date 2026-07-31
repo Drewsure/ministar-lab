@@ -15,7 +15,7 @@ export default class SnakingScene extends BaseEngine {
   private nextDirection = { x: 1, y: 0 };
   private gridStep = 30;
   private moveTimer = 0;
-  private moveInterval = 250;
+  private moveInterval = 300; // AAAA KIDS MODE: Gentler start (was 250) — kids 4-9 need reading time
   private currentPrompt?: TermItem;
   private promptText!: Phaser.GameObjects.Text;
   private promptBg!: Phaser.GameObjects.Rectangle;
@@ -23,7 +23,7 @@ export default class SnakingScene extends BaseEngine {
   private isMoving = false;
   private startHint?: Phaser.GameObjects.Text;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 10); }
+  protected maxQuestions() { return Math.min(this.terms.length, 15); }
 
   protected buildWorld() {
     this.add.text(this.scale.width / 2, 105, 'Word Snake', {
@@ -138,7 +138,12 @@ export default class SnakingScene extends BaseEngine {
       coordinate: { x: food.x, y: food.y, t: this.time.now } });
     if (food.isCorrect) {
       audioBus.play('correct'); this.juice.burst(food.x, food.y, 'correct');
-      this.moveInterval = Math.max(100, this.moveInterval - 5);
+      // AAAA KIDS MODE — Gentler speedup: -3ms per eat (was -5ms), floor 150ms (was 100ms).
+      // AAAA SLOW MODE: divide floor by timeMultiplier() (slow mode = higher floor = slower).
+      // Ramp: 300ms → 150ms over 50 correct eats (2x speedup, was 2.5x).
+      // 150ms = 6.7 moves/sec — fast enough to be fun, slow enough to read words.
+      const slowFloor = 150 / this.timeMultiplier();
+      this.moveInterval = Math.max(slowFloor, this.moveInterval - 3);
       this.time.delayedCall(300, () => { if (!this.isFinished) this.spawnFood(); });
     } else {
       audioBus.play('incorrect'); this.juice.shake('medium');

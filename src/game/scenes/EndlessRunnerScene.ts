@@ -14,7 +14,7 @@ export default class EndlessRunnerScene extends BaseEngine {
   private playerLane = 1;
   private laneX = [200, 400, 600];
   private currentPrompt?: { term: TermItem; options: TermItem[]; correctLane: number; y: number };
-  private speed = 40; // FIX: Slower start (was 60)
+  private speed = 30; // AAAA KIDS MODE: Gentler start (was 40) — kids 4-9 need reading time
   private strikes = 0;
   private maxStrikes = 3;
   private distance = 0;
@@ -27,7 +27,7 @@ export default class EndlessRunnerScene extends BaseEngine {
   private instructionsText!: Phaser.GameObjects.Text;
   private canSwitch = true;
 
-  protected maxQuestions() { return 15; }
+  protected maxQuestions() { return 20; }
 
   protected buildWorld() {
     this.add.text(this.scale.width / 2, 55, '🏃 Endless Runner', {
@@ -128,9 +128,17 @@ export default class EndlessRunnerScene extends BaseEngine {
     if (this.currentPrompt.y >= this.scale.height - 100) this.checkAnswer();
     this.distance += this.speed * dt * 0.1;
     this.distanceText.setText(`${Math.floor(this.distance)}m`);
-    // FIX: Slower speed cap + level-based cap (was 200, now 120 + level*20)
-    const maxSpeed = 120 + (this.level - 1) * 20;
-    this.speed = Math.min(maxSpeed, 40 + this.distance * 0.4);
+    // AAAA KIDS MODE — Gentler speed ramp for ages 4-9.
+    // Was: maxSpeed = 120 + (level-1)*20, growth = 0.4/m → too fast, too steep.
+    // Now: maxSpeed = 70 + (level-1)*8, growth = 0.15/m.
+    // AAAA SLOW MODE: multiply by timeMultiplier() (0.7 = 30% slower).
+    // Level 1: 30→70 px/s (11.4s to traverse 800px at cap — plenty of reading time)
+    // Level 3: 30→86 px/s (9.3s at cap)
+    // Level 5: 30→102 px/s (7.8s at cap)
+    // Per-level increment: +8 px/s (was +20) — 11% jump, not 17%.
+    const tm = this.timeMultiplier();
+    const maxSpeed = (70 + (this.level - 1) * 8) * tm;
+    this.speed = Math.min(maxSpeed, (30 + this.distance * 0.15) * tm);
   }
 
   private switchLane(dir: number) {

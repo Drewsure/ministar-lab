@@ -271,7 +271,7 @@ export default class StarFarmScene extends BaseEngine {
   private fishingBar?: Phaser.GameObjects.Rectangle;
   private fishingTarget?: Phaser.GameObjects.Rectangle;
 
-  protected maxQuestions() { return 10; }
+  protected maxQuestions() { return 15; }
 
   protected buildWorld() {
     this.gridOffsetX = (this.scale.width - this.GRID_W * this.TILE) / 2;
@@ -940,6 +940,8 @@ export default class StarFarmScene extends BaseEngine {
     audioBus.speak(TOOL_NAMES[t]);
     this.vocabLearned.add(TOOL_NAMES[t].toLowerCase());
     this.promptText.setText(`Tool: ${TOOL_NAMES[t]} — tap a tile!`);
+    // AAAA KIDS MODE — speak the prompt with karaoke highlight.
+    this.speakPromptWithHighlight(this.promptText, `Tool: ${TOOL_NAMES[t]}. Tap a tile!`);
     const tools: ToolType[] = ['hoe', 'water', 'seed', 'harvest', 'axe', 'pickaxe'];
     this.toolButtons.forEach((btn, i) => {
       const bg = btn.getAt(0) as Phaser.GameObjects.Rectangle;

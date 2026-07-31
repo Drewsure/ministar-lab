@@ -56,7 +56,7 @@ export default class BalloonPopScene extends BaseEngine {
   private lastCorrectTime = 0;
   private currentRound = 0;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 10); }
+  protected maxQuestions() { return Math.min(this.terms.length, 15); }
 
   protected buildWorld() {
     // ---- Title ----
@@ -182,8 +182,13 @@ export default class BalloonPopScene extends BaseEngine {
     };
     this.balloons.push(balloon);
 
-    // Float up tween (12-15s rise time depending on level)
-    const riseDuration = Math.max(6000, 14000 - (this.level - 1) * 1500);
+    // Float up tween (rise time ramps gently per level for ages 4-9).
+    // AAAA KIDS MODE — Gentler ramp per web research (kids need reading time).
+    // AAAA SLOW MODE: divide by timeMultiplier() (slow mode = slower rise).
+    // Was: 14000 - (level-1)*1500, floor 6000ms (11% jump/level, too steep).
+    // Now: 14000 - (level-1)*1000, floor 8000ms (7% jump/level, gentler).
+    // Level 1=14s, L2=13s, L3=12s, L4=11s, L5=10s, L6+=8s
+    const riseDuration = Math.max(8000, 14000 - (this.level - 1) * 1000) / this.timeMultiplier();
     this.tweens.add({
       targets: container,
       y: -50,

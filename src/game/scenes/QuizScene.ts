@@ -113,7 +113,7 @@ export default class QuizScene extends BaseEngine {
   private _highlightTargets: Phaser.GameObjects.Text[] = [];
 
   // Rapid-fire: cap at 5 questions per session (per child-engagement notes).
-  protected maxQuestions() { return Math.min(this.terms.length, 5); }
+  protected maxQuestions() { return Math.min(this.terms.length, 8); }
 
   // ===========================================================================
   // BUILD WORLD — orchestrates all construction subroutines.
@@ -127,6 +127,9 @@ export default class QuizScene extends BaseEngine {
       // AAAA KIDS MODE: Opt out of auto-mascot — Quiz has its own 🐶 mascot
       // with richer states (idle/thinking/celebrate/highfive).
       this._skipAutoMascot = true;
+      // AAAA KIDS MODE: Opt out of auto sticker book — Quiz has its own
+      // integrated sticker book with drag-and-drop animation.
+      this._skipAutoStickerBook = true;
       this._buildRounds();
       this._buildTitle();
       this._buildProgressBar();

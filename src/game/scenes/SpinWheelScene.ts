@@ -90,7 +90,7 @@ export default class SpinWheelScene extends BaseEngine {
   private _highlightTargets: Phaser.GameObjects.Text[] = [];
   private _readingOptions = false;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 8); }
+  protected maxQuestions() { return Math.min(this.terms.length, 12); }
 
   protected buildWorld() {
     // AAAA KIDS MODE: Opt out of BaseEngine's auto-celebrate — SpinWheel has

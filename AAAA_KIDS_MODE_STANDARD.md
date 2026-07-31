@@ -97,9 +97,11 @@ Brought Quiz to parity with SpinWheel:
 BaseEngine now provides these features AUTOMATICALLY for every game:
 
 - **Auto-Celebration**: `KidsJuice.celebrateCorrect` fires on every correct answer (via `recordAnswer` hook). Opt out with `this._skipAutoCelebrate = true` in `buildWorld()` if your game has a custom celebration.
-- **Auto-Mascot** ⭐: A companion star mascot appears in the bottom-right corner of every game. It bobs gently, does occasional chin-taps, jumps + 360° spins on correct answers, and speaks random encouragement when tapped. Opt out with `this._skipAutoMascot = true` (Quiz has its own 🐶).
+- **Auto-Mascot** (themed per game): A companion mascot appears in the bottom-right corner of every game. Each game gets a thematically-appropriate emoji (🦊 for MazeChase, 🦅 for Airplane, 🤖 for Gameshow, 🧠 for MemoryMatch, 🔨 for WhackAMole, 🐍 for Snaking, 🚀 for SpaceExplorer, 👨‍🌾 for StarFarm, etc. — full map in `BaseEngine._MASCOT_EMOJIS`). It bobs gently, does occasional chin-taps, jumps + 360° spins on correct answers, and speaks random encouragement when tapped. Opt out with `this._skipAutoMascot = true` (Quiz has its own 🐶).
+- **Auto-Sticker Book** (persistent via localStorage): Every correct answer awards a random sticker (⭐🌟💫✨🎯🌈🏆🎀🎈🦄). The total count persists across ALL games + ALL sessions via `localStorage['ministar-sticker-collection']`. A badge (📔 + count) appears in the top-right corner, bobs gently, pulses on award, and is tappable to hear the total. Opt out with `this._skipAutoStickerBook = true` (Quiz has its own integrated sticker book).
 - **`speakPromptWithHighlight(textObj, text, opts)`**: Convenience wrapper around `KidsJuice.speakWithHighlight`. Any game can call `this.speakPromptWithHighlight(this.promptText, 'Find the match!')` without importing KidsJuice.
 - **`clearPromptHighlights()`**: Clears all karaoke highlights (call on round transitions).
+- **`BaseEngine.getStickerCount()`** (static): Public API to read total sticker count from localStorage (for external UI / dashboards).
 
 ### 1. Import KidsJuice (only if using advanced features directly)
 
@@ -244,7 +246,8 @@ Before any game can be marked COMPLETE, verify:
 | 2026-07-31 | SPINWHEEL-OPTION-CHAIN-FIX | SpinWheel: fix 3rd-option cut-short + add "Go again!" prompt |
 | 2026-07-31 | KIDSJUICE-ROLLOUT | Extract shared KidsJuice helper + apply to all 32 games |
 | 2026-07-31 | KIDSJUICE-ROLLOUT-AND-STANDARD | SpinWheel fix + Go Again + AAAA build note + KidsJuice helper + BaseEngine auto-celebrate hook for ALL 32 games |
-| 2026-07-31 | KIDMODE-FULL-ROLLOUT | BaseEngine auto-mascot (⭐) for 31 games + speakPromptWithHighlight helper + prompt-sync wiring in 14 games (BalloonPop, MazeChase, Gameshow, WhackAMole, Anagram, TypeAnswer, EndlessRunner, Snaking, SpeakIt, TreasureHunt, SpotIt, LabelIt, MatchUp, GroupSort) |
+| 2026-07-31 | KIDMODE-FULL-ROLLOUT | BaseEngine auto-mascot (⭐) for 31 games + speakPromptWithHighlight helper + prompt-sync wiring in 14 games |
+| 2026-07-31 | KIDMODE-COMPLETE-ROLLOUT | Prompt-sync wiring in remaining 16 games (ALL 32 now have prompt highlighting) + per-game themed mascot emojis (🦊🦅🤖🧠🔗🎈🔨🔤🔍🌉📝📇🗃️⌨️👁️🏃🎯🐍🗣️🎓🦸🏷️👨‍🌾🏴‍☠️⚔️🏰🎵🚀📖🚜) + persistent sticker book via localStorage (ALL 32 games, badge in top-right, count persists across sessions) |
 
 ---
 

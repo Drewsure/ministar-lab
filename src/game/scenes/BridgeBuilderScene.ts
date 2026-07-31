@@ -39,7 +39,7 @@ export default class BridgeBuilderScene extends BaseEngine {
   private hintBtn!: Phaser.GameObjects.Container;
   private usedLetters = new Set<string>();
 
-  protected maxQuestions() { return Math.min(this.terms.length, 5); }
+  protected maxQuestions() { return Math.min(this.terms.length, 8); }
 
   protected buildWorld() {
     // ---- Title ----
@@ -197,8 +197,10 @@ export default class BridgeBuilderScene extends BaseEngine {
     // Hint
     const hintText = term.definition ? `Hint: ${term.emoji ?? ''} ${term.definition}` : (term.emoji ? `Hint: ${term.emoji}` : '');
     this.hintText.setText(hintText);
-
-
+    // AAAA KIDS MODE — speak the hint with karaoke highlight.
+    this.time.delayedCall(400, () => {
+      if (!this.isFinished) this.speakPromptWithHighlight(this.hintText, hintText, { isQuestion: true });
+    });
 
     // Render letter keyboard
     this.letterButtons.forEach(b => b.destroy());
