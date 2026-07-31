@@ -223,6 +223,8 @@ export default class TreasureHuntScene extends BaseEngine {
     Phaser.Utils.Array.Shuffle(options);
 
     this.promptText.setText(`💎 Which word matches: "${targetTerm.definition ?? targetTerm.term}"?`);
+    // AAAA KIDS MODE — speak the prompt with karaoke highlight.
+    this.speakPromptWithHighlight(this.promptText, `Which word matches: ${targetTerm.definition ?? targetTerm.term}?`, { isQuestion: true });
 
     const startY = 440;
     options.forEach((t, i) => {

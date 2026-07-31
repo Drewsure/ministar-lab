@@ -166,6 +166,10 @@ export default class EndlessRunnerScene extends BaseEngine {
     const def = prompt.definition ?? prompt.emoji ?? prompt.term;
     this.promptText.setText(`Which word means: "${def}"?`);
     this.makeSpeakable(this.promptText, `Which word means: ${def}?`);
+    // AAAA KIDS MODE — speak the prompt with karaoke highlight.
+    this.time.delayedCall(400, () => {
+      if (!this.isFinished) this.speakPromptWithHighlight(this.promptText, `Which word means: ${def}?`, { isQuestion: true });
+    });
 
     this.optionTexts.forEach(t => t?.destroy());
     this.optionTexts = [];

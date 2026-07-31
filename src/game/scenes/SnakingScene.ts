@@ -109,6 +109,10 @@ export default class SnakingScene extends BaseEngine {
     this.promptText.setText(`Eat the word for: "${def}"`);
     this.promptText.setData('speakText', `Eat the word for: ${def}`);
     this.promptBg.setData('speakText', `Eat the word for: ${def}`);
+    // AAAA KIDS MODE — speak the prompt with karaoke highlight.
+    this.time.delayedCall(400, () => {
+      if (!this.isFinished) this.speakPromptWithHighlight(this.promptText, `Eat the word for: ${def}`, { isQuestion: true });
+    });
     pool.slice(0, 4).forEach(term => {
       const gx = Math.floor((80 + Math.random() * (this.scale.width - 160)) / this.gridStep) * this.gridStep;
       const gy = Math.floor((250 + Math.random() * (this.scale.height - 350)) / this.gridStep) * this.gridStep;

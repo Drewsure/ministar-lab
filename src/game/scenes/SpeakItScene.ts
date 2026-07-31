@@ -101,7 +101,7 @@ export default class SpeakItScene extends BaseEngine {
     // Speak the word after buttons appear
     this.promptText.setText(`Listen... then tap "${this.currentTerm.term}"`);
     this.time.delayedCall(600, () => {
-      if (!this.isFinished) audioBus.speak(this.currentTerm.term);
+      if (!this.isFinished) this.speakPromptWithHighlight(this.promptText, this.currentTerm.term);
     });
   }
 

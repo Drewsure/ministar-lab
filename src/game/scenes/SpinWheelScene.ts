@@ -93,6 +93,9 @@ export default class SpinWheelScene extends BaseEngine {
   protected maxQuestions() { return Math.min(this.terms.length, 8); }
 
   protected buildWorld() {
+    // AAAA KIDS MODE: Opt out of BaseEngine's auto-celebrate — SpinWheel has
+    // its own _celebrateCorrect with WheelFace animation + wheel wiggle.
+    this._skipAutoCelebrate = true;
     // ---- Title ----
     this.add.text(this.scale.width / 2, 35, '🎡 Spin the Wheel!', {
       fontFamily: 'Inter, sans-serif', fontSize: '28px',
@@ -590,6 +593,10 @@ export default class SpinWheelScene extends BaseEngine {
   }
 
   // Recursively read each option with highlight, then speak "Tap the matching one!".
+  // FIX: Uses audioBus.speak onEnd callback to chain the next option — previously
+  // used a fixed estimated-duration timer that cut the 3rd option's highlight short
+  // when actual TTS speech was slower than the estimate. Now the next option only
+  // starts AFTER the current one's speech actually ends.
   private _readOptionAtIndex(idx: number, delayMs: number) {
     if (idx >= this.answerOptions.length) {
       // All options read — speak final instruction.
@@ -605,15 +612,80 @@ export default class SpinWheelScene extends BaseEngine {
     this.time.delayedCall(delayMs, () => {
       if (this.isFinished || !this.landedTerm) return;
       const opt = this.answerOptions[idx];
-      if (!opt) return;
+      if (!opt) {
+        // Safety: skip to next if option missing.
+        this._readOptionAtIndex(idx + 1, 200);
+        return;
+      }
       const textToSpeak = opt.term.definition ?? opt.term.term;
-      // Highlight this option's text while speaking it.
-      // _speakWithHighlight manages its own onStart/onEnd highlight lifecycle internally.
-      this._speakWithHighlight(opt.txt, textToSpeak);
-      // After this option's speech ends (~estimated), move to the next.
-      // We use a fixed delay based on text length to chain the next read.
-      const estDuration = Math.max(1800, textToSpeak.length * 75);
-      this._readOptionAtIndex(idx + 1, estDuration);
+
+      // Custom highlight that chains the next option on speech end.
+      // (Can't use _speakWithHighlight directly because it doesn't expose onEnd
+      // for chaining — so we inline the highlight logic here with an onEnd that
+      // recurses into _readOptionAtIndex for the next option.)
+      this._clearHighlights();
+      this._highlightTargets.push(opt.txt);
+
+      const origColor = opt.txt.style.color;
+      const origStroke = (opt.txt.style as any).stroke ?? '#000000';
+      const origStrokeThickness = (opt.txt.style as any).strokeThickness ?? 0;
+      const origScale = opt.txt.scaleX ?? 1;
+
+      const startHl = () => {
+        try {
+          opt.txt.setStyle({
+            stroke: '#ffff00',
+            strokeThickness: 6,
+            shadow: { offsetX: 0, offsetY: 0, color: '#ffff00', blur: 12, fill: true, stroke: true },
+          });
+          try { this.tweens.killTweensOf(opt.txt); } catch {}
+          this.tweens.add({
+            targets: opt.txt,
+            scale: { from: origScale, to: origScale * 1.1 },
+            duration: 350, yoyo: true, repeat: 999, ease: 'Sine.inOut',
+          });
+          let colorIdx = 0;
+          const colorTimer = this.time.addEvent({
+            delay: 200, repeat: 999,
+            callback: () => {
+              try {
+                colorIdx = (colorIdx + 1) % HIGHLIGHT_COLORS.length;
+                opt.txt.setColor(HIGHLIGHT_COLORS[colorIdx]);
+              } catch {}
+            },
+          });
+          this._highlightTimers.push(colorTimer);
+        } catch {}
+      };
+
+      const endHl = () => {
+        try {
+          opt.txt.setStyle({
+            stroke: origStroke,
+            strokeThickness: origStrokeThickness,
+            shadow: { offsetX: 0, offsetY: 0, color: '#000000', blur: 0, fill: false, stroke: false },
+          });
+          opt.txt.setColor(origColor);
+          try { this.tweens.killTweensOf(opt.txt); } catch {}
+          opt.txt.setScale(origScale);
+        } catch {}
+        this._clearHighlights();
+        // CHAIN: only start the next option AFTER this one's speech actually ends.
+        // Small 300ms gap between options for breathing room.
+        this._readOptionAtIndex(idx + 1, 300);
+      };
+
+      // Fallback timer in case TTS onEnd doesn't fire (e.g., TTS unavailable).
+      // Generous estimate (text.length × 90ms + 1500ms floor) so we don't cut short.
+      const estMs = Math.max(2000, textToSpeak.length * 90);
+      const fallback = this.time.delayedCall(estMs + 800, () => {
+        if (this._highlightTargets.includes(opt.txt)) {
+          endHl();
+        }
+      });
+      this._highlightTimers.push(fallback);
+
+      audioBus.speak(textToSpeak, { onStart: startHl, onEnd: endHl });
     });
   }
 
@@ -656,6 +728,16 @@ export default class SpinWheelScene extends BaseEngine {
 
     if (isCorrect) {
       this.checkWin();
+      // KIDS MODE — "Go again!" encouragement: after the celebration peaks
+      // (~1.8s in, fanfare + confetti are winding down), speak + highlight a
+      // prompt encouraging the child to tap the green spin button again.
+      this.time.delayedCall(1800, () => {
+        if (this.isFinished) return;
+        try {
+          this.promptText.setText('Go again! Tap the green button!');
+          this._speakWithHighlight(this.promptText, 'Go again! Tap the green button!', { pitch: 1.2, rate: 1.0 });
+        } catch {}
+      });
       // Close + reset for next spin
       setTimeout(() => {
         try {

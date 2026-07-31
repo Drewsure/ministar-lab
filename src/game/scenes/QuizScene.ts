@@ -121,6 +121,12 @@ export default class QuizScene extends BaseEngine {
   // ===========================================================================
   protected buildWorld() {
     try {
+      // AAAA KIDS MODE: Opt out of BaseEngine's auto-celebrate — Quiz has its
+      // own _celebrateCorrect with mascot/sticker-book integration.
+      this._skipAutoCelebrate = true;
+      // AAAA KIDS MODE: Opt out of auto-mascot — Quiz has its own 🐶 mascot
+      // with richer states (idle/thinking/celebrate/highfive).
+      this._skipAutoMascot = true;
       this._buildRounds();
       this._buildTitle();
       this._buildProgressBar();

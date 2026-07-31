@@ -6,6 +6,7 @@ import { getLod } from '../lib/lod';
 import { makeAnsweredEvent, makeCompletedEvent, pushEvent, getActor, verifyTelemetry } from '../lib/telemetry';
 import { GlobalPoolManager } from './GlobalPoolManager';
 import { EventBus, GAME_EVENTS } from './EventBus';
+import { KidsJuice } from './KidsJuice';
 
 export abstract class BaseEngine extends Phaser.Scene {
   protected theme!: ThemeManifest;
@@ -36,6 +37,26 @@ export abstract class BaseEngine extends Phaser.Scene {
   // AAA ARCHITECTURE: Global Pool Manager + Event Bus
   protected poolManager: GlobalPoolManager = GlobalPoolManager.getInstance();
   protected eventBus: EventBus = new EventBus();
+
+  // AAAA KIDS MODE: Opt-out flag for scenes that implement their own
+  // _celebrateCorrect (Quiz, SpinWheel). When false (default), BaseEngine
+  // fires KidsJuice.celebrateCorrect automatically on every correct answer —
+  // giving ALL 32 games the 7-layer fanfare + confetti rain + "You got it!"
+  // text + random celebration phrase. Scenes with custom celebrations set
+  // this to true in buildWorld() to avoid double-celebration.
+  protected _skipAutoCelebrate = false;
+
+  // AAAA KIDS MODE: Shared companion mascot. Auto-created in create() for
+  // every game (unless _skipAutoMascot = true). Bottom-right corner emoji
+  // that bobs gently + celebrates on correct answers via EventBus.
+  // Quiz has its own 🐶 mascot (sets _skipAutoMascot = true).
+  protected _skipAutoMascot = false;
+  protected _mascot?: Phaser.GameObjects.Text;
+  protected _mascotBaseX = 0;
+  protected _mascotBaseY = 0;
+  protected _mascotState: 'idle' | 'celebrate' = 'idle';
+  private _mascotBobTween?: Phaser.Tweens.Tween;
+  private _mascotChinTapEvent?: Phaser.Time.TimerEvent;
 
   protected abstract buildWorld(): void;
   protected abstract onTick(_remainingMs: number): void;
@@ -73,6 +94,12 @@ export abstract class BaseEngine extends Phaser.Scene {
     });
     this.eventBus.on(GAME_EVENTS.VFX_POPUP, (p: { x: number; y: number; text: string; color: number }) => {
       try { this.juice?.scorePopup(p.x, p.y, p.text, p.color); } catch {}
+    });
+
+    // AAAA KIDS MODE — Mascot celebrates on every correct answer (auto-mascot).
+    // Fires for ALL games that don't opt out via _skipAutoMascot.
+    this.eventBus.on(GAME_EVENTS.ANSWER_CORRECT, () => {
+      try { if (!this._skipAutoMascot) this._mascotCelebrate(); } catch {}
     });
 
     ThemeAtlas.build(this, this.theme);
@@ -114,6 +141,12 @@ export abstract class BaseEngine extends Phaser.Scene {
 
     this.buildWorld();
 
+    // AAAA KIDS MODE — Auto-create companion mascot for every game (unless
+    // opted out). Bottom-right corner, gentle bob, celebrates on correct.
+    if (!this._skipAutoMascot) {
+      this.time.delayedCall(100, () => this._createAutoMascot());
+    }
+
     // Skip entrance card — it was causing input delays and confusion.
     // The game starts immediately after buildWorld.
     // Camera fade in is quick (300ms) and doesn't block input.
@@ -139,6 +172,13 @@ export abstract class BaseEngine extends Phaser.Scene {
       // AAA: Flush pool + destroy event bus on shutdown
       this.poolManager.flushAll();
       this.eventBus.removeAllListeners();
+      // AAAA: Cleanup auto-mascot
+      try { this._mascotChinTapEvent?.remove(); } catch {}
+      try { this._mascotBobTween?.stop(); } catch {}
+      try { this._mascot?.destroy(); } catch {}
+      this._mascot = undefined;
+      // AAAA: Cleanup KidsJuice highlights
+      try { KidsJuice.clearHighlights(this as any); } catch {}
     });
     this.events.once('destroy', () => {
       try { this.tweens.killAll(); } catch {}
@@ -200,6 +240,144 @@ export abstract class BaseEngine extends Phaser.Scene {
   protected speakGameInstructions() {
     const instruction = BaseEngine._GAME_INSTRUCTIONS[this.scene.key] ?? 'Welcome! Tap to play!';
     audioBus.speak(instruction);
+  }
+
+  // ===========================================================================
+  // AAAA KIDS MODE — Shared companion mascot (auto-created for every game)
+  // ===========================================================================
+  // Bottom-right corner emoji that:
+  //   • bobs gently up/down (perpetual host presence)
+  //   • occasional chin-tap rotation (curious host mannerism)
+  //   • jumps + spins on correct answer (celebrate state)
+  //   • tappable → speaks random encouragement
+  // Games can opt out via _skipAutoMascot = true (Quiz has its own 🐶).
+  // ===========================================================================
+  private _createAutoMascot() {
+    try {
+      this._mascotBaseX = this.scale.width - 50;
+      this._mascotBaseY = this.scale.height - 50;
+
+      this._mascot = this.add.text(this._mascotBaseX, this._mascotBaseY, '⭐', {
+        fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, Inter, sans-serif',
+        fontSize: '40px',
+      }).setOrigin(0.5).setDepth(350);
+
+      // Gentle bob — perpetual host presence.
+      this._mascotBobTween = this.tweens.add({
+        targets: this._mascot,
+        y: this._mascotBaseY - 5,
+        duration: 1000,
+        yoyo: true,
+        repeat: 999, // ETERNAL_VIGILANCE: no repeat: -1
+        ease: 'Sine.inOut',
+      });
+
+      // Occasional chin-tap (rotation wobble) — curious host mannerism.
+      this._mascotChinTapEvent = this.time.addEvent({
+        delay: 4000,
+        repeat: 999,
+        callback: () => {
+          if (this._mascotState !== 'idle' || !this._mascot) return;
+          try {
+            this.tweens.add({
+              targets: this._mascot,
+              angle: { from: 0, to: -8 },
+              duration: 200, yoyo: true, repeat: 1, ease: 'Sine.inOut',
+            });
+          } catch {}
+        },
+      });
+
+      // Tappable → speaks random encouragement.
+      this._mascot.setInteractive({ useHandCursor: true });
+      this._mascot.on('pointerdown', () => {
+        try {
+          const phrases = ['You can do it!', 'Keep going!', 'I believe in you!', 'You got this!'];
+          audioBus.speak(phrases[Math.floor(Math.random() * phrases.length)]);
+          // Quick wiggle on tap.
+          if (this._mascot) {
+            const startX = this._mascot.x;
+            this.tweens.add({
+              targets: this._mascot,
+              x: { from: startX - 6, to: startX + 6 },
+              duration: 80, yoyo: true, repeat: 3, ease: 'Sine.inOut',
+              onComplete: () => { if (this._mascot) this._mascot.x = this._mascotBaseX; },
+            });
+          }
+        } catch {}
+      });
+    } catch (e) {
+      console.error('[BaseEngine] _createAutoMascot error:', e);
+    }
+  }
+
+  // Mascot celebrate — jump + 360° spin on correct answer.
+  private _mascotCelebrate() {
+    if (!this._mascot || this._mascotState === 'celebrate') return;
+    try {
+      this._mascotState = 'celebrate';
+      try { this.tweens.killTweensOf(this._mascot); } catch {}
+      this._mascot.setAngle(0);
+
+      // Jump up + 360° spin.
+      this.tweens.add({
+        targets: this._mascot,
+        y: this._mascotBaseY - 40,
+        duration: 250,
+        yoyo: true,
+        repeat: 1,
+        ease: 'Quad.out',
+      });
+      this.tweens.add({
+        targets: this._mascot,
+        angle: 360,
+        duration: 600,
+        ease: 'Cubic.out',
+        onComplete: () => {
+          if (this._mascot) this._mascot.setAngle(0);
+          this._mascotState = 'idle';
+          // Resume bob.
+          if (this._mascot) {
+            this._mascotBobTween = this.tweens.add({
+              targets: this._mascot,
+              y: this._mascotBaseY - 5,
+              duration: 1000,
+              yoyo: true,
+              repeat: 999,
+              ease: 'Sine.inOut',
+            });
+          }
+        },
+      });
+    } catch (e) {
+      console.error('[BaseEngine] _mascotCelebrate error:', e);
+    }
+  }
+
+  // ===========================================================================
+  // AAAA KIDS MODE — Shared prompt-highlight helper for all games
+  // ===========================================================================
+  // Convenience wrapper around KidsJuice.speakWithHighlight so individual
+  // scenes don't need to import KidsJuice directly. Any game can call:
+  //   this.speakPromptWithHighlight(this.promptText, 'Find the match!');
+  // ===========================================================================
+  protected speakPromptWithHighlight(
+    textObj: Phaser.GameObjects.Text,
+    text: string,
+    opts: { rate?: number; pitch?: number; volume?: number; isQuestion?: boolean } = {}
+  ) {
+    try {
+      KidsJuice.speakWithHighlight(this as any, textObj, text, opts);
+    } catch (e) {
+      console.error('[BaseEngine] speakPromptWithHighlight error:', e);
+      // Fallback: just speak without highlight.
+      try { audioBus.speak(text, opts); } catch {}
+    }
+  }
+
+  // Clear all karaoke highlights (call on round transitions / scene shutdown).
+  protected clearPromptHighlights() {
+    try { KidsJuice.clearHighlights(this as any); } catch {}
   }
 
   // GC FIX: Cache urgency pulse to avoid Graphics redraw every frame
@@ -266,6 +444,19 @@ export abstract class BaseEngine extends Phaser.Scene {
       const streakFreq = 660 * Math.pow(2, semitones);
       const now = Date.now();
       if (now - this._lastSfxTime > 300) { audioBus.play('correct', { freq: streakFreq }); this._lastSfxTime = now; }
+
+      // AAAA KIDS MODE — Automatic celebration fanfare for ALL games.
+      // Fires the 7-layer C-E-G-C cascade + confetti rain + "You got it!" text
+      // + random celebratory phrase. Scenes with custom _celebrateCorrect
+      // (Quiz, SpinWheel) set _skipAutoCelebrate = true to avoid double-fire.
+      if (!this._skipAutoCelebrate) {
+        try {
+          KidsJuice.celebrateCorrect(this as any, { x: burstX, y: burstY } as any);
+        } catch (e) {
+          console.error('[BaseEngine] KidsJuice.celebrateCorrect error:', e);
+        }
+      }
+
       this.checkLevelUp();
     } else {
       this.streak = 0;

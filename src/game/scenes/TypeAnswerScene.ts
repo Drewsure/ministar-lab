@@ -180,8 +180,10 @@ export default class TypeAnswerScene extends BaseEngine {
 
     const def = this.currentTerm.definition ?? this.currentTerm.term;
     this.promptText.setText(`"${def}"`);
-    // ESL: speak the definition
-
+    // AAAA KIDS MODE — speak the prompt with karaoke highlight.
+    this.time.delayedCall(300, () => {
+      if (!this.isFinished) this.speakPromptWithHighlight(this.promptText, def, { isQuestion: true });
+    });
 
   }
 

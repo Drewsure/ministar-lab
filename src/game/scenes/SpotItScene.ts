@@ -228,7 +228,7 @@ export default class SpotItScene extends BaseEngine {
     // and they've already tapped to start. If pre-gesture, browser may block.)
     this.time.delayedCall(400, () => {
       if (!this.isFinished) {
-        audioBus.speak('Find the matching symbol!', { isQuestion: true });
+        this.speakPromptWithHighlight(this.promptText, 'Find the matching symbol!', { isQuestion: true });
       }
     });
   }
