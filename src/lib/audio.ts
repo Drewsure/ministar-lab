@@ -156,10 +156,25 @@ class AudioBus {
     window.speechSynthesis.onvoiceschanged = pickVoice;
   }
 
-  /** Speak any text aloud with natural prosody. Cancels any in-progress speech. */
-  speak(text: string, opts: { rate?: number; pitch?: number; volume?: number; isQuestion?: boolean } = {}) {
-    if (!this.ttsEnabled || this.muted) return;
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+  /** Speak any text aloud with natural prosody. Cancels any in-progress speech.
+   *  Optional `onStart` / `onEnd` callbacks enable audio-text sync highlighting. */
+  speak(
+    text: string,
+    opts: { rate?: number; pitch?: number; volume?: number; isQuestion?: boolean; onStart?: () => void; onEnd?: () => void } = {}
+  ) {
+    if (!this.ttsEnabled || this.muted) {
+      // TTS unavailable — fire callbacks immediately so UI doesn't hang.
+      try { opts.onStart?.(); } catch {}
+      const est = Math.max(800, text.length * 65);
+      setTimeout(() => { try { opts.onEnd?.(); } catch {} }, est);
+      return;
+    }
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      try { opts.onStart?.(); } catch {}
+      const est = Math.max(800, text.length * 65);
+      setTimeout(() => { try { opts.onEnd?.(); } catch {} }, est);
+      return;
+    }
     this.initTTS();
     try {
       // Cancel any in-progress speech immediately
@@ -176,7 +191,11 @@ class AudioBus {
         .replace(/[🎈🎯🧭✈️🚀🃏🔗🔨🔤🔍⌨️📇🎡🗃️🌟⭐🔥💡🎯❤💔]/g, '') // Remove game emojis
         .replace(/\s+/g, ' ')
         .trim();
-      if (!cleanText) return;
+      if (!cleanText) {
+        try { opts.onStart?.(); } catch {}
+        setTimeout(() => { try { opts.onEnd?.(); } catch {} }, 100);
+        return;
+      }
 
       const utter = new SpeechSynthesisUtterance(cleanText);
       utter.lang = this.ttsVoice?.lang ?? 'en-US';
@@ -192,17 +211,29 @@ class AudioBus {
 
       // Track current utterance for cancel
       this.currentUtterance = utter;
-      utter.onend = () => { this.currentUtterance = null; };
-      utter.onerror = () => { this.currentUtterance = null; };
+      utter.onstart = () => { try { opts.onStart?.(); } catch {} };
+      utter.onend = () => {
+        this.currentUtterance = null;
+        try { opts.onEnd?.(); } catch {}
+      };
+      utter.onerror = () => {
+        this.currentUtterance = null;
+        try { opts.onEnd?.(); } catch {} // fire onEnd on error so UI doesn't hang
+      };
 
       // Speak with small delay to ensure cancel completes
       setTimeout(() => {
         try {
           window.speechSynthesis.speak(utter);
-        } catch {}
+        } catch {
+          try { opts.onEnd?.(); } catch {}
+        }
       }, 50);
     } catch {
-      // TTS not available — fail silently
+      // TTS not available — fail silently, but still fire onEnd so UI doesn't hang
+      try { opts.onStart?.(); } catch {}
+      const est = Math.max(800, text.length * 65);
+      setTimeout(() => { try { opts.onEnd?.(); } catch {} }, est);
     }
   }
 
