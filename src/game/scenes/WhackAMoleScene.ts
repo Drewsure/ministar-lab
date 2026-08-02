@@ -181,6 +181,8 @@ export default class WhackAMoleScene extends BaseEngine {
       return;
     }
     this.promptText.setText(`Whack: ${this.activePrompt.emoji ?? ''} ${this.activePrompt.term}`);
+    // AAAA KIDS MODE — Speak the prompt with karaoke highlight.
+    this.speakPromptWithHighlight(this.promptText, `Whack: ${this.activePrompt.term}`, { isQuestion: true });
 
 
   }

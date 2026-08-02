@@ -63,6 +63,10 @@ export default class MatchUpScene extends BaseEngine {
         fontStyle: 'bold',
       }
     ).setOrigin(0.5).setDepth(50);
+    // AAAA KIDS MODE — Speak the prompt with karaoke highlight on entry.
+    this.time.delayedCall(800, () => {
+      if (!this.isFinished) this.speakPromptWithHighlight(this.promptText, 'Drag terms to definitions!', { isQuestion: true });
+    });
 
     // ---- Progress ----
     this.progressText = this.add.text(

@@ -82,8 +82,8 @@ export default class MemoryMatchScene extends BaseEngine {
         if (card.isFlipped || card.isMatched) continue;
         const cardW = 140, cardH = 160;
         if (Math.abs(x - card.container.x) < cardW / 2 && Math.abs(y - card.container.y) < cardH / 2) {
-          // ESL: speak the card's text when flipped
-          audioBus.speak(card.text);
+          // AAAA KIDS MODE — Speak the card's text with karaoke highlight on the label.
+          this.speakPromptWithHighlight(card.label, card.text);
           this.flipCard(card);
           break;
         }

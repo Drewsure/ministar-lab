@@ -98,7 +98,8 @@ export default class TrainingAcademyScene extends BaseEngine {
     this.commandText.setText(`${this.currentCommand.emoji} ${this.currentCommand.text}!`);
     this.commandText.setData('speakText', `Say: ${this.currentCommand.text}!`);
     this.statusText.setText('Tap the microphone and speak!'); this.heardText.setText('');
-    audioBus.speak(`Say: ${this.currentCommand.text}!`);
+    // AAAA KIDS MODE — Speak the command with karaoke highlight.
+    this.speakPromptWithHighlight(this.commandText, `Say: ${this.currentCommand.text}!`, { isQuestion: true });
   }
 
   private checkCommand(heard: string) {

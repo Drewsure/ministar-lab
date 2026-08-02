@@ -940,6 +940,8 @@ export default class StarFarmScene extends BaseEngine {
     audioBus.speak(TOOL_NAMES[t]);
     this.vocabLearned.add(TOOL_NAMES[t].toLowerCase());
     this.promptText.setText(`Tool: ${TOOL_NAMES[t]} — tap a tile!`);
+    // AAAA KIDS MODE — Speak the prompt with karaoke highlight.
+    this.speakPromptWithHighlight(this.promptText, `Tool: ${TOOL_NAMES[t]}. Tap a tile!`);
     const tools: ToolType[] = ['hoe', 'water', 'seed', 'harvest', 'axe', 'pickaxe'];
     this.toolButtons.forEach((btn, i) => {
       const bg = btn.getAt(0) as Phaser.GameObjects.Rectangle;

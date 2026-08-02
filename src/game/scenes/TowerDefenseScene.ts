@@ -190,6 +190,8 @@ export default class TowerDefenseScene extends BaseEngine {
     audioBus.play('tap');
     audioBus.speak(TOWER_DEFS[t].name);
     this.promptText.setText(`Selected: ${TOWER_DEFS[t].emoji} ${TOWER_DEFS[t].name} (${TOWER_DEFS[t].cost}💰) — tap a slot!`);
+    // AAAA KIDS MODE — Speak the prompt with karaoke highlight.
+    this.speakPromptWithHighlight(this.promptText, `Selected: ${TOWER_DEFS[t].name}. Tap a slot!`);
     // Highlight selected button
     this.towerButtons.forEach(tb => {
       const bg = tb.container.getAt(0) as Phaser.GameObjects.Rectangle;

@@ -178,6 +178,8 @@ export default class AnagramScene extends BaseEngine {
     // Definition hint
     const hint = term.definition ? `${term.emoji ?? ''} ${term.definition}`.trim() : `${term.emoji ?? 'Unscramble the word'}`;
     this.promptText.setText(`${hint}  (${word.length} letters)`);
+    // AAAA KIDS MODE — Speak the prompt with karaoke highlight.
+    this.speakPromptWithHighlight(this.promptText, `${term.definition ?? 'Unscramble the word'}. ${word.length} letters.`, { isQuestion: true });
 
 
   }

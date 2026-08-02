@@ -226,8 +226,12 @@ export default class FlashCardsScene extends BaseEngine {
     }
     this.navText.setText(`Card ${this.currentIdx + 1} / ${this.cards.length}  ·  Known: ${this.knownCount}`);
 
-    // ESL: speak the term when card is shown
-
+    // AAAA KIDS MODE — Speak the term with karaoke highlight when card is shown.
+    // (card is already declared at the top of showCard() — reuse it.)
+    const speech = card.isFlipped ? (card.term.definition ?? card.term.term) : card.term.term;
+    this.time.delayedCall(300, () => {
+      if (!this.isFinished) this.speakPromptWithHighlight(this.cardText, speech);
+    });
   }
 
   private flipCard() {

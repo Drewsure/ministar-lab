@@ -197,8 +197,10 @@ export default class BridgeBuilderScene extends BaseEngine {
     // Hint
     const hintText = term.definition ? `Hint: ${term.emoji ?? ''} ${term.definition}` : (term.emoji ? `Hint: ${term.emoji}` : '');
     this.hintText.setText(hintText);
-
-
+    // AAAA KIDS MODE — Speak the hint with karaoke highlight.
+    this.time.delayedCall(400, () => {
+      if (!this.isFinished) this.speakPromptWithHighlight(this.hintText, hintText, { isQuestion: true });
+    });
 
     // Render letter keyboard
     this.letterButtons.forEach(b => b.destroy());

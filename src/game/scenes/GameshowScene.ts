@@ -223,9 +223,11 @@ export default class GameshowScene extends BaseEngine {
     const r = this.rounds[this.round];
     this.promptText.setText(`"${r.prompt.definition ?? r.prompt.emoji ?? r.prompt.term}"`);
 
-    // ESL: speak the prompt
-
-
+    // AAAA KIDS MODE — Speak the prompt with karaoke highlight.
+    const promptSpeech = r.prompt.definition ?? r.prompt.term;
+    this.time.delayedCall(300, () => {
+      if (!this.isFinished) this.speakPromptWithHighlight(this.promptText, promptSpeech, { isQuestion: true });
+    });
 
     // Dramatic reveal animation
     this.promptBg.setScale(0).setAlpha(0);

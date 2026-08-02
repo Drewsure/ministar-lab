@@ -243,8 +243,10 @@ export default class SpinWheelScene extends BaseEngine {
       duration: 300, yoyo: true, repeat: 3, ease: 'Sine.inOut',
     });
 
-    // ESL: speak the landed term
-
+    // AAAA KIDS MODE — Speak the landed term with karaoke highlight.
+    if (this.landedTerm) {
+      this.speakPromptWithHighlight(this.promptText, this.landedTerm.term, { pitch: 1.15 });
+    }
 
     // Show definition options
     this.showDefinitionOptions();

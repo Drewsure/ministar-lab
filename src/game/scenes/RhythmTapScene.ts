@@ -291,7 +291,8 @@ export default class RhythmTapScene extends BaseEngine {
 
     if (timing !== 'MISS!') {
       audioBus.play('correct');
-      audioBus.speak(note.word);
+      // AAAA KIDS MODE — Speak the note word with karaoke highlight.
+      this.speakPromptWithHighlight(note.text, note.word);
       this.juice.burst(note.text.x, note.text.y, this.combo >= 5 ? 'streak' : 'correct');
       this.juice.scorePopup(note.text.x, note.text.y - 30,
         `${timing} +${points}`, timing === 'PERFECT!' ? this.theme.warning : this.theme.success);

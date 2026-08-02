@@ -449,9 +449,8 @@ export default class CrosswordScene extends BaseEngine {
     }
     const dirLabel = this.activeEntry.dir === 'across' ? 'Across' : 'Down';
     this.clueText.setText(`${this.activeEntry.number} ${dirLabel}: ${this.activeEntry.clue}`);
-    // ESL: speak the clue aloud
-
-
+    // AAAA KIDS MODE — Speak the clue with karaoke highlight.
+    this.speakPromptWithHighlight(this.clueText, `${dirLabel}. ${this.activeEntry.clue}`, { isQuestion: true });
   }
 
   private handleKey(e: KeyboardEvent) {
@@ -541,8 +540,9 @@ export default class CrosswordScene extends BaseEngine {
       this.juice.glowRing(centerX, centerY, this.theme.success, 80);
       this.juice.scorePopup(centerX, centerY - 20, entry.word, this.theme.success);
       audioBus.play('correct');
-      // ESL: speak the completed word
-  
+      // AAAA KIDS MODE — Speak the completed word.
+      audioBus.speak(entry.word);
+
       this.checkWin();
     }
   }

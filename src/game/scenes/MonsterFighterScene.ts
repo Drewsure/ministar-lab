@@ -216,7 +216,8 @@ export default class MonsterFighterScene extends BaseEngine {
     this.makeSpeakable(this.promptText,
       `Battle ${this.monsterIdx + 1}. The ${this.currentMonster.name} is weak against ${this.currentMonster.weakness}!`);
     this.feedbackText.setText('');
-    audioBus.speak(`${this.currentMonster.name} appears! It is weak against ${this.currentMonster.weakness}!`);
+    // AAAA KIDS MODE — Speak the prompt with karaoke highlight.
+    this.speakPromptWithHighlight(this.promptText, `${this.currentMonster.name} appears! It is weak against ${this.currentMonster.weakness}!`, { isQuestion: true });
 
     // Monster entrance animation
     this.monsterEmoji.setScale(0.3).setAlpha(0);

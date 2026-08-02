@@ -47,6 +47,8 @@ export default class LabelItScene extends BaseEngine {
     });
 
     this.promptText.setText('Tap the correct answer!');
+    // AAAA KIDS MODE — Speak the prompt with karaoke highlight.
+    this.speakPromptWithHighlight(this.promptText, 'Tap the correct answer!', { isQuestion: true });
     this.setupGlobalPointer((x, y) => {
       if (!this.canAnswer) return;
       for (let i = 0; i < roundTerms.length; i++) {

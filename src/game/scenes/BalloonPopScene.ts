@@ -141,6 +141,8 @@ export default class BalloonPopScene extends BaseEngine {
     });
 
     this.promptText.setText(`Pop the balloon carrying: ${this.activeTerm.term}`);
+    // AAAA KIDS MODE — Speak the prompt with karaoke highlight.
+    this.speakPromptWithHighlight(this.promptText, `Pop the balloon carrying: ${this.activeTerm.term}`, { isQuestion: true });
   }
 
   // ===========================================================================

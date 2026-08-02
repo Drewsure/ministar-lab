@@ -41,7 +41,7 @@ export default class WordsearchScene extends BaseEngine {
   protected maxQuestions() { return Math.min(this.terms.length, 6); }
 
   protected buildWorld() {
-    this.add.text(
+    const titleText = this.add.text(
       this.scale.width / 2, 50,
       'Find the hidden words',
       {
@@ -51,6 +51,10 @@ export default class WordsearchScene extends BaseEngine {
         fontStyle: 'bold',
       }
     ).setOrigin(0.5).setDepth(50);
+    // AAAA KIDS MODE — Speak the title with karaoke highlight on entry.
+    this.time.delayedCall(800, () => {
+      if (!this.isFinished) this.speakPromptWithHighlight(titleText, 'Find the hidden words!', { isQuestion: true });
+    });
 
     // Pick words and place them
     const allWords = this.pickTerms(this.maxScore)

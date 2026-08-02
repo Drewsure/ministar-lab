@@ -242,7 +242,8 @@ export default class FarmLifeScene extends BaseEngine {
     audioBus.play('tap');
     this.promptText.setText(`Tool: ${TOOLS[idx]} ${TOOL_NAMES[idx]} — tap a plot!`);
     this.makeSpeakable(this.promptText, TOOL_NAMES[idx]);
-    audioBus.speak(TOOL_NAMES[idx]);
+    // AAAA KIDS MODE — Speak the prompt with karaoke highlight.
+    this.speakPromptWithHighlight(this.promptText, `Tool: ${TOOL_NAMES[idx]}. Tap a plot!`);
     this.vocabLearned.add(TOOL_VOCAB[idx]);
     this.toolButtons.forEach((btn, i) => {
       const bg = btn.getAt(0) as Phaser.GameObjects.Rectangle;

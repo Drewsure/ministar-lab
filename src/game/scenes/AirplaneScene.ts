@@ -323,9 +323,8 @@ export default class AirplaneScene extends BaseEngine {
     }
     const comboTxt = this.catches >= 3 ? `  (x${this.speedMultiplier.toFixed(1)} speed!)` : '';
     this.promptText.setText(`Catch: ${this.activePrompt.emoji ?? ''} ${this.activePrompt.term}${comboTxt}`);
-    // ESL: speak the prompt aloud
-
-
+    // AAAA KIDS MODE — Speak the prompt with karaoke highlight.
+    this.speakPromptWithHighlight(this.promptText, `Catch: ${this.activePrompt.term}`, { isQuestion: true });
   }
 
   // ===========================================================================

@@ -235,6 +235,8 @@ export default class SpaceExplorerScene extends BaseEngine {
     const term = this.terms[this.currentRound % this.terms.length];
     const hint = VOCAB_HINTS[term.term.toLowerCase()] || term.definition || 'A space object';
     this.promptText.setText(`📡 Scan complete! What is "${hint}"?`);
+    // AAAA KIDS MODE — Speak the prompt with karaoke highlight.
+    this.speakPromptWithHighlight(this.promptText, `Scan complete! What is ${hint}?`, { isQuestion: true });
 
     // Generate 4 options
     const allTerms = [...this.terms];
