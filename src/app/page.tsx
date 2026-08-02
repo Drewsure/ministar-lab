@@ -101,12 +101,20 @@ export default function Home() {
   const [lastBrand, setLastBrand] = useState(brand.subdomain);
   const [stats, setStats] = useState<StudentStats>({ xp: 0, level: 1, streak: 0, lastPlayed: '', gamesPlayed: 0, bestStreak: 0, streakFreezes: 1, tokens: 0, mysteryBoxesOpened: 0 });
   const [statsLoaded, setStatsLoaded] = useState(false);
+  // AAAA KIDS MODE — Slow Mode + Extended Time toggles (localStorage-backed).
+  const [slowMode, setSlowMode] = useState(false);
+  const [extendedTime, setExtendedTime] = useState(false);
 
   // Load stats AFTER hydration to prevent SSR mismatch
   useEffect(() => {
     setStats(loadStats());
     setStatsLoaded(true);
-  }, []);
+    // AAAA: Load slow mode + extended time from localStorage.
+    try {
+      setSlowMode(localStorage.getItem('ministar-slow-mode') === 'true');
+      setExtendedTime(localStorage.getItem('ministar-extended-time') === 'true');
+    } catch {}
+  });
 
   // Sync theme when brand changes
   if (brand.subdomain !== lastBrand) {
@@ -317,6 +325,46 @@ export default function Home() {
                   title="Toggle text-to-speech for ESL learners"
                 >
                   🔊 Audio
+                </button>
+                {/* AAAA KIDS MODE — Slow Mode toggle (70% speed for timed games) */}
+                <button
+                  onClick={() => {
+                    const next = localStorage.getItem('ministar-slow-mode') !== 'true';
+                    localStorage.setItem('ministar-slow-mode', String(next));
+                    setSlowMode(next);
+                    if (next) audioBus.speak('Slow mode on');
+                  }}
+                  className="rounded-xl px-3 py-2 text-xs font-semibold"
+                  style={{
+                    background: slowMode
+                      ? 'color-mix(in oklab, var(--brand-accent) 45%, transparent)'
+                      : 'color-mix(in oklab, var(--brand-accent) 18%, transparent)',
+                    color: 'var(--brand-text)',
+                    border: '1px solid color-mix(in oklab, var(--brand-accent) 40%, transparent)',
+                  }}
+                  title="Slow Mode: 30% slower for kids who need more time"
+                >
+                  🐢 Slow
+                </button>
+                {/* AAAA KIDS MODE — Extended Time toggle (+50% questions per game) */}
+                <button
+                  onClick={() => {
+                    const next = localStorage.getItem('ministar-extended-time') !== 'true';
+                    localStorage.setItem('ministar-extended-time', String(next));
+                    setExtendedTime(next);
+                    if (next) audioBus.speak('Extended time on');
+                  }}
+                  className="rounded-xl px-3 py-2 text-xs font-semibold"
+                  style={{
+                    background: extendedTime
+                      ? 'color-mix(in oklab, var(--brand-accent) 45%, transparent)'
+                      : 'color-mix(in oklab, var(--brand-accent) 18%, transparent)',
+                    color: 'var(--brand-text)',
+                    border: '1px solid color-mix(in oklab, var(--brand-accent) 40%, transparent)',
+                  }}
+                  title="Extended Time: 50% more questions per game"
+                >
+                  ⏱️ Time+
                 </button>
                 <button
                   onClick={() => {

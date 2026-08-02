@@ -36,7 +36,7 @@ export default class GameshowScene extends BaseEngine {
   private spotlights: Phaser.GameObjects.Container[] = [];
   private questionNumber = 0;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 8); }
+  protected maxQuestions() { return Math.min(this.terms.length, 12); }
 
   protected buildWorld() {
     // Build rounds

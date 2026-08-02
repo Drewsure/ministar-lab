@@ -38,7 +38,7 @@ export default class WordsearchScene extends BaseEngine {
   private selectionLine?: Phaser.GameObjects.Graphics;
   private wordsList: { term: TermItem; word: string; text: Phaser.GameObjects.Text }[] = [];
 
-  protected maxQuestions() { return Math.min(this.terms.length, 6); }
+  protected maxQuestions() { return Math.min(this.terms.length, 10); }
 
   protected buildWorld() {
     const titleText = this.add.text(

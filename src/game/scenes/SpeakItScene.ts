@@ -13,7 +13,7 @@ export default class SpeakItScene extends BaseEngine {
   private optionButtons: Phaser.GameObjects.Container[] = [];
   private questionIdx = 0;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 8); }
+  protected maxQuestions() { return Math.min(this.terms.length, 12); }
 
   protected buildWorld() {
     this.add.text(this.scale.width / 2, 100, '🗣️ Speak It', {

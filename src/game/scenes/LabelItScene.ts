@@ -9,7 +9,7 @@ export default class LabelItScene extends BaseEngine {
   private promptBg!: Phaser.GameObjects.Rectangle;
   private canAnswer = true;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 8); }
+  protected maxQuestions() { return Math.min(this.terms.length, 12); }
 
   protected buildWorld() {
     this.add.text(this.scale.width / 2, 100, 'LabelIt', {

@@ -60,7 +60,7 @@ export default class RhythmTapScene extends BaseEngine {
   private beatPulse = 0;
   private canTap = true;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 12); }
+  protected maxQuestions() { return Math.min(this.terms.length, 18); }
 
   protected buildWorld() {
     this.add.text(this.scale.width / 2, 35, '🎵 Rhythm Tap', {
@@ -217,7 +217,9 @@ export default class RhythmTapScene extends BaseEngine {
     }).setOrigin(0.5).setDepth(16);
 
     const note: FallingNote = {
-      lane, word, y: this.SPAWN_Y, speed: 1.2 + Math.min(2, this.notesIdx * 0.05),
+      // AAAA KIDS MODE — Gentler speed ramp + slow mode. Was 1.2 + notesIdx*0.05 cap +2.0.
+      // Now: 1.0 + notesIdx*0.03 cap +1.2, multiplied by timeMultiplier().
+      lane, word, y: this.SPAWN_Y, speed: (1.0 + Math.min(1.2, this.notesIdx * 0.03)) * this.timeMultiplier(),
       hit: false, missed: false, text, bg,
     };
     this.notes.push(note);

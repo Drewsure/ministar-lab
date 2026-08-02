@@ -59,7 +59,7 @@ export default class TowerDefenseScene extends BaseEngine {
   private canAct = true;
   private feedbackText!: Phaser.GameObjects.Text;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 12); }
+  protected maxQuestions() { return Math.min(this.terms.length, 15); }
 
   protected buildWorld() {
     this.add.text(this.scale.width / 2, 30, '🏰 Tower Defense', {
@@ -281,7 +281,9 @@ export default class TowerDefenseScene extends BaseEngine {
     this.canAct = true;
 
     const waveSize = 2 + this.currentWave * 2;
-    const waveSpeed = 0.004 + this.currentWave * 0.002;
+    // AAAA KIDS MODE — Gentler wave speed ramp. Was 0.004 + wave*0.002 (50% jump/wave).
+    // Now: 0.003 + wave*0.0015 (33% jump/wave).
+    const waveSpeed = 0.003 + this.currentWave * 0.0015;
     const enemyHp = 1 + Math.floor(this.currentWave / 2);
     const pool = [...this.terms];
     Phaser.Utils.Array.Shuffle(pool);

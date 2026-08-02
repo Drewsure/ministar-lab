@@ -271,7 +271,7 @@ export default class StarFarmScene extends BaseEngine {
   private fishingBar?: Phaser.GameObjects.Rectangle;
   private fishingTarget?: Phaser.GameObjects.Rectangle;
 
-  protected maxQuestions() { return 10; }
+  protected maxQuestions() { return 15; }
 
   protected buildWorld() {
     this.gridOffsetX = (this.scale.width - this.GRID_W * this.TILE) / 2;

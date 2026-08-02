@@ -133,4 +133,193 @@ export class KidsJuice {
   static randomCelebration(): string {
     return CELEBRATION_PHRASES[Math.floor(Math.random() * CELEBRATION_PHRASES.length)];
   }
+
+  static randomSticker(): string {
+    return STICKER_EMOJIS[Math.floor(Math.random() * STICKER_EMOJIS.length)];
+  }
+
+  // ===========================================================================
+  // CELEBRATE CORRECT — massive layered fanfare + confetti rain + "You got it!"
+  // ===========================================================================
+  // Audio cascade (7 layers, staggered 120ms):
+  //   t=0ms → 'win' (523→1046 sweep)
+  //   t=120ms → 'correct' @ 523Hz (C4)
+  //   t=240ms → 'correct' @ 659Hz (E4)
+  //   t=360ms → 'correct' @ 784Hz (G4)
+  //   t=480ms → 'correct' @ 1046Hz (C5)
+  //   t=600ms → 'streak' (880→1320 sparkle)
+  //   t=750ms → 'pop' (final sparkle)
+  //   t=300ms → spoken celebratory phrase
+  // Visual: green flash + "🎉 YOU GOT IT! 🎉" popup + VFX explosion + confetti rain + glow rings
+  // ===========================================================================
+  static celebrateCorrect(
+    scene: Phaser.Scene & { juice?: any; theme?: any; isFinished?: boolean },
+    btn: Phaser.GameObjects.Container | { x: number; y: number }
+  ) {
+    try {
+      const theme = scene.theme;
+      const juice = scene.juice;
+      if (!theme || !juice) return;
+      const btnX = (btn as any).x ?? 0;
+      const btnY = (btn as any).y ?? 0;
+
+      // Visual: green flash + popup + explosion.
+      juice.flash(theme.success, 0.4, 300);
+      juice.scorePopup(scene.scale.width / 2, 200, '🎉 YOU GOT IT! 🎉', theme.warning);
+      juice.burst(btnX, btnY, 'win');
+
+      // Layered musical fanfare — C-E-G-C arpeggio + win sweep + streak sparkle + pop.
+      audioBus.play('win');
+      scene.time.delayedCall(120, () => { try { audioBus.play('correct', { freq: 523, duration: 0.25 }); } catch {} });
+      scene.time.delayedCall(240, () => { try { audioBus.play('correct', { freq: 659, duration: 0.25 }); } catch {} });
+      scene.time.delayedCall(360, () => { try { audioBus.play('correct', { freq: 784, duration: 0.25 }); } catch {} });
+      scene.time.delayedCall(480, () => { try { audioBus.play('correct', { freq: 1046, duration: 0.3 }); } catch {} });
+      scene.time.delayedCall(600, () => { try { audioBus.play('streak'); } catch {} });
+      scene.time.delayedCall(750, () => { try { audioBus.play('pop'); } catch {} });
+
+      // Spoken celebratory phrase.
+      const phrase = CELEBRATION_PHRASES[Math.floor(Math.random() * CELEBRATION_PHRASES.length)];
+      scene.time.delayedCall(300, () => {
+        try { audioBus.speak(phrase, { pitch: 1.25, rate: 1.0 }); } catch {}
+      });
+
+      // VFX explosion + confetti rain.
+      KidsJuice.vfxExplosion(scene, btnX, btnY);
+      KidsJuice.confettiRain(scene);
+
+      // Multiple glow rings on the correct button.
+      for (let i = 0; i < 3; i++) {
+        scene.time.delayedCall(i * 150, () => {
+          if ((scene as any).isFinished) return;
+          try {
+            const colorHex = HIGHLIGHT_COLORS[i % HIGHLIGHT_COLORS.length];
+            const colorNum = parseInt(colorHex.slice(1), 16);
+            juice.glowRing(btnX, btnY, colorNum, 60 + i * 30);
+          } catch {}
+        });
+      }
+
+      // Bouncing "🎉 YOU GOT IT! 🎉" text.
+      const celebrateText = scene.add.text(scene.scale.width / 2, scene.scale.height / 2 - 50, '🎉 YOU GOT IT! 🎉', {
+        fontFamily: 'Inter, sans-serif',
+        fontSize: '48px',
+        color: '#ffff00',
+        fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 8,
+      }).setOrigin(0.5).setDepth(200).setScale(0);
+
+      scene.tweens.add({
+        targets: celebrateText,
+        scale: { from: 0, to: 1.2 },
+        duration: 400, ease: 'Back.out',
+        onComplete: () => {
+          scene.tweens.add({
+            targets: celebrateText,
+            scale: { from: 1.2, to: 1 },
+            y: scene.scale.height / 2 - 80,
+            duration: 300, ease: 'Quad.out',
+            onComplete: () => {
+              scene.time.delayedCall(1000, () => {
+                scene.tweens.add({
+                  targets: celebrateText,
+                  alpha: 0, y: celebrateText.y - 30,
+                  duration: 400, ease: 'Cubic.in',
+                  onComplete: () => { try { celebrateText.destroy(); } catch {} },
+                });
+              });
+            },
+          });
+        },
+      });
+    } catch (e) {
+      console.error('[KidsJuice] celebrateCorrect error:', e);
+    }
+  }
+
+  // ===========================================================================
+  // VFX EXPLOSION — 50+ pooled confetti + expanding rings + floating stars
+  // ===========================================================================
+  static vfxExplosion(scene: Phaser.Scene & { juice?: any; isFinished?: boolean }, x: number, y: number) {
+    try {
+      const juice = scene.juice;
+      if (!juice) return;
+
+      for (let i = 0; i < 5; i++) {
+        scene.time.delayedCall(i * 50, () => {
+          if ((scene as any).isFinished) return;
+          try {
+            juice.burst(x, y, 'win');
+            juice.burst(x + Phaser.Math.Between(-80, 80), y + Phaser.Math.Between(-80, 80), 'correct');
+          } catch {}
+        });
+      }
+
+      for (let i = 0; i < 3; i++) {
+        scene.time.delayedCall(i * 150, () => {
+          if ((scene as any).isFinished) return;
+          try { juice.glowRing(x, y, 0xffff00, 120 + i * 40); } catch {}
+        });
+      }
+
+      for (let i = 0; i < 5; i++) {
+        const star = scene.add.text(
+          x + Phaser.Math.Between(-100, 100),
+          y + Phaser.Math.Between(-50, 50),
+          '⭐', { fontSize: '28px' }
+        ).setOrigin(0.5).setDepth(60).setAlpha(0);
+        scene.tweens.add({
+          targets: star,
+          y: star.y - 120,
+          alpha: 0,
+          scale: { from: 0.5, to: 1.5 },
+          duration: 1500,
+          delay: i * 100,
+          ease: 'Back.out',
+          onComplete: () => { try { star.destroy(); } catch {} },
+        });
+      }
+    } catch (e) {
+      console.error('[KidsJuice] vfxExplosion error:', e);
+    }
+  }
+
+  // ===========================================================================
+  // CONFETTI RAIN — drop 15 confetti emojis from the top across the screen.
+  // ===========================================================================
+  static confettiRain(scene: Phaser.Scene & { isFinished?: boolean }) {
+    try {
+      const count = 15;
+      for (let i = 0; i < count; i++) {
+        scene.time.delayedCall(i * 80, () => {
+          if ((scene as any).isFinished) return;
+          try {
+            const x = Phaser.Math.Between(20, scene.scale.width - 20);
+            const emoji = CONFETTI_EMOJIS[Math.floor(Math.random() * CONFETTI_EMOJIS.length)];
+            const piece = scene.add.text(x, -30, emoji, {
+              fontFamily: 'Inter, sans-serif',
+              fontSize: `${Phaser.Math.Between(24, 40)}px`,
+            }).setOrigin(0.5).setDepth(150);
+
+            const fallDuration = Phaser.Math.Between(1800, 2800);
+            const drift = Phaser.Math.Between(-60, 60);
+            const rotations = Phaser.Math.Between(2, 5);
+
+            scene.tweens.add({
+              targets: piece,
+              y: scene.scale.height + 40,
+              x: x + drift,
+              angle: 360 * rotations,
+              alpha: { from: 1, to: 0.8 },
+              duration: fallDuration,
+              ease: 'Cubic.in',
+              onComplete: () => { try { piece.destroy(); } catch {} },
+            });
+          } catch {}
+        });
+      }
+    } catch (e) {
+      console.error('[KidsJuice] confettiRain error:', e);
+    }
+  }
 }

@@ -27,6 +27,13 @@ interface Banner {
   sparkle: Phaser.GameObjects.Arc;
 }
 
+// AAAA KIDS MODE — Storm cloud hazard
+interface StormCloud {
+  container: Phaser.GameObjects.Container;
+  body: Phaser.Physics.Arcade.Body;
+  hit: boolean;
+}
+
 export default class AirplaneScene extends BaseEngine {
   private plane!: Phaser.Physics.Arcade.Sprite;
   private planeGlow!: Phaser.GameObjects.Arc;
@@ -40,11 +47,14 @@ export default class AirplaneScene extends BaseEngine {
   private spawnTimer?: Phaser.Time.TimerEvent;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
-  private speedMultiplier = 0.4; // FIX: Start VERY SLOW (was 0.6), ramps to 2.0
+  private speedMultiplier = 0.4; // AAAA KIDS MODE: Start slow, ramps gently to 1.5 (was 2.0)
   private catches = 0;
   private instructionsText!: Phaser.GameObjects.Text;
+  // AAAA KIDS MODE — Storm cloud hazard
+  private stormClouds: StormCloud[] = [];
+  private slowedUntil = 0;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 8); }
+  protected maxQuestions() { return Math.min(this.terms.length, 12); }
 
   protected buildWorld() {
     // ---- Title ----
@@ -221,6 +231,13 @@ export default class AirplaneScene extends BaseEngine {
 
     const bannerW = 140, bannerH = 48;
 
+    // AAAA KIDS MODE — Storm cloud: ~12% chance to spawn (very occasionally).
+    // Storm clouds are hazards, not word banners. Only after 1+ catch.
+    if (Math.random() < 0.12 && this.catches >= 1) {
+      this._spawnStormCloud();
+      return;
+    }
+
     // USER REQUEST: "one cloud dropping per row - not 3 at the same time"
     // Spawn ONE cloud per row. Alternate between correct and wrong words
     // so the player has to read each one and decide.
@@ -232,6 +249,94 @@ export default class AirplaneScene extends BaseEngine {
     const x = Phaser.Math.Between(bannerW, this.scale.width - bannerW);
 
     this._spawnSingleBanner({ term, isCorrect }, x, bannerW, bannerH, 0);
+  }
+
+  // AAAA KIDS MODE — Storm cloud hazard spawn.
+  private _spawnStormCloud() {
+    const cloudW = 160, cloudH = 70;
+    const x = Phaser.Math.Between(cloudW, this.scale.width - cloudW);
+    const y = -cloudH;
+
+    const stormColor = 0x2d3748;
+    const bg = this.add.ellipse(0, 0, cloudW, cloudH * 0.9, stormColor, 0.95)
+      .setStrokeStyle(3, 0x1a202c, 1);
+    const puff1 = this.add.circle(-cloudW * 0.3, -cloudH * 0.3, 18, stormColor, 0.95);
+    const puff2 = this.add.circle(0, -cloudH * 0.4, 22, stormColor, 0.95);
+    const puff3 = this.add.circle(cloudW * 0.3, -cloudH * 0.3, 18, stormColor, 0.95);
+    const lightning = this.add.text(0, 5, '⚡', {
+      fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, Inter, sans-serif',
+      fontSize: '32px',
+    }).setOrigin(0.5);
+    const label = this.add.text(0, -12, 'STORM!', {
+      fontFamily: 'Inter, sans-serif', fontSize: '12px', color: '#fbbf24', fontStyle: 'bold',
+    }).setOrigin(0.5);
+
+    const container = this.add.container(x, y, [puff1, puff2, puff3, bg, lightning, label]).setSize(cloudW, cloudH);
+    this.physics.add.existing(container);
+    const body = container.body as Phaser.Physics.Arcade.Body;
+    body.setSize(cloudW, cloudH);
+    body.setOffset(-cloudW / 2, -cloudH / 2);
+    body.setAllowGravity(false);
+    body.setImmovable(false);
+
+    const storm: StormCloud = { container, body, hit: false };
+    container.setData('storm', storm);
+    this.stormClouds.push(storm);
+    this.bannerGroup.add(container);
+
+    // Storm clouds fall slower than banners (menacing, avoidable).
+    const baseFallSpeed = (this.lod.isMobile ? 50 : 65) * this.speedMultiplier * this.timeMultiplier();
+    const fallDuration = ((this.scale.height + cloudH + 100) / baseFallSpeed) * 1000;
+    this.tweens.add({
+      targets: container,
+      y: this.scale.height + cloudH + 20,
+      duration: fallDuration,
+      ease: 'Linear',
+      onComplete: () => {
+        if (container.active) {
+          container.destroy();
+          this.stormClouds = this.stormClouds.filter(s => s !== storm);
+        }
+      },
+    });
+
+    // Lightning crackle.
+    this.tweens.add({
+      targets: lightning,
+      alpha: { from: 1, to: 0.3 },
+      duration: 150, yoyo: true, repeat: 999, ease: 'Sine.inOut',
+    });
+
+    container.setScale(0).setRotation(-0.2);
+    this.tweens.add({ targets: container, scale: 1, rotation: 0, duration: 300, ease: 'Back.out' });
+    audioBus.play('hover', { freq: 80, duration: 0.4 });
+  }
+
+  // Handle plane hitting a storm cloud — significant penalty.
+  private _handleStormHit(storm: StormCloud) {
+    if (storm.hit) return;
+    storm.hit = true;
+
+    // SIGNIFICANT IMPACT:
+    // 1. Lose 2 catches.
+    this.catches = Math.max(0, this.catches - 2);
+    // 2. Plane slowed to 50% speed for 3 seconds.
+    this.slowedUntil = this.time.now + 3000;
+    // 3. Screen shake.
+    this.juice.shake('medium');
+    // 4. Lightning flash.
+    this.juice.flash(0xffff00, 0.5, 200);
+    // 5. Thunder sound.
+    audioBus.play('incorrect', { freq: 60, duration: 0.5 });
+    this.time.delayedCall(80, () => audioBus.play('hover', { freq: 200, duration: 0.3 }));
+
+    this.juice.burst(storm.container.x, storm.container.y, 'incorrect');
+    this.juice.scorePopup(storm.container.x, storm.container.y - 30, '⚡ STORM! -2 ⚡', this.theme.danger);
+    audioBus.speak('Storm cloud! Watch out!');
+
+    storm.container.destroy();
+    this.stormClouds = this.stormClouds.filter(s => s !== storm);
+    this.updatePromptText();
   }
 
   private _spawnSingleBanner(entry: { term: TermItem; isCorrect: boolean }, x: number, bannerW: number, bannerH: number, idx: number) {
@@ -281,7 +386,8 @@ export default class AirplaneScene extends BaseEngine {
     // PACING FIX: Vary fall speed per banner (idx 0=slow, 1=medium, 2=fast)
     // so they don't fall as a connected wall. Each banner falls at a different
     // speed, creating visual separation.
-    const baseFallSpeed = (this.lod.isMobile ? 60 : 80) * this.speedMultiplier;
+    // AAAA SLOW MODE: multiply by timeMultiplier() (0.7 = 30% slower fall).
+    const baseFallSpeed = (this.lod.isMobile ? 60 : 80) * this.speedMultiplier * this.timeMultiplier();
     const speedVariation = [0.9, 1.0, 1.1][idx % 3]; // minimal variation (was 0.8/1.0/1.2 — too extreme)
     const fallSpeed = baseFallSpeed * speedVariation;
     const fallDuration = ((this.scale.height + bannerH + 100) / fallSpeed) * 1000;
@@ -333,6 +439,14 @@ export default class AirplaneScene extends BaseEngine {
   private handleOverlap(_plane: Phaser.GameObjects.GameObject | Phaser.Tilemaps.Tile, target: Phaser.GameObjects.GameObject | Phaser.Tilemaps.Tile) {
     if (this.isFinished) return;
     const container = target as Phaser.GameObjects.Container;
+
+    // AAAA KIDS MODE — Check if this is a storm cloud (hazard) or a banner.
+    const storm = container.getData('storm') as StormCloud | undefined;
+    if (storm) {
+      this._handleStormHit(storm);
+      return;
+    }
+
     const banner = container.getData('banner') as Banner;
     if (!banner || banner.hit) return;
     banner.hit = true;
@@ -370,7 +484,9 @@ export default class AirplaneScene extends BaseEngine {
       this.catches++;
       // Speed ramp every 4 catches
       if (this.catches % 4 === 0) {
-        this.speedMultiplier = Math.min(2.5, this.speedMultiplier + 0.2);
+        // AAAA KIDS MODE — Gentler speed ramp: +0.1 every 4 catches (was +0.2),
+        // cap 1.5 (was 2.0). At cap: 1.5 × 80 = 120 px/s = 6.7s traverse — readable.
+        this.speedMultiplier = Math.min(1.5, this.speedMultiplier + 0.1);
         // REMOVED zoomPunch — causes camera freeze;
       }
       // Advance prompt to next term
@@ -400,7 +516,9 @@ export default class AirplaneScene extends BaseEngine {
   private updateAirplane() {
     // Plane speed: faster base (350 was 200 — too slow per user feedback)
     const baseSpeed = 350;
-    const speed = baseSpeed * Math.max(this.speedMultiplier, 0.6); // min 0.6x so it's never too slow
+    // AAAA KIDS MODE — Storm cloud slow effect: 50% speed for 3s after hit.
+    const slowFactor = this.time.now < this.slowedUntil ? 0.5 : 1.0;
+    const speed = baseSpeed * Math.max(this.speedMultiplier, 0.6) * slowFactor * this.timeMultiplier();
     const pointer = this.input.activePointer;
 
     let vx = 0;

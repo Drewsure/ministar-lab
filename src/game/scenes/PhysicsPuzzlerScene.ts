@@ -17,7 +17,7 @@ export default class PhysicsPuzzlerScene extends BaseEngine {
   private shotsLeft = 15;
   private shotsText!: Phaser.GameObjects.Text;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 10); }
+  protected maxQuestions() { return Math.min(this.terms.length, 15); }
 
   protected buildWorld() {
     this.add.text(this.scale.width / 2, 105, 'Physics Puzzler', {

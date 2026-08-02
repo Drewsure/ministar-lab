@@ -49,7 +49,7 @@ export default class MatchUpScene extends BaseEngine {
   private progressText!: Phaser.GameObjects.Text;
   private dragLine?: Phaser.GameObjects.Graphics;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 6); }
+  protected maxQuestions() { return Math.min(this.terms.length, 10); }
 
   protected buildWorld() {
     // ---- Title ----

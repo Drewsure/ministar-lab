@@ -43,7 +43,7 @@ export default class WhackAMoleScene extends BaseEngine {
   private lastWhackTime = 0;
   private comboText!: Phaser.GameObjects.Text;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 8); }
+  protected maxQuestions() { return Math.min(this.terms.length, 12); }
 
   protected buildWorld() {
     // ---- Prompt banner ----
@@ -101,7 +101,9 @@ export default class WhackAMoleScene extends BaseEngine {
     // ---- Spawn loop ----
     // AAAA — Mole spawn rate: SLOWER at start (1.8s), gets faster per level
     // Level 1=1.8s, Level 2=1.5s, Level 3=1.2s, Level 4=1.0s, Level 5=0.8s
-    const spawnDelay = Math.max(700, 1800 - (this.level - 1) * 300);
+    // AAAA KIDS MODE — Gentler spawn ramp + slow mode. Was 1800-(level-1)*300 floor 700.
+    // Now: 2000-(level-1)*200, floor 1000ms, divided by timeMultiplier().
+    const spawnDelay = Math.max(1000, 2000 - (this.level - 1) * 200) / this.timeMultiplier();
     this.spawnTimer = this.time.addEvent({
       delay: spawnDelay, loop: true,
       callback: this.spawnMole,
@@ -235,7 +237,9 @@ export default class WhackAMoleScene extends BaseEngine {
 
     // Auto retreat after 1.8s
     // AAAA — Mole stay-up time: LONGER at start (3s), gets shorter per level
-    const stayTime = Math.max(1200, 3000 - (this.level - 1) * 400);
+    // AAAA KIDS MODE — Longer stay-time + slow mode. Was 3000-(level-1)*400 floor 1200.
+    // Now: 3500-(level-1)*300, floor 1800ms, divided by timeMultiplier().
+    const stayTime = Math.max(1800, 3500 - (this.level - 1) * 300) / this.timeMultiplier();
     this.time.delayedCall(stayTime, () => {
       if (mole.active) this.retreat(hole, mole);
     });

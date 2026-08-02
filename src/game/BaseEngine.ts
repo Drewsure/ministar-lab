@@ -38,9 +38,102 @@ export abstract class BaseEngine extends Phaser.Scene {
   protected poolManager: GlobalPoolManager = GlobalPoolManager.getInstance();
   protected eventBus: EventBus = new EventBus();
 
+  // AAAA KIDS MODE — Auto-celebration opt-out (games with custom celebrations)
+  protected _skipAutoCelebrate = false;
+
+  // AAAA KIDS MODE — Auto-mascot (themed emoji per game, bottom-right corner)
+  protected _skipAutoMascot = false;
+  protected _mascot?: Phaser.GameObjects.Text;
+  protected _mascotBaseX = 0;
+  protected _mascotBaseY = 0;
+  protected _mascotState: 'idle' | 'celebrate' = 'idle';
+  private _mascotBobTween?: Phaser.Tweens.Tween;
+  private _mascotChinTapEvent?: Phaser.Time.TimerEvent;
+
+  // AAAA KIDS MODE — Persistent sticker book (localStorage)
+  protected _skipAutoStickerBook = false;
+  private _stickerBadge?: Phaser.GameObjects.Container;
+  private _stickerBadgeText?: Phaser.GameObjects.Text;
+  private static readonly STICKER_STORAGE_KEY = 'ministar-sticker-collection';
+  private static readonly STICKER_EMOJIS = ['⭐', '🌟', '💫', '✨', '🎯', '🌈', '🏆', '🎀', '🎈', '🦄'];
+
+  // AAAA KIDS MODE — Slow Mode + Extended Time (localStorage-backed)
+  private static readonly SLOW_MODE_KEY = 'ministar-slow-mode';
+  private static readonly EXTENDED_TIME_KEY = 'ministar-extended-time';
+  private _slowModeCache: boolean | null = null;
+  private _extendedTimeCache: boolean | null = null;
+
+  // AAAA KIDS MODE — Per-game themed mascot emojis
+  private static readonly _MASCOT_EMOJIS: Record<string, string> = {
+    'MazeChaseScene': '🦊', 'QuizScene': '🐶', 'AirplaneScene': '🦅',
+    'GameshowScene': '🤖', 'MemoryMatchScene': '🧠', 'MatchUpScene': '🔗',
+    'BalloonPopScene': '🎈', 'WhackAMoleScene': '🔨', 'AnagramScene': '🔤',
+    'WordsearchScene': '🔍', 'BridgeBuilderScene': '🌉', 'CrosswordScene': '📝',
+    'FlashCardsScene': '📇', 'SpinWheelScene': '⭐', 'GroupSortScene': '🗃️',
+    'TypeAnswerScene': '⌨️', 'SpotItScene': '👁️', 'EndlessRunnerScene': '🏃',
+    'PhysicsPuzzlerScene': '🎯', 'SnakingScene': '🐍', 'SpeakItScene': '🗣️',
+    'TrainingAcademyScene': '🎓', 'RescueQuestScene': '🦸', 'LabelItScene': '🏷️',
+    'StarFarmScene': '👨‍🌾', 'TreasureHuntScene': '🏴‍☠️', 'MonsterFighterScene': '⚔️',
+    'TowerDefenseScene': '🏰', 'RhythmTapScene': '🎵', 'SpaceExplorerScene': '🚀',
+    'StoryAdventureScene': '📖', 'FarmLifeScene': '🚜',
+  };
+
   protected abstract buildWorld(): void;
   protected abstract onTick(_remainingMs: number): void;
   protected abstract maxQuestions(): number;
+
+  // ===========================================================================
+  // AAAA KIDS MODE — Slow Mode + Extended Time API
+  // ===========================================================================
+  protected isSlowMode(): boolean {
+    if (this._slowModeCache === null) {
+      try {
+        this._slowModeCache = typeof window !== 'undefined' && window.localStorage
+          ? window.localStorage.getItem(BaseEngine.SLOW_MODE_KEY) === 'true' : false;
+      } catch { this._slowModeCache = false; }
+    }
+    return this._slowModeCache;
+  }
+
+  protected isExtendedTime(): boolean {
+    if (this._extendedTimeCache === null) {
+      try {
+        this._extendedTimeCache = typeof window !== 'undefined' && window.localStorage
+          ? window.localStorage.getItem(BaseEngine.EXTENDED_TIME_KEY) === 'true' : false;
+      } catch { this._extendedTimeCache = false; }
+    }
+    return this._extendedTimeCache;
+  }
+
+  /** Speed multiplier: 0.7 if slow mode, 1.0 otherwise. */
+  protected timeMultiplier(): number { return this.isSlowMode() ? 0.7 : 1.0; }
+
+  /** Question count multiplier: 1.5 if extended time, 1.0 otherwise. */
+  protected questionMultiplier(): number { return this.isExtendedTime() ? 1.5 : 1.0; }
+
+  static setSlowMode(enabled: boolean) {
+    try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem(BaseEngine.SLOW_MODE_KEY, String(enabled)); } catch {}
+  }
+
+  static setExtendedTime(enabled: boolean) {
+    try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem(BaseEngine.EXTENDED_TIME_KEY, String(enabled)); } catch {}
+  }
+
+  static getSlowMode(): boolean {
+    try { return typeof window !== 'undefined' && window.localStorage ? window.localStorage.getItem(BaseEngine.SLOW_MODE_KEY) === 'true' : false; } catch { return false; }
+  }
+
+  static getExtendedTime(): boolean {
+    try { return typeof window !== 'undefined' && window.localStorage ? window.localStorage.getItem(BaseEngine.EXTENDED_TIME_KEY) === 'true' : false; } catch { return false; }
+  }
+
+  static getStickerCount(): number {
+    try {
+      if (typeof window === 'undefined' || !window.localStorage) return 0;
+      const raw = window.localStorage.getItem(BaseEngine.STICKER_STORAGE_KEY);
+      return raw ? JSON.parse(raw).count ?? 0 : 0;
+    } catch { return 0; }
+  }
 
   init(data: { config?: GameLaunchConfig }) {
     const cfg = data?.config ?? (this.registry.get('launchConfig') as GameLaunchConfig | undefined);
@@ -54,7 +147,10 @@ export abstract class BaseEngine extends Phaser.Scene {
     this.studentId = cfg.studentId;
     this.score = 0; this.streak = 0; this.isFinished = false;
     this.answeredEvents = []; this.level = 1;
-    this.maxScore = this.maxQuestions();
+    // AAAA KIDS MODE — Apply Extended Time multiplier (+50% questions when enabled).
+    const baseMax = this.maxQuestions();
+    const extended = Math.round(baseMax * this.questionMultiplier());
+    this.maxScore = Math.min(extended, Math.max(baseMax, this.terms.length));
   }
 
   create() {
@@ -74,6 +170,12 @@ export abstract class BaseEngine extends Phaser.Scene {
     });
     this.eventBus.on(GAME_EVENTS.VFX_POPUP, (p: { x: number; y: number; text: string; color: number }) => {
       try { this.juice?.scorePopup(p.x, p.y, p.text, p.color); } catch {}
+    });
+
+    // AAAA KIDS MODE — Mascot celebrates + sticker awarded on every correct answer.
+    this.eventBus.on(GAME_EVENTS.ANSWER_CORRECT, () => {
+      try { if (!this._skipAutoMascot) this._mascotCelebrate(); } catch {}
+      try { if (!this._skipAutoStickerBook) this._awardSticker(); } catch {}
     });
 
     ThemeAtlas.build(this, this.theme);
@@ -115,6 +217,14 @@ export abstract class BaseEngine extends Phaser.Scene {
 
     this.buildWorld();
 
+    // AAAA KIDS MODE — Auto-create companion mascot + sticker badge (unless opted out).
+    if (!this._skipAutoMascot) {
+      this.time.delayedCall(100, () => this._createAutoMascot());
+    }
+    if (!this._skipAutoStickerBook) {
+      this.time.delayedCall(150, () => this._createStickerBadge());
+    }
+
     // Skip entrance card — it was causing input delays and confusion.
     // The game starts immediately after buildWorld.
     // Camera fade in is quick (300ms) and doesn't block input.
@@ -140,6 +250,14 @@ export abstract class BaseEngine extends Phaser.Scene {
       // AAA: Flush pool + destroy event bus on shutdown
       this.poolManager.flushAll();
       this.eventBus.removeAllListeners();
+      // AAAA: Cleanup auto-mascot
+      try { this._mascotChinTapEvent?.remove(); } catch {}
+      try { this._mascotBobTween?.stop(); } catch {}
+      try { this._mascot?.destroy(); } catch {}
+      this._mascot = undefined;
+      // AAAA: Cleanup sticker badge
+      try { this._stickerBadge?.destroy(); } catch {}
+      this._stickerBadge = undefined;
       // AAAA: Cleanup KidsJuice highlights
       try { KidsJuice.clearHighlights(this as any); } catch {}
     });
@@ -231,6 +349,203 @@ export abstract class BaseEngine extends Phaser.Scene {
     try { KidsJuice.clearHighlights(this as any); } catch {}
   }
 
+  // ===========================================================================
+  // AAAA KIDS MODE — Auto-Mascot (themed emoji per game, bottom-right corner)
+  // ===========================================================================
+  private _createAutoMascot() {
+    try {
+      this._mascotBaseX = this.scale.width - 50;
+      this._mascotBaseY = this.scale.height - 50;
+      const mascotEmoji = BaseEngine._MASCOT_EMOJIS[this.scene.key] ?? '⭐';
+
+      this._mascot = this.add.text(this._mascotBaseX, this._mascotBaseY, mascotEmoji, {
+        fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, Inter, sans-serif',
+        fontSize: '40px',
+      }).setOrigin(0.5).setDepth(350);
+
+      // Gentle bob.
+      this._mascotBobTween = this.tweens.add({
+        targets: this._mascot,
+        y: this._mascotBaseY - 5,
+        duration: 1000, yoyo: true, repeat: 999, ease: 'Sine.inOut',
+      });
+
+      // Occasional chin-tap.
+      this._mascotChinTapEvent = this.time.addEvent({
+        delay: 4000, repeat: 999,
+        callback: () => {
+          if (this._mascotState !== 'idle' || !this._mascot) return;
+          try {
+            this.tweens.add({
+              targets: this._mascot,
+              angle: { from: 0, to: -8 },
+              duration: 200, yoyo: true, repeat: 1, ease: 'Sine.inOut',
+            });
+          } catch {}
+        },
+      });
+
+      // Tappable → speaks random encouragement.
+      this._mascot.setInteractive({ useHandCursor: true });
+      this._mascot.on('pointerdown', () => {
+        try {
+          const phrases = ['You can do it!', 'Keep going!', 'I believe in you!', 'You got this!'];
+          audioBus.speak(phrases[Math.floor(Math.random() * phrases.length)]);
+          if (this._mascot) {
+            const startX = this._mascot.x;
+            this.tweens.add({
+              targets: this._mascot,
+              x: { from: startX - 6, to: startX + 6 },
+              duration: 80, yoyo: true, repeat: 3, ease: 'Sine.inOut',
+              onComplete: () => { if (this._mascot) this._mascot.x = this._mascotBaseX; },
+            });
+          }
+        } catch {}
+      });
+    } catch (e) {
+      console.error('[BaseEngine] _createAutoMascot error:', e);
+    }
+  }
+
+  private _mascotCelebrate() {
+    if (!this._mascot || this._mascotState === 'celebrate') return;
+    try {
+      this._mascotState = 'celebrate';
+      try { this.tweens.killTweensOf(this._mascot); } catch {}
+      this._mascot.setAngle(0);
+
+      // Jump up + 360° spin.
+      this.tweens.add({
+        targets: this._mascot,
+        y: this._mascotBaseY - 40,
+        duration: 250, yoyo: true, repeat: 1, ease: 'Quad.out',
+      });
+      this.tweens.add({
+        targets: this._mascot,
+        angle: 360,
+        duration: 600, ease: 'Cubic.out',
+        onComplete: () => {
+          if (this._mascot) this._mascot.setAngle(0);
+          this._mascotState = 'idle';
+          if (this._mascot) {
+            this._mascotBobTween = this.tweens.add({
+              targets: this._mascot,
+              y: this._mascotBaseY - 5,
+              duration: 1000, yoyo: true, repeat: 999, ease: 'Sine.inOut',
+            });
+          }
+        },
+      });
+    } catch (e) {
+      console.error('[BaseEngine] _mascotCelebrate error:', e);
+    }
+  }
+
+  // ===========================================================================
+  // AAAA KIDS MODE — Persistent Sticker Book (localStorage)
+  // ===========================================================================
+  private _createStickerBadge() {
+    try {
+      const sbX = this.scale.width - 55;
+      const sbY = 100;
+      const sbW = 80, sbH = 50;
+
+      const bookBg = this.add.rectangle(0, 0, sbW, sbH, 0x000000, 0.6)
+        .setStrokeStyle(2, this.theme.warning, 0.8);
+      const bookIcon = this.add.text(-15, 0, '📔', {
+        fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, Inter, sans-serif',
+        fontSize: '22px',
+      }).setOrigin(0.5);
+
+      const collection = this._loadStickerCollection();
+      this._stickerBadgeText = this.add.text(15, 0, String(collection.count), {
+        fontFamily: 'Inter, sans-serif', fontSize: '18px',
+        color: this.hex(this.theme.warning), fontStyle: 'bold',
+      }).setOrigin(0.5);
+
+      this._stickerBadge = this.add.container(sbX, sbY, [bookBg, bookIcon, this._stickerBadgeText])
+        .setDepth(340);
+
+      this.tweens.add({
+        targets: this._stickerBadge,
+        y: sbY - 3,
+        duration: 1200, yoyo: true, repeat: 999, ease: 'Sine.inOut',
+      });
+
+      this._stickerBadge.setSize(sbW, sbH).setInteractive({ useHandCursor: true });
+      this._stickerBadge.on('pointerdown', () => {
+        try {
+          const c = this._loadStickerCollection();
+          if (c.count === 0) {
+            audioBus.speak('No stickers yet — answer a question to earn one!');
+          } else {
+            audioBus.speak(`You have ${c.count} stickers! Great work!`);
+          }
+          this.tweens.add({
+            targets: this._stickerBadge,
+            scale: { from: 1, to: 1.15 },
+            duration: 150, yoyo: true, ease: 'Quad.out',
+          });
+        } catch {}
+      });
+    } catch (e) {
+      console.error('[BaseEngine] _createStickerBadge error:', e);
+    }
+  }
+
+  private _awardSticker() {
+    try {
+      const collection = this._loadStickerCollection();
+      const sticker = BaseEngine.STICKER_EMOJIS[Math.floor(Math.random() * BaseEngine.STICKER_EMOJIS.length)];
+      collection.count++;
+      collection.stickers.push(sticker);
+      if (collection.stickers.length > 500) {
+        collection.stickers = collection.stickers.slice(-500);
+      }
+      this._saveStickerCollection(collection);
+
+      if (this._stickerBadgeText) {
+        this._stickerBadgeText.setText(String(collection.count));
+      }
+      if (this._stickerBadge) {
+        this.tweens.add({
+          targets: this._stickerBadge,
+          scale: { from: 1, to: 1.25 },
+          duration: 200, yoyo: true, ease: 'Back.out',
+        });
+      }
+      audioBus.play('pop');
+    } catch (e) {
+      console.error('[BaseEngine] _awardSticker error:', e);
+    }
+  }
+
+  private _loadStickerCollection(): { count: number; stickers: string[] } {
+    try {
+      if (typeof window === 'undefined' || !window.localStorage) {
+        return { count: 0, stickers: [] };
+      }
+      const raw = window.localStorage.getItem(BaseEngine.STICKER_STORAGE_KEY);
+      if (!raw) return { count: 0, stickers: [] };
+      const parsed = JSON.parse(raw);
+      return {
+        count: typeof parsed.count === 'number' ? parsed.count : 0,
+        stickers: Array.isArray(parsed.stickers) ? parsed.stickers : [],
+      };
+    } catch {
+      return { count: 0, stickers: [] };
+    }
+  }
+
+  private _saveStickerCollection(collection: { count: number; stickers: string[] }) {
+    try {
+      if (typeof window === 'undefined' || !window.localStorage) return;
+      window.localStorage.setItem(BaseEngine.STICKER_STORAGE_KEY, JSON.stringify(collection));
+    } catch (e) {
+      console.error('[BaseEngine] _saveStickerCollection error:', e);
+    }
+  }
+
   // GC FIX: Cache urgency pulse to avoid Graphics redraw every frame
   private _urgencyPulsePhase = 0;
 
@@ -295,6 +610,18 @@ export abstract class BaseEngine extends Phaser.Scene {
       const streakFreq = 660 * Math.pow(2, semitones);
       const now = Date.now();
       if (now - this._lastSfxTime > 300) { audioBus.play('correct', { freq: streakFreq }); this._lastSfxTime = now; }
+
+      // AAAA KIDS MODE — Automatic celebration fanfare for ALL games.
+      // Fires KidsJuice.celebrateCorrect (7-layer C-E-G-C cascade + confetti rain
+      // + "You got it!" text). Scenes with custom celebrations opt out.
+      if (!this._skipAutoCelebrate) {
+        try {
+          KidsJuice.celebrateCorrect(this as any, { x: burstX, y: burstY } as any);
+        } catch (e) {
+          console.error('[BaseEngine] KidsJuice.celebrateCorrect error:', e);
+        }
+      }
+
       this.checkLevelUp();
     } else {
       this.streak = 0;

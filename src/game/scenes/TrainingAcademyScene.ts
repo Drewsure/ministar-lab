@@ -26,7 +26,7 @@ export default class TrainingAcademyScene extends BaseEngine {
   private canAnswer = true;
   private round = 0;
 
-  protected maxQuestions() { return 10; }
+  protected maxQuestions() { return 15; }
 
   protected buildWorld() {
     this.add.text(this.scale.width / 2, 105, 'Training Academy', {
