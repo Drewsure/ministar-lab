@@ -28,7 +28,7 @@ export default class TypeAnswerScene extends BaseEngine {
   private hintUsed = false;
   private canSubmit = true;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 15); }
+  protected maxQuestions() { return Math.min(this.terms.length, 10); }
 
   protected buildWorld() {
     // ---- Title ----
@@ -180,10 +180,8 @@ export default class TypeAnswerScene extends BaseEngine {
 
     const def = this.currentTerm.definition ?? this.currentTerm.term;
     this.promptText.setText(`"${def}"`);
-    // AAAA KIDS MODE — speak the prompt with karaoke highlight.
-    this.time.delayedCall(300, () => {
-      if (!this.isFinished) this.speakPromptWithHighlight(this.promptText, def, { isQuestion: true });
-    });
+    // ESL: speak the definition
+
 
   }
 

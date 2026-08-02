@@ -36,7 +36,7 @@ export default class GameshowScene extends BaseEngine {
   private spotlights: Phaser.GameObjects.Container[] = [];
   private questionNumber = 0;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 12); }
+  protected maxQuestions() { return Math.min(this.terms.length, 8); }
 
   protected buildWorld() {
     // Build rounds
@@ -223,11 +223,10 @@ export default class GameshowScene extends BaseEngine {
     const r = this.rounds[this.round];
     this.promptText.setText(`"${r.prompt.definition ?? r.prompt.emoji ?? r.prompt.term}"`);
 
-    // AAAA KIDS MODE — speak the prompt with karaoke highlight.
-    const promptSpeech = r.prompt.definition ?? r.prompt.term;
-    this.time.delayedCall(300, () => {
-      if (!this.isFinished) this.speakPromptWithHighlight(this.promptText, promptSpeech, { isQuestion: true });
-    });
+    // ESL: speak the prompt
+
+
+
     // Dramatic reveal animation
     this.promptBg.setScale(0).setAlpha(0);
     this.promptText.setAlpha(0);

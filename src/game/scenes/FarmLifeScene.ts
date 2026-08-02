@@ -73,7 +73,7 @@ export default class FarmLifeScene extends BaseEngine {
   private cowFed = false;
   private animalCoinBonus = 0;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 15); }
+  protected maxQuestions() { return Math.min(this.terms.length, 10); }
 
   protected buildWorld() {
     // Sky background (dynamic — color shifts with day/night cycle)
@@ -242,8 +242,7 @@ export default class FarmLifeScene extends BaseEngine {
     audioBus.play('tap');
     this.promptText.setText(`Tool: ${TOOLS[idx]} ${TOOL_NAMES[idx]} — tap a plot!`);
     this.makeSpeakable(this.promptText, TOOL_NAMES[idx]);
-    // AAAA KIDS MODE — speak the prompt with karaoke highlight.
-    this.speakPromptWithHighlight(this.promptText, `Tool: ${TOOL_NAMES[idx]}. Tap a plot!`);
+    audioBus.speak(TOOL_NAMES[idx]);
     this.vocabLearned.add(TOOL_VOCAB[idx]);
     this.toolButtons.forEach((btn, i) => {
       const bg = btn.getAt(0) as Phaser.GameObjects.Rectangle;

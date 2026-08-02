@@ -75,7 +75,7 @@ export default class MazeChaseScene extends BaseEngine {
   private pathIdx = 0;
   private speedBoostUntil = 0;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 10); }
+  protected maxQuestions() { return Math.min(this.terms.length, 6); }
 
   // ===========================================================================
   // BUILD WORLD
@@ -361,9 +361,9 @@ export default class MazeChaseScene extends BaseEngine {
     this.promptText.off('pointerdown');
     this.promptText.on('pointerdown', (_p: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
       if (event) event.stopPropagation();
-      this.speakPromptWithHighlight(this.promptText, speakText);
+      audioBus.speak(speakText);
     });
-    this.time.delayedCall(500, () => { if (!this.isFinished) this.speakPromptWithHighlight(this.promptText, speakText); });
+    this.time.delayedCall(500, () => { if (!this.isFinished) audioBus.speak(speakText); });
 
     // Available cells (exclude player start at 0,0)
     const interiorCells: { x: number; y: number }[] = [];
@@ -684,9 +684,9 @@ export default class MazeChaseScene extends BaseEngine {
     this.promptText.off('pointerdown');
     this.promptText.on('pointerdown', (_p: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
       if (event) event.stopPropagation();
-      this.speakPromptWithHighlight(this.promptText, speakText2);
+      audioBus.speak(speakText2);
     });
-    this.time.delayedCall(500, () => { if (!this.isFinished) this.speakPromptWithHighlight(this.promptText, speakText2); });
+    this.time.delayedCall(500, () => { if (!this.isFinished) audioBus.speak(speakText2); });
     // Only respawn targets + enemies (keeps existing maze + walls + colliders)
     try {
       this.spawnTargetsAndEnemies();

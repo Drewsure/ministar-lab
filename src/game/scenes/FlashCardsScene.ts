@@ -33,7 +33,7 @@ export default class FlashCardsScene extends BaseEngine {
   private isFlipping = false;
   private knownCount = 0;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 20); }
+  protected maxQuestions() { return Math.min(this.terms.length, 15); }
 
   protected buildWorld() {
     // ---- Title ----
@@ -175,13 +175,13 @@ export default class FlashCardsScene extends BaseEngine {
       const cardX = this.scale.width / 2;
       const cardY = this.scale.height / 2;
       if (Math.abs(x - cardX) < 220 && Math.abs(y - cardY) < 140) {
-        // AAAA KIDS MODE — speak the card content with karaoke highlight.
+        // ESL: speak the card content
         const card = this.cards[this.currentIdx];
         if (card) {
           if (card.isFlipped) {
-            this.speakPromptWithHighlight(this.cardText, card.term.definition ?? card.term.term);
+            audioBus.speak(card.term.definition ?? card.term.term);
           } else {
-            this.speakPromptWithHighlight(this.cardText, card.term.term);
+            audioBus.speak(card.term.term);
           }
         }
         this.flipCard();

@@ -13,7 +13,7 @@ export default class SpeakItScene extends BaseEngine {
   private optionButtons: Phaser.GameObjects.Container[] = [];
   private questionIdx = 0;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 12); }
+  protected maxQuestions() { return Math.min(this.terms.length, 8); }
 
   protected buildWorld() {
     this.add.text(this.scale.width / 2, 100, '🗣️ Speak It', {
@@ -101,7 +101,7 @@ export default class SpeakItScene extends BaseEngine {
     // Speak the word after buttons appear
     this.promptText.setText(`Listen... then tap "${this.currentTerm.term}"`);
     this.time.delayedCall(600, () => {
-      if (!this.isFinished) this.speakPromptWithHighlight(this.promptText, this.currentTerm.term);
+      if (!this.isFinished) audioBus.speak(this.currentTerm.term);
     });
   }
 

@@ -60,7 +60,7 @@ export default class RhythmTapScene extends BaseEngine {
   private beatPulse = 0;
   private canTap = true;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 18); }
+  protected maxQuestions() { return Math.min(this.terms.length, 12); }
 
   protected buildWorld() {
     this.add.text(this.scale.width / 2, 35, '🎵 Rhythm Tap', {
@@ -217,13 +217,7 @@ export default class RhythmTapScene extends BaseEngine {
     }).setOrigin(0.5).setDepth(16);
 
     const note: FallingNote = {
-      // AAAA KIDS MODE — Gentler speed ramp per web research (toddlers start
-      // 60-70 BPM, speed up gradually). Was: 1.2 + notesIdx*0.05, cap +2.0
-      // (speed 1.2→3.2 over 40 notes = 2.67x speedup — too fast for kids).
-      // Now: 1.0 + notesIdx*0.03, cap +1.2 (speed 1.0→2.2 over 40 notes = 2.2x).
-      // AAAA SLOW MODE: multiply by timeMultiplier() (0.7 = 30% slower fall).
-      // At 60fps: 2.2 px/frame = 132 px/s — readable for ages 4-9.
-      lane, word, y: this.SPAWN_Y, speed: (1.0 + Math.min(1.2, this.notesIdx * 0.03)) * this.timeMultiplier(),
+      lane, word, y: this.SPAWN_Y, speed: 1.2 + Math.min(2, this.notesIdx * 0.05),
       hit: false, missed: false, text, bg,
     };
     this.notes.push(note);
@@ -297,8 +291,7 @@ export default class RhythmTapScene extends BaseEngine {
 
     if (timing !== 'MISS!') {
       audioBus.play('correct');
-      // AAAA KIDS MODE — speak the note word with karaoke highlight.
-      this.speakPromptWithHighlight(note.text, note.word);
+      audioBus.speak(note.word);
       this.juice.burst(note.text.x, note.text.y, this.combo >= 5 ? 'streak' : 'correct');
       this.juice.scorePopup(note.text.x, note.text.y - 30,
         `${timing} +${points}`, timing === 'PERFECT!' ? this.theme.warning : this.theme.success);

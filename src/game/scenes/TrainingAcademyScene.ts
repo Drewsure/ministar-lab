@@ -26,7 +26,7 @@ export default class TrainingAcademyScene extends BaseEngine {
   private canAnswer = true;
   private round = 0;
 
-  protected maxQuestions() { return 15; }
+  protected maxQuestions() { return 10; }
 
   protected buildWorld() {
     this.add.text(this.scale.width / 2, 105, 'Training Academy', {
@@ -98,8 +98,7 @@ export default class TrainingAcademyScene extends BaseEngine {
     this.commandText.setText(`${this.currentCommand.emoji} ${this.currentCommand.text}!`);
     this.commandText.setData('speakText', `Say: ${this.currentCommand.text}!`);
     this.statusText.setText('Tap the microphone and speak!'); this.heardText.setText('');
-    // AAAA KIDS MODE — speak the command with karaoke highlight.
-    this.speakPromptWithHighlight(this.commandText, `Say: ${this.currentCommand.text}!`, { isQuestion: true });
+    audioBus.speak(`Say: ${this.currentCommand.text}!`);
   }
 
   private checkCommand(heard: string) {

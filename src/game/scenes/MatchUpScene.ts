@@ -49,7 +49,7 @@ export default class MatchUpScene extends BaseEngine {
   private progressText!: Phaser.GameObjects.Text;
   private dragLine?: Phaser.GameObjects.Graphics;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 10); }
+  protected maxQuestions() { return Math.min(this.terms.length, 6); }
 
   protected buildWorld() {
     // ---- Title ----
@@ -63,10 +63,6 @@ export default class MatchUpScene extends BaseEngine {
         fontStyle: 'bold',
       }
     ).setOrigin(0.5).setDepth(50);
-    // AAAA KIDS MODE — speak the prompt with karaoke highlight on entry.
-    this.time.delayedCall(800, () => {
-      if (!this.isFinished) this.speakPromptWithHighlight(this.promptText, 'Drag terms to definitions!', { isQuestion: true });
-    });
 
     // ---- Progress ----
     this.progressText = this.add.text(

@@ -54,7 +54,7 @@ export default class CrosswordScene extends BaseEngine {
   private keyboardKeys: Phaser.GameObjects.Container[] = [];
   private solvedCount = 0;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 12); }
+  protected maxQuestions() { return Math.min(this.terms.length, 8); }
 
   protected buildWorld() {
     this.add.text(
@@ -449,8 +449,9 @@ export default class CrosswordScene extends BaseEngine {
     }
     const dirLabel = this.activeEntry.dir === 'across' ? 'Across' : 'Down';
     this.clueText.setText(`${this.activeEntry.number} ${dirLabel}: ${this.activeEntry.clue}`);
-    // AAAA KIDS MODE — speak the clue with karaoke highlight.
-    this.speakPromptWithHighlight(this.clueText, `${dirLabel}. ${this.activeEntry.clue}`, { isQuestion: true });
+    // ESL: speak the clue aloud
+
+
   }
 
   private handleKey(e: KeyboardEvent) {

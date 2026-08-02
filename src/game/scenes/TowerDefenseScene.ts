@@ -59,7 +59,7 @@ export default class TowerDefenseScene extends BaseEngine {
   private canAct = true;
   private feedbackText!: Phaser.GameObjects.Text;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 15); }
+  protected maxQuestions() { return Math.min(this.terms.length, 12); }
 
   protected buildWorld() {
     this.add.text(this.scale.width / 2, 30, '🏰 Tower Defense', {
@@ -190,8 +190,6 @@ export default class TowerDefenseScene extends BaseEngine {
     audioBus.play('tap');
     audioBus.speak(TOWER_DEFS[t].name);
     this.promptText.setText(`Selected: ${TOWER_DEFS[t].emoji} ${TOWER_DEFS[t].name} (${TOWER_DEFS[t].cost}💰) — tap a slot!`);
-    // AAAA KIDS MODE — speak the prompt with karaoke highlight.
-    this.speakPromptWithHighlight(this.promptText, `Selected: ${TOWER_DEFS[t].name}. Tap a slot!`);
     // Highlight selected button
     this.towerButtons.forEach(tb => {
       const bg = tb.container.getAt(0) as Phaser.GameObjects.Rectangle;
@@ -281,11 +279,7 @@ export default class TowerDefenseScene extends BaseEngine {
     this.canAct = true;
 
     const waveSize = 2 + this.currentWave * 2;
-    // AAAA KIDS MODE — Gentler speed ramp per wave (web research: "first wave
-    // easier, then ramp"). Was: 0.004 + wave*0.002 (50% jump per wave — steep).
-    // Now: 0.003 + wave*0.0015 (33% jump per wave — gentler).
-    // Wave 1=0.0045, Wave 2=0.006, Wave 3=0.0075 (was 0.006/0.008/0.010)
-    const waveSpeed = 0.003 + this.currentWave * 0.0015;
+    const waveSpeed = 0.004 + this.currentWave * 0.002;
     const enemyHp = 1 + Math.floor(this.currentWave / 2);
     const pool = [...this.terms];
     Phaser.Utils.Array.Shuffle(pool);

@@ -40,7 +40,7 @@ export default class AnagramScene extends BaseEngine {
   private hintUsed = false;
   private hintBtn!: Phaser.GameObjects.Container;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 10); }
+  protected maxQuestions() { return Math.min(this.terms.length, 6); }
 
   protected buildWorld() {
     // ---- Prompt banner ----
@@ -178,8 +178,6 @@ export default class AnagramScene extends BaseEngine {
     // Definition hint
     const hint = term.definition ? `${term.emoji ?? ''} ${term.definition}`.trim() : `${term.emoji ?? 'Unscramble the word'}`;
     this.promptText.setText(`${hint}  (${word.length} letters)`);
-    // AAAA KIDS MODE — speak the prompt with karaoke highlight.
-    this.speakPromptWithHighlight(this.promptText, `${term.definition ?? 'Unscramble the word'}. ${word.length} letters.`, { isQuestion: true });
 
 
   }

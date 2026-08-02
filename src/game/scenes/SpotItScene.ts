@@ -54,7 +54,7 @@ export default class SpotItScene extends BaseEngine {
   private speedBonusText!: Phaser.GameObjects.Text;
   private roundText!: Phaser.GameObjects.Text;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 12); }
+  protected maxQuestions() { return Math.min(this.terms.length, 8); }
 
   protected buildWorld() {
     this.maxRounds = this.maxScore;
@@ -228,7 +228,7 @@ export default class SpotItScene extends BaseEngine {
     // and they've already tapped to start. If pre-gesture, browser may block.)
     this.time.delayedCall(400, () => {
       if (!this.isFinished) {
-        this.speakPromptWithHighlight(this.promptText, 'Find the matching symbol!', { isQuestion: true });
+        audioBus.speak('Find the matching symbol!', { isQuestion: true });
       }
     });
   }

@@ -43,7 +43,7 @@ export default class WhackAMoleScene extends BaseEngine {
   private lastWhackTime = 0;
   private comboText!: Phaser.GameObjects.Text;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 12); }
+  protected maxQuestions() { return Math.min(this.terms.length, 8); }
 
   protected buildWorld() {
     // ---- Prompt banner ----
@@ -99,15 +99,9 @@ export default class WhackAMoleScene extends BaseEngine {
     this.createHammer();
 
     // ---- Spawn loop ----
-    // AAAA KIDS MODE — Gentler spawn ramp per web research (ages 4-9 need
-    // longer reaction windows; Whack-a-Mole is used as cognitive assessment
-    // for ages 7-12, so younger kids need even more time).
-    // AAAA SLOW MODE: divide by timeMultiplier() (1.0 normal, 0.7 slow = longer delays).
-    // Was: 1800 - (level-1)*300, floor 700ms (17% jump/level, too steep).
-    // Now: 2000 - (level-1)*200, floor 1000ms (10% jump/level, gentler).
-    // Level 1=2.0s, L2=1.8s, L3=1.6s, L4=1.4s, L5=1.2s, L6+=1.0s
-    const tm = this.timeMultiplier();
-    const spawnDelay = Math.max(1000, 2000 - (this.level - 1) * 200) / tm;
+    // AAAA — Mole spawn rate: SLOWER at start (1.8s), gets faster per level
+    // Level 1=1.8s, Level 2=1.5s, Level 3=1.2s, Level 4=1.0s, Level 5=0.8s
+    const spawnDelay = Math.max(700, 1800 - (this.level - 1) * 300);
     this.spawnTimer = this.time.addEvent({
       delay: spawnDelay, loop: true,
       callback: this.spawnMole,
@@ -187,8 +181,8 @@ export default class WhackAMoleScene extends BaseEngine {
       return;
     }
     this.promptText.setText(`Whack: ${this.activePrompt.emoji ?? ''} ${this.activePrompt.term}`);
-    // AAAA KIDS MODE — speak the prompt with karaoke highlight.
-    this.speakPromptWithHighlight(this.promptText, `Whack: ${this.activePrompt.term}`, { isQuestion: true });
+
+
   }
 
   private spawnMole() {
@@ -237,14 +231,9 @@ export default class WhackAMoleScene extends BaseEngine {
 
     container.on('pointerdown', () => this.whack(hole, mole));
 
-    // Auto retreat after stay-time.
-    // AAAA KIDS MODE — Longer stay-time floor per web research (ages 4-6 need
-    // ~2s reaction window; ages 7-12 need ~1.5s).
-    // AAAA SLOW MODE: divide by timeMultiplier() (slow mode = longer stay).
-    // Was: 3000 - (level-1)*400, floor 1200ms (13% jump/level).
-    // Now: 3500 - (level-1)*300, floor 1800ms (9% jump/level, gentler).
-    // Level 1=3.5s, L2=3.2s, L3=2.9s, L4=2.6s, L5=2.3s, L6+=1.8s
-    const stayTime = Math.max(1800, 3500 - (this.level - 1) * 300) / this.timeMultiplier();
+    // Auto retreat after 1.8s
+    // AAAA — Mole stay-up time: LONGER at start (3s), gets shorter per level
+    const stayTime = Math.max(1200, 3000 - (this.level - 1) * 400);
     this.time.delayedCall(stayTime, () => {
       if (mole.active) this.retreat(hole, mole);
     });

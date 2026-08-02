@@ -88,8 +88,7 @@ export default class RescueQuestScene extends BaseEngine {
       o.label.setAlpha(i === this.currentObstacleIdx ? 1 : 0);
       if (i === this.currentObstacleIdx) this.tweens.add({ targets: o.text, scale: { from: 1, to: 1.2 }, duration: 500, yoyo: true, repeat: 999, ease: 'Sine.inOut' });
     });
-    // AAAA KIDS MODE — speak the prompt with karaoke highlight.
-    this.speakPromptWithHighlight(this.statusText, `Say ${obs.command} to ${labelText.toLowerCase()}`, { isQuestion: true });
+    audioBus.speak(`Say ${obs.command} to ${labelText.toLowerCase()}`);
   }
 
   private initSpeechRecognition() {

@@ -38,141 +38,9 @@ export abstract class BaseEngine extends Phaser.Scene {
   protected poolManager: GlobalPoolManager = GlobalPoolManager.getInstance();
   protected eventBus: EventBus = new EventBus();
 
-  // AAAA KIDS MODE: Opt-out flag for scenes that implement their own
-  // _celebrateCorrect (Quiz, SpinWheel). When false (default), BaseEngine
-  // fires KidsJuice.celebrateCorrect automatically on every correct answer —
-  // giving ALL 32 games the 7-layer fanfare + confetti rain + "You got it!"
-  // text + random celebration phrase. Scenes with custom celebrations set
-  // this to true in buildWorld() to avoid double-celebration.
-  protected _skipAutoCelebrate = false;
-
-  // AAAA KIDS MODE: Shared companion mascot. Auto-created in create() for
-  // every game (unless _skipAutoMascot = true). Bottom-right corner emoji
-  // that bobs gently + celebrates on correct answers via EventBus.
-  // Quiz has its own 🐶 mascot (sets _skipAutoMascot = true).
-  protected _skipAutoMascot = false;
-  protected _mascot?: Phaser.GameObjects.Text;
-  protected _mascotBaseX = 0;
-  protected _mascotBaseY = 0;
-  protected _mascotState: 'idle' | 'celebrate' = 'idle';
-  private _mascotBobTween?: Phaser.Tweens.Tween;
-  private _mascotChinTapEvent?: Phaser.Time.TimerEvent;
-
-  // AAAA KIDS MODE: Persistent sticker book across sessions via localStorage.
-  // Every correct answer awards a random sticker. Total count persists across
-  // all games + sessions. Shown as a small badge in the top-right corner.
-  protected _skipAutoStickerBook = false;
-  private _stickerBadge?: Phaser.GameObjects.Container;
-  private _stickerBadgeText?: Phaser.GameObjects.Text;
-  private static readonly STICKER_STORAGE_KEY = 'ministar-sticker-collection';
-  private static readonly STICKER_EMOJIS = ['⭐', '🌟', '💫', '✨', '🎯', '🌈', '🏆', '🎀', '🎈', '🦄'];
-
-  // AAAA KIDS MODE — Slow Mode + Extended Time (user request: "all games need
-  // an extension on game play time" + "slow mode toggle for kids who need
-  // more time"). Backed by localStorage so it persists across sessions.
-  // Games read these via this.isSlowMode() / this.timeMultiplier().
-  private static readonly SLOW_MODE_KEY = 'ministar-slow-mode';
-  private static readonly EXTENDED_TIME_KEY = 'ministar-extended-time';
-  private _slowModeCache: boolean | null = null;
-  private _extendedTimeCache: boolean | null = null;
-
   protected abstract buildWorld(): void;
   protected abstract onTick(_remainingMs: number): void;
   protected abstract maxQuestions(): number;
-
-  // ===========================================================================
-  // AAAA KIDS MODE — Slow Mode + Extended Time API
-  // ===========================================================================
-  // Slow Mode: when enabled, all timed games run at 70% speed (mole stay-time,
-  // note fall speed, banner fall speed, etc.). Set via React settings toggle.
-  // Extended Time: when enabled, all games get +50% max questions / longer
-  // timer. Set via React settings toggle.
-  // Both persist in localStorage and are read once per game start (cached).
-  // ===========================================================================
-
-  /** Returns true if Slow Mode is enabled (70% speed for timed games). */
-  protected isSlowMode(): boolean {
-    if (this._slowModeCache === null) {
-      try {
-        if (typeof window !== 'undefined' && window.localStorage) {
-          this._slowModeCache = window.localStorage.getItem(BaseEngine.SLOW_MODE_KEY) === 'true';
-        } else {
-          this._slowModeCache = false;
-        }
-      } catch {
-        this._slowModeCache = false;
-      }
-    }
-    return this._slowModeCache;
-  }
-
-  /** Returns true if Extended Time is enabled (+50% questions / longer timer). */
-  protected isExtendedTime(): boolean {
-    if (this._extendedTimeCache === null) {
-      try {
-        if (typeof window !== 'undefined' && window.localStorage) {
-          this._extendedTimeCache = window.localStorage.getItem(BaseEngine.EXTENDED_TIME_KEY) === 'true';
-        } else {
-          this._extendedTimeCache = false;
-        }
-      } catch {
-        this._extendedTimeCache = false;
-      }
-    }
-    return this._extendedTimeCache;
-  }
-
-  /** Speed multiplier for timed games: 0.7 if slow mode, 1.0 otherwise. */
-  protected timeMultiplier(): number {
-    return this.isSlowMode() ? 0.7 : 1.0;
-  }
-
-  /** Question count multiplier: 1.5 if extended time, 1.0 otherwise. */
-  protected questionMultiplier(): number {
-    return this.isExtendedTime() ? 1.5 : 1.0;
-  }
-
-  /** Static API — set Slow Mode from React UI. */
-  static setSlowMode(enabled: boolean) {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem(BaseEngine.SLOW_MODE_KEY, String(enabled));
-      }
-    } catch (e) {
-      console.error('[BaseEngine] setSlowMode error:', e);
-    }
-  }
-
-  /** Static API — set Extended Time from React UI. */
-  static setExtendedTime(enabled: boolean) {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem(BaseEngine.EXTENDED_TIME_KEY, String(enabled));
-      }
-    } catch (e) {
-      console.error('[BaseEngine] setExtendedTime error:', e);
-    }
-  }
-
-  /** Static API — get Slow Mode state from React UI. */
-  static getSlowMode(): boolean {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        return window.localStorage.getItem(BaseEngine.SLOW_MODE_KEY) === 'true';
-      }
-    } catch {}
-    return false;
-  }
-
-  /** Static API — get Extended Time state from React UI. */
-  static getExtendedTime(): boolean {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        return window.localStorage.getItem(BaseEngine.EXTENDED_TIME_KEY) === 'true';
-      }
-    } catch {}
-    return false;
-  }
 
   init(data: { config?: GameLaunchConfig }) {
     const cfg = data?.config ?? (this.registry.get('launchConfig') as GameLaunchConfig | undefined);
@@ -186,11 +54,7 @@ export abstract class BaseEngine extends Phaser.Scene {
     this.studentId = cfg.studentId;
     this.score = 0; this.streak = 0; this.isFinished = false;
     this.answeredEvents = []; this.level = 1;
-    // AAAA KIDS MODE — Apply Extended Time multiplier (+50% questions when enabled).
-    // Capped at terms.length so games don't ask for more terms than exist.
-    const baseMax = this.maxQuestions();
-    const extended = Math.round(baseMax * this.questionMultiplier());
-    this.maxScore = Math.min(extended, Math.max(baseMax, this.terms.length));
+    this.maxScore = this.maxQuestions();
   }
 
   create() {
@@ -210,14 +74,6 @@ export abstract class BaseEngine extends Phaser.Scene {
     });
     this.eventBus.on(GAME_EVENTS.VFX_POPUP, (p: { x: number; y: number; text: string; color: number }) => {
       try { this.juice?.scorePopup(p.x, p.y, p.text, p.color); } catch {}
-    });
-
-    // AAAA KIDS MODE — Mascot celebrates on every correct answer (auto-mascot).
-    // Fires for ALL games that don't opt out via _skipAutoMascot.
-    this.eventBus.on(GAME_EVENTS.ANSWER_CORRECT, () => {
-      try { if (!this._skipAutoMascot) this._mascotCelebrate(); } catch {}
-      // AAAA KIDS MODE — Award a persistent sticker on every correct answer.
-      try { if (!this._skipAutoStickerBook) this._awardSticker(); } catch {}
     });
 
     ThemeAtlas.build(this, this.theme);
@@ -259,19 +115,6 @@ export abstract class BaseEngine extends Phaser.Scene {
 
     this.buildWorld();
 
-    // AAAA KIDS MODE — Auto-create companion mascot for every game (unless
-    // opted out). Bottom-right corner, gentle bob, celebrates on correct.
-    if (!this._skipAutoMascot) {
-      this.time.delayedCall(100, () => this._createAutoMascot());
-    }
-
-    // AAAA KIDS MODE — Auto-create persistent sticker book badge (unless
-    // opted out). Top-right corner, shows total stickers earned across
-    // all sessions. Quiz opts out (has its own sticker book).
-    if (!this._skipAutoStickerBook) {
-      this.time.delayedCall(150, () => this._createStickerBadge());
-    }
-
     // Skip entrance card — it was causing input delays and confusion.
     // The game starts immediately after buildWorld.
     // Camera fade in is quick (300ms) and doesn't block input.
@@ -297,14 +140,6 @@ export abstract class BaseEngine extends Phaser.Scene {
       // AAA: Flush pool + destroy event bus on shutdown
       this.poolManager.flushAll();
       this.eventBus.removeAllListeners();
-      // AAAA: Cleanup auto-mascot
-      try { this._mascotChinTapEvent?.remove(); } catch {}
-      try { this._mascotBobTween?.stop(); } catch {}
-      try { this._mascot?.destroy(); } catch {}
-      this._mascot = undefined;
-      // AAAA: Cleanup sticker badge
-      try { this._stickerBadge?.destroy(); } catch {}
-      this._stickerBadge = undefined;
       // AAAA: Cleanup KidsJuice highlights
       try { KidsJuice.clearHighlights(this as any); } catch {}
     });
@@ -368,292 +203,6 @@ export abstract class BaseEngine extends Phaser.Scene {
   protected speakGameInstructions() {
     const instruction = BaseEngine._GAME_INSTRUCTIONS[this.scene.key] ?? 'Welcome! Tap to play!';
     audioBus.speak(instruction);
-  }
-
-  // ===========================================================================
-  // AAAA KIDS MODE — Shared companion mascot (auto-created for every game)
-  // ===========================================================================
-  // Bottom-right corner emoji that:
-  //   • bobs gently up/down (perpetual host presence)
-  //   • occasional chin-tap rotation (curious host mannerism)
-  //   • jumps + spins on correct answer (celebrate state)
-  //   • tappable → speaks random encouragement
-  // Games can opt out via _skipAutoMascot = true (Quiz has its own 🐶).
-  // Each game gets a THEMED mascot emoji (see _MASCOT_EMOJIS map below).
-  // ===========================================================================
-  private static readonly _MASCOT_EMOJIS: Record<string, string> = {
-    'MazeChaseScene': '🦊',      // fox — clever maze navigator
-    'QuizScene': '🐶',           // (opted out — Quiz has its own 🐶)
-    'AirplaneScene': '🦅',       // eagle — flies catching banners
-    'GameshowScene': '🤖',       // robot — game show host
-    'MemoryMatchScene': '🧠',    // brain — memory game
-    'MatchUpScene': '🔗',        // link — matching
-    'BalloonPopScene': '🎈',     // balloon — themed
-    'WhackAMoleScene': '🔨',     // hammer — whack
-    'AnagramScene': '🔤',        // letters — anagram
-    'WordsearchScene': '🔍',     // magnifier — search
-    'BridgeBuilderScene': '🌉',  // bridge — themed
-    'CrosswordScene': '📝',      // notepad — crossword
-    'FlashCardsScene': '📇',     // card index — flash cards
-    'SpinWheelScene': '⭐',      // star (opted out — has WheelFace 😊)
-    'GroupSortScene': '🗃️',      // card box — sorting
-    'TypeAnswerScene': '⌨️',     // keyboard — typing
-    'SpotItScene': '👁️',        // eye — spot it
-    'EndlessRunnerScene': '🏃',  // runner — themed
-    'PhysicsPuzzlerScene': '🎯', // target — cannon aim
-    'SnakingScene': '🐍',        // snake — themed
-    'SpeakItScene': '🗣️',        // speech — speak
-    'TrainingAcademyScene': '🎓',// graduation — academy
-    'RescueQuestScene': '🦸',    // superhero — rescue
-    'LabelItScene': '🏷️',        // label — themed
-    'StarFarmScene': '👨‍🌾',     // farmer — themed
-    'TreasureHuntScene': '🏴‍☠️', // pirate — treasure
-    'MonsterFighterScene': '⚔️', // crossed swords — battle
-    'TowerDefenseScene': '🏰',   // castle — defense
-    'RhythmTapScene': '🎵',      // musical note — rhythm
-    'SpaceExplorerScene': '🚀',  // rocket — space
-    'StoryAdventureScene': '📖', // book — story
-    'FarmLifeScene': '🚜',       // tractor — farm
-  };
-
-  private _createAutoMascot() {
-    try {
-      this._mascotBaseX = this.scale.width - 50;
-      this._mascotBaseY = this.scale.height - 50;
-
-      // Per-game themed emoji (falls back to ⭐ if not in map).
-      const mascotEmoji = BaseEngine._MASCOT_EMOJIS[this.scene.key] ?? '⭐';
-
-      this._mascot = this.add.text(this._mascotBaseX, this._mascotBaseY, mascotEmoji, {
-        fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, Inter, sans-serif',
-        fontSize: '40px',
-      }).setOrigin(0.5).setDepth(350);
-
-      // Gentle bob — perpetual host presence.
-      this._mascotBobTween = this.tweens.add({
-        targets: this._mascot,
-        y: this._mascotBaseY - 5,
-        duration: 1000,
-        yoyo: true,
-        repeat: 999, // ETERNAL_VIGILANCE: no repeat: -1
-        ease: 'Sine.inOut',
-      });
-
-      // Occasional chin-tap (rotation wobble) — curious host mannerism.
-      this._mascotChinTapEvent = this.time.addEvent({
-        delay: 4000,
-        repeat: 999,
-        callback: () => {
-          if (this._mascotState !== 'idle' || !this._mascot) return;
-          try {
-            this.tweens.add({
-              targets: this._mascot,
-              angle: { from: 0, to: -8 },
-              duration: 200, yoyo: true, repeat: 1, ease: 'Sine.inOut',
-            });
-          } catch {}
-        },
-      });
-
-      // Tappable → speaks random encouragement.
-      this._mascot.setInteractive({ useHandCursor: true });
-      this._mascot.on('pointerdown', () => {
-        try {
-          const phrases = ['You can do it!', 'Keep going!', 'I believe in you!', 'You got this!'];
-          audioBus.speak(phrases[Math.floor(Math.random() * phrases.length)]);
-          // Quick wiggle on tap.
-          if (this._mascot) {
-            const startX = this._mascot.x;
-            this.tweens.add({
-              targets: this._mascot,
-              x: { from: startX - 6, to: startX + 6 },
-              duration: 80, yoyo: true, repeat: 3, ease: 'Sine.inOut',
-              onComplete: () => { if (this._mascot) this._mascot.x = this._mascotBaseX; },
-            });
-          }
-        } catch {}
-      });
-    } catch (e) {
-      console.error('[BaseEngine] _createAutoMascot error:', e);
-    }
-  }
-
-  // Mascot celebrate — jump + 360° spin on correct answer.
-  private _mascotCelebrate() {
-    if (!this._mascot || this._mascotState === 'celebrate') return;
-    try {
-      this._mascotState = 'celebrate';
-      try { this.tweens.killTweensOf(this._mascot); } catch {}
-      this._mascot.setAngle(0);
-
-      // Jump up + 360° spin.
-      this.tweens.add({
-        targets: this._mascot,
-        y: this._mascotBaseY - 40,
-        duration: 250,
-        yoyo: true,
-        repeat: 1,
-        ease: 'Quad.out',
-      });
-      this.tweens.add({
-        targets: this._mascot,
-        angle: 360,
-        duration: 600,
-        ease: 'Cubic.out',
-        onComplete: () => {
-          if (this._mascot) this._mascot.setAngle(0);
-          this._mascotState = 'idle';
-          // Resume bob.
-          if (this._mascot) {
-            this._mascotBobTween = this.tweens.add({
-              targets: this._mascot,
-              y: this._mascotBaseY - 5,
-              duration: 1000,
-              yoyo: true,
-              repeat: 999,
-              ease: 'Sine.inOut',
-            });
-          }
-        },
-      });
-    } catch (e) {
-      console.error('[BaseEngine] _mascotCelebrate error:', e);
-    }
-  }
-
-  // ===========================================================================
-  // AAAA KIDS MODE — Persistent sticker book (localStorage)
-  // ===========================================================================
-  // Every correct answer awards a random sticker. The total count persists
-  // across ALL games + ALL sessions via localStorage. Shown as a small
-  // badge in the top-right corner (below the timer/level UI). Tappable →
-  // speaks the total count.
-  //
-  // Storage key: 'ministar-sticker-collection'
-  // Format: { count: number, stickers: string[] }
-  // ===========================================================================
-  private _createStickerBadge() {
-    try {
-      const sbX = this.scale.width - 55;
-      const sbY = 100;
-      const sbW = 80, sbH = 50;
-
-      const bookBg = this.add.rectangle(0, 0, sbW, sbH, 0x000000, 0.6)
-        .setStrokeStyle(2, this.theme.warning, 0.8);
-      const bookIcon = this.add.text(-15, 0, '📔', {
-        fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, Inter, sans-serif',
-        fontSize: '22px',
-      }).setOrigin(0.5);
-
-      const collection = this._loadStickerCollection();
-      this._stickerBadgeText = this.add.text(15, 0, String(collection.count), {
-        fontFamily: 'Inter, sans-serif',
-        fontSize: '18px',
-        color: this.hex(this.theme.warning),
-        fontStyle: 'bold',
-      }).setOrigin(0.5);
-
-      this._stickerBadge = this.add.container(sbX, sbY, [bookBg, bookIcon, this._stickerBadgeText])
-        .setDepth(340);
-
-      // Gentle bob — makes the badge feel alive.
-      this.tweens.add({
-        targets: this._stickerBadge,
-        y: sbY - 3,
-        duration: 1200, yoyo: true, repeat: 999, ease: 'Sine.inOut',
-      });
-
-      // Tappable → speaks total count.
-      this._stickerBadge.setSize(sbW, sbH).setInteractive({ useHandCursor: true });
-      this._stickerBadge.on('pointerdown', () => {
-        try {
-          const c = this._loadStickerCollection();
-          if (c.count === 0) {
-            audioBus.speak('No stickers yet — answer a question to earn one!');
-          } else {
-            audioBus.speak(`You have ${c.count} stickers! Great work!`);
-          }
-          // Quick pulse on tap.
-          this.tweens.add({
-            targets: this._stickerBadge,
-            scale: { from: 1, to: 1.15 },
-            duration: 150, yoyo: true, ease: 'Quad.out',
-          });
-        } catch {}
-      });
-    } catch (e) {
-      console.error('[BaseEngine] _createStickerBadge error:', e);
-    }
-  }
-
-  // Award a random sticker on correct answer — persists to localStorage.
-  private _awardSticker() {
-    try {
-      const collection = this._loadStickerCollection();
-      const sticker = BaseEngine.STICKER_EMOJIS[Math.floor(Math.random() * BaseEngine.STICKER_EMOJIS.length)];
-      collection.count++;
-      collection.stickers.push(sticker);
-      // Cap stored stickers array at 500 to prevent unbounded growth.
-      if (collection.stickers.length > 500) {
-        collection.stickers = collection.stickers.slice(-500);
-      }
-      this._saveStickerCollection(collection);
-
-      // Update badge text.
-      if (this._stickerBadgeText) {
-        this._stickerBadgeText.setText(String(collection.count));
-      }
-
-      // Badge pulse + pop sound on award.
-      if (this._stickerBadge) {
-        this.tweens.add({
-          targets: this._stickerBadge,
-          scale: { from: 1, to: 1.25 },
-          duration: 200, yoyo: true, ease: 'Back.out',
-        });
-      }
-      audioBus.play('pop');
-    } catch (e) {
-      console.error('[BaseEngine] _awardSticker error:', e);
-    }
-  }
-
-  private _loadStickerCollection(): { count: number; stickers: string[] } {
-    try {
-      if (typeof window === 'undefined' || !window.localStorage) {
-        return { count: 0, stickers: [] };
-      }
-      const raw = window.localStorage.getItem(BaseEngine.STICKER_STORAGE_KEY);
-      if (!raw) return { count: 0, stickers: [] };
-      const parsed = JSON.parse(raw);
-      return {
-        count: typeof parsed.count === 'number' ? parsed.count : 0,
-        stickers: Array.isArray(parsed.stickers) ? parsed.stickers : [],
-      };
-    } catch {
-      return { count: 0, stickers: [] };
-    }
-  }
-
-  private _saveStickerCollection(collection: { count: number; stickers: string[] }) {
-    try {
-      if (typeof window === 'undefined' || !window.localStorage) return;
-      window.localStorage.setItem(BaseEngine.STICKER_STORAGE_KEY, JSON.stringify(collection));
-    } catch (e) {
-      console.error('[BaseEngine] _saveStickerCollection error:', e);
-    }
-  }
-
-  // Public API — get total sticker count (for external UI / dashboards).
-  static getStickerCount(): number {
-    try {
-      if (typeof window === 'undefined' || !window.localStorage) return 0;
-      const raw = window.localStorage.getItem(BaseEngine.STICKER_STORAGE_KEY);
-      if (!raw) return 0;
-      return JSON.parse(raw).count ?? 0;
-    } catch {
-      return 0;
-    }
   }
 
   // ===========================================================================
@@ -746,19 +295,6 @@ export abstract class BaseEngine extends Phaser.Scene {
       const streakFreq = 660 * Math.pow(2, semitones);
       const now = Date.now();
       if (now - this._lastSfxTime > 300) { audioBus.play('correct', { freq: streakFreq }); this._lastSfxTime = now; }
-
-      // AAAA KIDS MODE — Automatic celebration fanfare for ALL games.
-      // Fires the 7-layer C-E-G-C cascade + confetti rain + "You got it!" text
-      // + random celebratory phrase. Scenes with custom _celebrateCorrect
-      // (Quiz, SpinWheel) set _skipAutoCelebrate = true to avoid double-fire.
-      if (!this._skipAutoCelebrate) {
-        try {
-          KidsJuice.celebrateCorrect(this as any, { x: burstX, y: burstY } as any);
-        } catch (e) {
-          console.error('[BaseEngine] KidsJuice.celebrateCorrect error:', e);
-        }
-      }
-
       this.checkLevelUp();
     } else {
       this.streak = 0;

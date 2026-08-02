@@ -36,7 +36,7 @@ export default class GroupSortScene extends BaseEngine {
   private promptText!: Phaser.GameObjects.Text;
   private unsortedY = 180;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 16); }
+  protected maxQuestions() { return Math.min(this.terms.length, 12); }
 
   protected buildWorld() {
     // ---- Title ----
@@ -50,10 +50,6 @@ export default class GroupSortScene extends BaseEngine {
         fontStyle: 'bold',
       }
     ).setOrigin(0.5).setDepth(50);
-    // AAAA KIDS MODE — speak the prompt with karaoke highlight on entry.
-    this.time.delayedCall(800, () => {
-      if (!this.isFinished) this.speakPromptWithHighlight(this.promptText, 'Sort terms into categories!', { isQuestion: true });
-    });
 
     // ---- Build categories (2-3 buckets based on term count) ----
     const terms = this.pickTerms(this.maxScore);

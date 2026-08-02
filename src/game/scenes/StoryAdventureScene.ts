@@ -217,7 +217,7 @@ export default class StoryAdventureScene extends BaseEngine {
 
     this.makeSpeakable(this.narrativeText, chapter.narrative);
     this.time.delayedCall(Math.min(2500, chapter.narrative.length * 25 + 500), () => {
-      if (!this.isFinished) this.speakPromptWithHighlight(this.narrativeText, chapter.narrative);
+      if (!this.isFinished) audioBus.speak(chapter.narrative);
     });
 
     // Clear old buttons

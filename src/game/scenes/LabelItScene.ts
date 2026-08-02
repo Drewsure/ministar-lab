@@ -9,7 +9,7 @@ export default class LabelItScene extends BaseEngine {
   private promptBg!: Phaser.GameObjects.Rectangle;
   private canAnswer = true;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 12); }
+  protected maxQuestions() { return Math.min(this.terms.length, 8); }
 
   protected buildWorld() {
     this.add.text(this.scale.width / 2, 100, 'LabelIt', {
@@ -47,8 +47,6 @@ export default class LabelItScene extends BaseEngine {
     });
 
     this.promptText.setText('Tap the correct answer!');
-    // AAAA KIDS MODE — speak the prompt with karaoke highlight.
-    this.speakPromptWithHighlight(this.promptText, 'Tap the correct answer!', { isQuestion: true });
     this.setupGlobalPointer((x, y) => {
       if (!this.canAnswer) return;
       for (let i = 0; i < roundTerms.length; i++) {

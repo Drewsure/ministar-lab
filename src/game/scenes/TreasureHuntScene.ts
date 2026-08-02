@@ -41,7 +41,7 @@ export default class TreasureHuntScene extends BaseEngine {
   private currentDigPlot: Plot | null = null;
   private canAct = true;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 12); }
+  protected maxQuestions() { return Math.min(this.terms.length, 8); }
 
   protected buildWorld() {
     this.add.text(this.scale.width / 2, 30, '🗺️ Treasure Hunt', {
@@ -223,8 +223,6 @@ export default class TreasureHuntScene extends BaseEngine {
     Phaser.Utils.Array.Shuffle(options);
 
     this.promptText.setText(`💎 Which word matches: "${targetTerm.definition ?? targetTerm.term}"?`);
-    // AAAA KIDS MODE — speak the prompt with karaoke highlight.
-    this.speakPromptWithHighlight(this.promptText, `Which word matches: ${targetTerm.definition ?? targetTerm.term}?`, { isQuestion: true });
 
     const startY = 440;
     options.forEach((t, i) => {
