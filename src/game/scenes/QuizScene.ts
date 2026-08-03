@@ -88,14 +88,14 @@ export default class QuizScene extends BaseEngine {
       });
     }
 
-    // ---- Title ----
+    // ---- Title (AAAA: storybook title — serif font, warm gold) ----
     this.add.text(
       this.scale.width / 2, 105,
-      'Quiz Time',
+      '📖 Quiz Storybook',
       {
-        fontFamily: 'Inter, sans-serif',
-        fontSize: '30px',
-        color: this.hex(this.theme.accent),
+        fontFamily: 'Georgia, "Times New Roman", serif',
+        fontSize: '28px',
+        color: '#d4a574',  // warm gold-brown
         fontStyle: 'bold',
       }
     ).setOrigin(0.5).setDepth(50);
@@ -141,17 +141,27 @@ export default class QuizScene extends BaseEngine {
       }
     ).setOrigin(0.5).setDepth(45);
 
-    // ---- Prompt banner ----
+    // ---- Prompt banner (AAAA: rounded "storybook card" with warm pastel tint) ----
+    // Quiz uses a soft, rounded card — feels like a page in a picture book.
     this.promptBg = this.add.rectangle(
-      this.scale.width / 2, 215, 640, 70, this.theme.card, 0.85
-    ).setStrokeStyle(2, this.theme.accent, 0.6).setDepth(48);
+      this.scale.width / 2, 215, 660, 80, 0xfdf6e3, 0.92  // warm cream paper
+    ).setStrokeStyle(4, 0xd4a574, 0.8).setDepth(48);  // warm brown border
+    // Decorative "page corner" emojis (storybook feel).
+    this.add.text(this.scale.width / 2 - 320, 215, '📖', {
+      fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, Inter, sans-serif',
+      fontSize: '24px',
+    }).setOrigin(0.5).setDepth(49);
+    this.add.text(this.scale.width / 2 + 320, 215, '✨', {
+      fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, Inter, sans-serif',
+      fontSize: '20px',
+    }).setOrigin(0.5).setDepth(49);
 
     this.promptText = this.add.text(
       this.scale.width / 2, 215, '',
       {
-        fontFamily: 'Inter, sans-serif',
+        fontFamily: 'Georgia, "Times New Roman", serif',  // AAAA: serif font = storybook
         fontSize: '20px',
-        color: this.hex(this.theme.text),
+        color: '#3d2914',  // warm dark brown ink
         fontStyle: 'bold',
         align: 'center',
         wordWrap: { width: 580 },

@@ -95,10 +95,12 @@ export default class GameshowScene extends BaseEngine {
       this.scale.width / 2, 70,
       '🎯 GAMESHOW',
       {
-        fontFamily: 'Inter, sans-serif',
-        fontSize: '28px',
-        color: this.hex(this.theme.warning),
+        fontFamily: '"Arial Black", "Inter", sans-serif',  // AAAA: bold stadium
+        fontSize: '32px',
+        color: '#ffeb3b',  // bright neon yellow
         fontStyle: 'bold',
+        stroke: '#ff00ff',  // magenta neon glow
+        strokeThickness: 3,
       }
     ).setOrigin(0.5).setDepth(51);
     void titleBg;
@@ -122,24 +124,26 @@ export default class GameshowScene extends BaseEngine {
       }
     ).setDepth(50);
 
-    // ---- Prompt banner ----
+    // ---- Prompt banner (AAAA: neon stadium display — dark bg, glowing border) ----
+    // Gameshow uses a dark, sharp display with neon glow — feels like a TV screen.
     this.promptBg = this.add.rectangle(
-      this.scale.width / 2, 200, 660, 80, this.theme.card, 0.9
-    ).setStrokeStyle(3, this.theme.accent2, 0.7).setDepth(48);
-    // Decorative top stripe
-    this.add.rectangle(
-      this.scale.width / 2, 200 - 38, 660, 4, this.theme.warning, 0.8
-    ).setDepth(49);
+      this.scale.width / 2, 200, 680, 90, 0x0a0a1a, 0.92  // very dark navy
+    ).setStrokeStyle(5, 0x00ffff, 0.9).setDepth(48);  // cyan neon border
+    // Neon top + bottom stripes (double-line "TV screen" effect).
+    this.add.rectangle(this.scale.width / 2, 200 - 42, 680, 3, 0xff00ff, 0.8).setDepth(49);  // magenta
+    this.add.rectangle(this.scale.width / 2, 200 + 42, 680, 3, 0x00ffff, 0.8).setDepth(49);  // cyan
 
     this.promptText = this.add.text(
       this.scale.width / 2, 200, '',
       {
-        fontFamily: 'Inter, sans-serif',
+        fontFamily: '"Arial Black", "Inter", sans-serif',  // AAAA: bold sans = stadium
         fontSize: '22px',
-        color: this.hex(this.theme.text),
+        color: '#ffffff',  // pure white on dark = high contrast neon
         fontStyle: 'bold',
         align: 'center',
-        wordWrap: { width: 600 },
+        wordWrap: { width: 620 },
+        stroke: '#00ffff',  // cyan glow stroke
+        strokeThickness: 2,
       }
     ).setOrigin(0.5).setDepth(49);
 
@@ -531,18 +535,18 @@ export default class GameshowScene extends BaseEngine {
   }
 
   // ===========================================================================
-  // AAAA — Cinematic Camera (zoom on answer lock, reset after reveal)
+  // AAAA — Cinematic Camera (subtle zoom pulse on answer, NO pan — pan moves
+  // content off-frame which is disorienting for kids)
   // ===========================================================================
-  private _cameraZoom(x: number, y: number) {
+  private _cameraZoom(_x: number, _y: number) {
     try {
-      this.cameras.main.pan(x, y, 400, 'Sine.easeInOut');
-      this.cameras.main.zoomTo(1.08, 400, 'Sine.easeInOut');
+      // Zoom only (no pan) — keeps content centered, just a subtle "punch in."
+      this.cameras.main.zoomTo(1.06, 200, 'Sine.easeInOut');
     } catch {}
   }
 
   private _cameraReset() {
     try {
-      this.cameras.main.pan(this.scale.width / 2, this.scale.height / 2, 300, 'Sine.easeInOut');
       this.cameras.main.zoomTo(1, 300, 'Sine.easeInOut');
     } catch {}
   }
