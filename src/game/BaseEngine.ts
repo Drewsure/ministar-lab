@@ -831,6 +831,56 @@ export abstract class BaseEngine extends Phaser.Scene {
     });
   }
 
+  // ===========================================================================
+  // AAAA KIDS MODE — Hover-to-Speak with Karaoke Highlight
+  // ===========================================================================
+  // Wires BOTH pointerover (hover) AND pointerdown (tap) on a text object to
+  // speak the text with karaoke highlight. The text is read aloud every time
+  // the mouse hovers over it OR when tapped on mobile.
+  //
+  // The speech text is read from getData('speakText') at event time (not
+  // capture time) so it stays current when the text content changes per round.
+  //
+  // Usage: this.makeHoverSpeakable(this.promptText);
+  //        this.makeHoverSpeakable(optionText, optionTerm);
+  // ===========================================================================
+  protected makeHoverSpeakable(text: Phaser.GameObjects.Text, speechText?: string) {
+    if (speechText) text.setData('speakText', speechText);
+    text.setInteractive({ useHandCursor: true });
+
+    // Hover (desktop) → speak with karaoke highlight.
+    text.on('pointerover', () => {
+      const current = (text.getData('speakText') as string) ?? speechText ?? text.text;
+      if (current) this.speakPromptWithHighlight(text, current);
+    });
+
+    // Tap (mobile — no hover) → speak with karaoke highlight.
+    text.on('pointerdown', (_p: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
+      if (event) event.stopPropagation();
+      const current = (text.getData('speakText') as string) ?? speechText ?? text.text;
+      if (current) this.speakPromptWithHighlight(text, current);
+    });
+  }
+
+  // ===========================================================================
+  // AAAA KIDS MODE — Auto-speak first question on game entry
+  // ===========================================================================
+  // Called 800ms after create() to ensure the first prompt is read aloud.
+  // Games can override _getFirstPromptSpeech() to return the text to speak.
+  // Default: speaks the game instructions (already handled by speakGameInstructions).
+  // Games that have a prompt text should call this.makeHoverSpeakable on their
+  // prompt in buildWorld(), AND ensure renderRound()/spawnNext() speaks the
+  // first prompt with a delayed call.
+  // ===========================================================================
+  protected _autoSpeakFirstPrompt() {
+    // This is a hook — games override _getFirstPromptSpeech() or call
+    // speakPromptWithHighlight directly in their first renderRound.
+    // Base implementation just ensures instructions are spoken.
+    this.time.delayedCall(800, () => {
+      if (!this.isFinished) this.speakGameInstructions();
+    });
+  }
+
   // AAA ENTRANCE: Title card with game name, fades in from black,
   // holds for 1.2s, then fades out. Does NOT block input (no setInteractive).
   private _showEntranceCard() {

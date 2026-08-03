@@ -35,7 +35,8 @@ export default class SnakingScene extends BaseEngine {
       fontFamily: 'Inter, sans-serif', fontSize: '18px', color: this.hex(this.theme.text), fontStyle: 'bold',
       align: 'center', wordWrap: { width: 600 },
     }).setOrigin(0.5).setDepth(49);
-    this.makeSpeakable(this.promptText);
+    // AAAA KIDS MODE — Hover-to-speak on prompt text (reads CURRENT prompt via speakText data).
+    this.makeHoverSpeakable(this.promptText);
     this.lengthText = this.add.text(20, 190, 'Length: 3', {
       fontFamily: 'Inter, sans-serif', fontSize: '16px', color: this.hex(this.theme.warning), fontStyle: 'bold',
     }).setDepth(50);
@@ -120,14 +121,11 @@ export default class SnakingScene extends BaseEngine {
         fontFamily: 'Inter, sans-serif', fontSize: '16px', color: this.hex(this.theme.text), fontStyle: 'bold',
         backgroundColor: '#' + this.theme.card.toString(16).padStart(6, '0'), padding: { x: 10, y: 6 },
       }).setOrigin(0.5).setDepth(50);
-      // ESL FIX: Make food text tappable to hear the word spoken.
-      // Use a LOCAL handler (NOT makeSpeakable) so we DON'T stopPropagation —
-      // the global pointer handler still changes snake direction.
-      txt.setData('speakText', term.term);
-      txt.setInteractive({ useHandCursor: true });
-      txt.on('pointerdown', () => {
-        audioBus.speak(term.term);
-      });
+      // AAAA KIDS MODE — Hover-to-speak on food text (replaces prior local
+      // pointerdown handler; makeHoverSpeakable reads `speakText` data so the
+      // spoken word stays current per food. The scene-level global pointer
+      // handler in setupGlobalPointer still fires for snake direction change.)
+      this.makeHoverSpeakable(txt, term.term);
       this.foods.push({ term, isCorrect: term.id === this.currentPrompt!.id, text: txt, x: gx, y: gy });
     });
   }

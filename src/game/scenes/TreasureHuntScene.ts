@@ -71,7 +71,8 @@ export default class TreasureHuntScene extends BaseEngine {
       { fontFamily: 'Inter, sans-serif', fontSize: '13px',
         color: this.hex(this.theme.text), fontStyle: 'bold' }
     ).setOrigin(0.5).setDepth(49);
-    this.makeSpeakable(this.promptText);
+    // AAAA KIDS MODE — Make prompt hover-to-speakable with karaoke highlight.
+    this.makeHoverSpeakable(this.promptText);
 
     this._buildGrid();
     this._updateStats();
@@ -223,6 +224,8 @@ export default class TreasureHuntScene extends BaseEngine {
     Phaser.Utils.Array.Shuffle(options);
 
     this.promptText.setText(`💎 Which word matches: "${targetTerm.definition ?? targetTerm.term}"?`);
+    // AAAA KIDS MODE — Update speakText data so hover-to-speak reads the current prompt.
+    this.promptText.setData('speakText', `Which word matches: ${targetTerm.definition ?? targetTerm.term}?`);
     // AAAA KIDS MODE — Speak the prompt with karaoke highlight.
     this.speakPromptWithHighlight(this.promptText, `Which word matches: ${targetTerm.definition ?? targetTerm.term}?`, { isQuestion: true });
 
@@ -239,7 +242,8 @@ export default class TreasureHuntScene extends BaseEngine {
         color: '#ffffff', fontStyle: 'bold',
       }).setOrigin(0.5);
       const container = this.add.container(x, y, [bg, txt]).setSize(240, 40).setDepth(40);
-      this.makeSpeakable(txt, t.term);
+      // AAAA KIDS MODE — Make option text hover-to-speakable with karaoke highlight.
+      this.makeHoverSpeakable(txt, t.term);
       this.optionButtons.push(container);
     });
   }

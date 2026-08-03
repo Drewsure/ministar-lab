@@ -73,7 +73,7 @@ export default class TowerDefenseScene extends BaseEngine {
       fontFamily: 'Inter, sans-serif', fontSize: '12px',
       color: this.hex(this.theme.text), fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(49);
-    this.makeSpeakable(this.promptText);
+    this.makeHoverSpeakable(this.promptText, 'Build towers to defend the castle! Tap a slot to build.');
 
     // Stats row
     this.waveText = this.add.text(20, 85, 'Wave 1/3', {
@@ -180,6 +180,7 @@ export default class TowerDefenseScene extends BaseEngine {
         fontFamily: 'Inter, sans-serif', fontSize: '12px',
         color: '#ffffff', fontStyle: 'bold', align: 'center',
       }).setOrigin(0.5);
+      this.makeHoverSpeakable(txt, `${def.name} tower, costs ${def.cost} coins`);
       const container = this.add.container(x, 530, [bg, txt]).setSize(180, 50).setDepth(40);
       this.towerButtons.push({ type: t, container });
     });
@@ -189,9 +190,11 @@ export default class TowerDefenseScene extends BaseEngine {
     this.selectedTowerType = t;
     audioBus.play('tap');
     audioBus.speak(TOWER_DEFS[t].name);
+    const speechText = `Selected: ${TOWER_DEFS[t].name}. Tap a slot!`;
     this.promptText.setText(`Selected: ${TOWER_DEFS[t].emoji} ${TOWER_DEFS[t].name} (${TOWER_DEFS[t].cost}💰) — tap a slot!`);
+    this.promptText.setData('speakText', speechText);
     // AAAA KIDS MODE — Speak the prompt with karaoke highlight.
-    this.speakPromptWithHighlight(this.promptText, `Selected: ${TOWER_DEFS[t].name}. Tap a slot!`);
+    this.speakPromptWithHighlight(this.promptText, speechText);
     // Highlight selected button
     this.towerButtons.forEach(tb => {
       const bg = tb.container.getAt(0) as Phaser.GameObjects.Rectangle;
@@ -298,6 +301,7 @@ export default class TowerDefenseScene extends BaseEngine {
         backgroundColor: '#' + this.theme.danger.toString(16).padStart(6, '0'),
         padding: { x: 6, y: 3 },
       }).setOrigin(0.5, 0.5).setDepth(15);
+      this.makeHoverSpeakable(text, term.term);
       this.enemies.push({
         word: term.term, lane, progress: -i * 0.18, reached: false, defeated: false,
         text, hp: enemyHp, maxHp: enemyHp, speed: waveSpeed, slowed: 0,

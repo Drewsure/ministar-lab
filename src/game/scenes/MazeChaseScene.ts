@@ -101,7 +101,8 @@ export default class MazeChaseScene extends BaseEngine {
     ).setOrigin(0.5).setDepth(50);
     // The speakable text should be the ACTUAL target word's definition
     // It gets updated in spawnTargetsAndEnemies when the prompt changes
-    this.makeSpeakable(this.promptText, 'Tap to hear what to find');
+    // AAAA KIDS MODE — Hover-to-speak (reads CURRENT prompt via speakText data).
+    this.makeHoverSpeakable(this.promptText, 'Tap to hear what to find');
 
     this.compassArrow = this.add.text(
       this.scale.width / 2, 96,
@@ -447,8 +448,11 @@ export default class MazeChaseScene extends BaseEngine {
       align: 'center',
     }).setOrigin(0.5).setDepth(16);
 
-    // Make target speakable (tap to hear the word)
-    label.setData('speakText', term.term);
+    // AAAA KIDS MODE — Hover-to-speak on target label (reads term via
+    // speakText data). The txt's pointerdown calls stopPropagation, so taps
+    // on the label won't trigger the scene-level tap-to-move A* handler —
+    // but taps on the surrounding maze floor still pathfind normally.
+    this.makeHoverSpeakable(label, term.term);
 
     // Pulse — BIGGER pulse so the correct target is obvious
     this.tweens.add({

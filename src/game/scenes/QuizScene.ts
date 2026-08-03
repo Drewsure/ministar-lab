@@ -124,14 +124,9 @@ export default class QuizScene extends BaseEngine {
       }
     ).setOrigin(0.5).setDepth(49);
 
-    // AAAA KIDS MODE — Make prompt tappable to re-hear it with karaoke highlight.
-    this.promptText.setInteractive({ useHandCursor: true });
-    this.promptText.on('pointerdown', () => {
-      const r = this.rounds[this.round];
-      if (!r) return;
-      const speech = r.prompt.definition ?? r.prompt.term;
-      this.speakPromptWithHighlight(this.promptText, speech, { isQuestion: true });
-    });
+    // AAAA KIDS MODE — Make prompt hover-to-speakable with karaoke highlight.
+    // Reads current prompt's speech text from getData at event time.
+    this.makeHoverSpeakable(this.promptText);
 
     // ---- Lifeline buttons (bottom) ----
     this.createLifelineButtons();
@@ -214,9 +209,11 @@ export default class QuizScene extends BaseEngine {
     this.canAnswer = true;
     const r = this.rounds[this.round];
     this.promptText.setText(`Which word matches: "${r.prompt.definition ?? r.prompt.emoji ?? r.prompt.term}"?`);
+    // AAAA KIDS MODE — Update speakText data so hover-to-speak reads the current prompt.
+    const promptSpeech = r.prompt.definition ?? r.prompt.term;
+    this.promptText.setData('speakText', promptSpeech);
     // AAAA KIDS MODE — Speak the prompt aloud with karaoke highlight.
     // Delayed 500ms so the question card entrance animation settles first.
-    const promptSpeech = r.prompt.definition ?? r.prompt.term;
     this.time.delayedCall(500, () => {
       if (!this.isFinished && this.rounds[this.round] === r) {
         this.speakPromptWithHighlight(this.promptText, promptSpeech, { isQuestion: true });
@@ -274,6 +271,9 @@ export default class QuizScene extends BaseEngine {
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
       }).setOrigin(0.5);
+
+      // AAAA KIDS MODE — Make option text hover-to-speakable with karaoke highlight.
+      this.makeHoverSpeakable(txt, opt.term);
 
       const container = this.add.container(cx, cy, [bg, letterBg, letterTxt, txt])
         .setSize(btnW, btnH).setInteractive({ useHandCursor: true });

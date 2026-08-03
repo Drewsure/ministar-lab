@@ -115,6 +115,9 @@ export default class GameshowScene extends BaseEngine {
       }
     ).setOrigin(0.5).setDepth(49);
 
+    // AAAA KIDS MODE — Make prompt hover-to-speakable with karaoke highlight.
+    this.makeHoverSpeakable(this.promptText);
+
     this.renderRound();
 
     // Global pointer handler for reliable button clicks
@@ -225,6 +228,7 @@ export default class GameshowScene extends BaseEngine {
 
     // AAAA KIDS MODE — Speak the prompt with karaoke highlight.
     const promptSpeech = r.prompt.definition ?? r.prompt.term;
+    this.promptText.setData('speakText', promptSpeech);
     this.time.delayedCall(300, () => {
       if (!this.isFinished) this.speakPromptWithHighlight(this.promptText, promptSpeech, { isQuestion: true });
     });
@@ -274,6 +278,9 @@ export default class GameshowScene extends BaseEngine {
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
       }).setOrigin(0.5);
+
+      // AAAA KIDS MODE — Make option text hover-to-speakable with karaoke highlight.
+      this.makeHoverSpeakable(txt, opt.term);
 
       const container = this.add.container(cx, cy, [bg, stripe, letterBg, letterTxt, txt])
         .setSize(btnW, btnH).setInteractive({ useHandCursor: true });

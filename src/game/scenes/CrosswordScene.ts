@@ -80,6 +80,9 @@ export default class CrosswordScene extends BaseEngine {
       }
     ).setOrigin(0.5).setDepth(50);
 
+    // AAAA KIDS MODE — Make clue hover-to-speakable with karaoke highlight.
+    this.makeHoverSpeakable(this.clueText);
+
     // Build crossword
     this.generateLayout();
     this.renderGrid();
@@ -361,6 +364,8 @@ export default class CrosswordScene extends BaseEngine {
           color: this.hex(this.theme.text),
           fontStyle: 'bold',
         }).setOrigin(0.5);
+        // AAAA KIDS MODE — Make keyboard letter hover-to-speakable with karaoke highlight.
+        this.makeHoverSpeakable(txt, letter);
         const container = this.add.container(x, y, [bg, txt])
           .setSize(btnSize, btnSize)
           .setInteractive({ useHandCursor: true });
@@ -449,6 +454,8 @@ export default class CrosswordScene extends BaseEngine {
     }
     const dirLabel = this.activeEntry.dir === 'across' ? 'Across' : 'Down';
     this.clueText.setText(`${this.activeEntry.number} ${dirLabel}: ${this.activeEntry.clue}`);
+    // AAAA KIDS MODE — Update speakText data so hover-to-speak reads the current clue.
+    this.clueText.setData('speakText', `${dirLabel}. ${this.activeEntry.clue}`);
     // AAAA KIDS MODE — Speak the clue with karaoke highlight.
     this.speakPromptWithHighlight(this.clueText, `${dirLabel}. ${this.activeEntry.clue}`, { isQuestion: true });
   }

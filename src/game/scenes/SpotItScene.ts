@@ -92,6 +92,8 @@ export default class SpotItScene extends BaseEngine {
         wordWrap: { width: 560 },
       }
     ).setOrigin(0.5).setDepth(49);
+    // AAAA KIDS MODE — Hover-to-speak on prompt text (reads CURRENT prompt via speakText data).
+    this.makeHoverSpeakable(this.promptText, 'Find the matching symbol!');
 
     // ---- Round counter ----
     this.roundText = this.add.text(
@@ -226,6 +228,7 @@ export default class SpotItScene extends BaseEngine {
 
     // ESL: speak the prompt (synchronous with user gesture if this is round 1+
     // and they've already tapped to start. If pre-gesture, browser may block.)
+    this.promptText.setData('speakText', 'Find the matching symbol!');
     this.time.delayedCall(400, () => {
       if (!this.isFinished) {
         this.speakPromptWithHighlight(this.promptText, 'Find the matching symbol!', { isQuestion: true });
@@ -266,6 +269,12 @@ export default class SpotItScene extends BaseEngine {
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
       }).setOrigin(0.5).setDepth(31);
+      // AAAA KIDS MODE — Hover-to-speak on symbol text (both emoji and label
+      // are wired so hovering either speaks the term; they don't overlap so
+      // no double-speak on hover. The scene-level global pointer handler in
+      // setupGlobalPointer still fires for symbol tap handling.)
+      this.makeHoverSpeakable(emojiText, term.term);
+      this.makeHoverSpeakable(labelText, term.term);
 
       const container = this.add.container(x, y, [circle, emojiText, labelText])
         .setDepth(30);

@@ -83,7 +83,7 @@ export default class AirplaneScene extends BaseEngine {
         padding: { x: 16, y: 8 },
       }
     ).setOrigin(0.5).setDepth(49);
-    this.makeSpeakable(this.promptText);
+    this.makeHoverSpeakable(this.promptText);
 
     // ---- Clear instructions ----
     this.instructionsText = this.add.text(
@@ -359,12 +359,14 @@ export default class AirplaneScene extends BaseEngine {
       color: '#1e3a8a',
       fontStyle: 'bold',
     }).setOrigin(0.5);
+    this.makeHoverSpeakable(txt, entry.term.term);
     const label = this.add.text(0, -6, entry.term.term.slice(0, 10), {
       fontFamily: 'Inter, sans-serif',
       fontSize: '14px',
       color: '#1e3a8a',
       fontStyle: 'bold',
     }).setOrigin(0.5).setAlpha(0.9);
+    this.makeHoverSpeakable(label, entry.term.term);
 
     const container = this.add.container(x, y, [puff1, puff2, puff3, bg, txt, label]).setSize(bannerW, bannerH);
     this.physics.add.existing(container);
@@ -429,6 +431,7 @@ export default class AirplaneScene extends BaseEngine {
     }
     const comboTxt = this.catches >= 3 ? `  (x${this.speedMultiplier.toFixed(1)} speed!)` : '';
     this.promptText.setText(`Catch: ${this.activePrompt.emoji ?? ''} ${this.activePrompt.term}${comboTxt}`);
+    this.promptText.setData('speakText', `Catch: ${this.activePrompt.term}`);
     // AAAA KIDS MODE — Speak the prompt with karaoke highlight.
     this.speakPromptWithHighlight(this.promptText, `Catch: ${this.activePrompt.term}`, { isQuestion: true });
   }

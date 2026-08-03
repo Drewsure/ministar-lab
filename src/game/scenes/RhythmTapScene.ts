@@ -76,7 +76,9 @@ export default class RhythmTapScene extends BaseEngine {
       { fontFamily: 'Inter, sans-serif', fontSize: '12px',
         color: this.hex(this.theme.text), fontStyle: 'bold' }
     ).setOrigin(0.5).setDepth(49);
-    this.makeSpeakable(prompt, 'Tap the lane when the word crosses the line!');
+    // AAAA KIDS MODE — Hover-to-speak on prompt (replaces makeSpeakable:
+    // superset — adds hover + karaoke highlight on top of existing tap).
+    this.makeHoverSpeakable(prompt, 'Tap the lane when the word crosses the line!');
 
     // Score + combo
     this.scoreText = this.add.text(20, 90, 'Score: 0', {
@@ -215,6 +217,10 @@ export default class RhythmTapScene extends BaseEngine {
       fontFamily: 'Inter, sans-serif', fontSize: '18px',
       color: '#ffffff', fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(16);
+    // AAAA KIDS MODE — Hover-to-speak on falling note text. The note falls
+    // (y updated per tick); Phaser's input hit area moves with the text, so
+    // hover-speak tracks the falling note. The existing auto-speak in
+    // _handleLaneTap (on correct tap) is preserved.
 
     const note: FallingNote = {
       // AAAA KIDS MODE — Gentler speed ramp + slow mode. Was 1.2 + notesIdx*0.05 cap +2.0.
@@ -222,6 +228,9 @@ export default class RhythmTapScene extends BaseEngine {
       lane, word, y: this.SPAWN_Y, speed: (1.0 + Math.min(1.2, this.notesIdx * 0.03)) * this.timeMultiplier(),
       hit: false, missed: false, text, bg,
     };
+    // Wire hover-to-speak now that the note object exists (uses note.word
+    // as the speakText — same word the user must tap).
+    this.makeHoverSpeakable(note.text, note.word);
     this.notes.push(note);
     // Pulse the lane slightly to telegraph the incoming note
     this._flashLane(lane, 0.3);

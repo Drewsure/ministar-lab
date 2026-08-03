@@ -25,7 +25,8 @@ export default class SpeakItScene extends BaseEngine {
     this.promptText = this.add.text(this.scale.width / 2, 160, 'Listen, then tap the word!', {
       fontFamily: 'Inter, sans-serif', fontSize: '18px', color: this.hex(this.theme.text), fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(49);
-    this.makeSpeakable(this.promptText);
+    // AAAA KIDS MODE — Hover-to-speak on prompt text (reads CURRENT term-to-find via speakText data).
+    this.makeHoverSpeakable(this.promptText, 'Listen, then tap the word!');
 
     // Replay button — tap to hear the word again
     const replayBtn = this.add.text(this.scale.width / 2, 220, '🔊 Tap to hear the word', {
@@ -88,6 +89,8 @@ export default class SpeakItScene extends BaseEngine {
       const txt = this.add.text(0, 0, `${term.emoji ?? ''} ${term.term}`.trim(), {
         fontFamily: 'Inter, sans-serif', fontSize: '20px', color: this.hex(this.theme.text), fontStyle: 'bold',
       }).setOrigin(0.5);
+      // AAAA KIDS MODE — Hover-to-speak on option text.
+      this.makeHoverSpeakable(txt, term.term);
       const container = this.add.container(cx, cy, [bg, txt]).setSize(btnW, btnH).setDepth(40);
       container.setData('term', term);
       container.setData('isCorrect', term.id === this.currentTerm.id);
@@ -100,6 +103,8 @@ export default class SpeakItScene extends BaseEngine {
 
     // Speak the word after buttons appear
     this.promptText.setText(`Listen... then tap "${this.currentTerm.term}"`);
+    // AAAA KIDS MODE — Update speakText so hover reads the CURRENT term to find.
+    this.promptText.setData('speakText', this.currentTerm.term);
     this.time.delayedCall(600, () => {
       if (!this.isFinished) this.speakPromptWithHighlight(this.promptText, this.currentTerm.term);
     });
