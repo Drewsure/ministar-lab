@@ -86,7 +86,7 @@ export default class EndlessRunnerScene extends BaseEngine {
     // Player glow (finite tween, not infinite)
     const glow = this.add.circle(this.laneX[this.playerLane], this.scale.height - 40, 30, this.theme.accent, 0.3)
       .setStrokeStyle(2, this.theme.accent, 0.6).setDepth(99);
-    this.events.on('update', () => { if (glow && glow.active) glow.x = this.laneX[this.playerLane]; });
+    this.events.on('update', () => { if (glow && glow.active && !this._isPaused) glow.x = this.laneX[this.playerLane]; });
 
     // Input
     this.input.keyboard?.on('keydown-LEFT', () => this.switchLane(-1));

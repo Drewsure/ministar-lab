@@ -996,29 +996,32 @@ export abstract class BaseEngine extends Phaser.Scene {
   }
 
   // Centralized pause toggle — ensures ALL game input is blocked while paused.
+  // Centralized pause toggle — freezes ALL game activity (tweens, timers, physics).
   private _togglePause() {
     if (this.isFinished) return;
     if (this._isPaused) {
-      // Resume.
+      // ---- RESUME ----
       this._isPaused = false;
       if (this.pauseOverlay) this.pauseOverlay.setVisible(false);
-      // Re-enable game input (was disabled to block hover/click during pause).
-      try { this.input.enabled = true; } catch {}
-      // Resume physics + tweens.
+      // Restore normal time scale (unfreezes all tweens + timer events).
+      try { this.time.timeScale = 1; } catch {}
+      // Resume physics.
       try { this.physics.world.resume(); } catch {}
     } else {
-      // Pause.
+      // ---- PAUSE ----
       this._isPaused = true;
       this._showPauseOverlay();
-      // Disable ALL game input — blocks hover-to-speak, container clicks, drag,
-      // global pointer handlers, etc. The pause overlay's buttons are re-enabled
-      // individually after this call (they're created with setInteractive in
-      // _showPauseOverlay, and Phaser allows input on objects even when
-      // scene.input is disabled IF they're added after the disable... actually
-      // no — scene.input.enabled=false blocks ALL input. So instead of disabling
-      // input entirely, we use a full-screen input blocker zone in the overlay.
-      // (See _showPauseOverlay — overlay rectangle has setInteractive + highest
-      // depth, so it intercepts all pointer events before they reach game objects.)
+      // Freeze ALL time-based activity:
+      //   • timeScale = 0 → stops all tweens (falling banners, rising balloons,
+      //     popping moles, note falling, card flips, etc.)
+      //   • timeScale = 0 → stops all timer events (spawn timers, mole retreat
+      //     timers, delayed calls, etc.) — no new objects spawn, no auto-retracts
+      //   • physics.world.pause() → stops arcade physics bodies (ghosts, plane,
+      //     snake, projectiles, etc.)
+      // Input system (pointerdown/pointerover) is NOT affected by timeScale —
+      // it uses real time, so the Resume/Quit buttons still work.
+      try { this.time.timeScale = 0; } catch {}
+      try { this.physics.world.pause(); } catch {}
     }
   }
 
@@ -1073,11 +1076,6 @@ export abstract class BaseEngine extends Phaser.Scene {
     this.pauseOverlay = this.add.container(0, 0, [overlay, title, resumeBg, resumeBtn, quitBg, quitBtn])
       .setDepth(950);
 
-    // CRITICAL: Pause physics + tweens so the game truly stops.
-    try { this.physics.world.pause(); } catch {}
-    // NOTE: We do NOT pause this.time (scene timer) because the pause overlay
-    // buttons need timed events for hover animations. Tweens are not paused
-    // globally because the overlay button hover tweens need to work. Individual
-    // game tweens will continue but since input is blocked, they're cosmetic.
+    // Physics + timeScale freeze is handled by _togglePause() (caller).
   }
 }

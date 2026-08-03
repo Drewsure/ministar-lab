@@ -106,6 +106,8 @@ export default class PhysicsPuzzlerScene extends BaseEngine {
     const updateProj = () => {
       if (!proj.active || this.isFinished) return;
       if (!this.sys.isActive()) return;
+      // AAAA: Freeze projectile during pause.
+      if (this._isPaused) { requestAnimationFrame(updateProj); return; }
       if (this.time.now - startTime > 3000) { proj.destroy(); return; }
       proj.x += proj.getData('vx') * 0.016; proj.y += proj.getData('vy') * 0.016;
       proj.setData('vy', proj.getData('vy') + 200 * 0.016);
