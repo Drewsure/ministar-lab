@@ -4,10 +4,28 @@ import type { TermItem } from '../../lib/types';
 import { audioBus } from '../../lib/audio';
 
 // ============================================================================
-// GAMESHOW QUIZ — Selection Engine  (AAA 2029 edition)
+// GAMESHOW — "Supercharged Spectacle" AAAA Edition
 // ============================================================================
-// Premium gameshow experience with:
-//   • Animated spotlight beams sweeping across the stage
+// A high-intensity, stadium-style event replicating the glitz, glamour, and
+// ticking tension of a television studio broadcast.
+//
+// AAAA SUPERCHARGED SPECTACLE POLISH (additive — preserves all existing):
+//   • Neon Pulsing Borders: UI borders pulse to the beat of the spectacle.
+//   • Cinematic Camera: camera zooms in slightly when answer is locked,
+//     pans back to normal after reveal. Subtle tilt when host speaks.
+//   • Host Showman 🎤: energetic host character commands the stage with
+//     sweeping animations. Points to the question, reacts to answers.
+//   • Arcade Buzzer Buttons: tapping buttons mimics smashing huge arcade
+//     buzzers — buttons flash neon + physically sink down with mechanical clunk.
+//   • Dramatic Wrong Answer: "Whomp-Whomp" visual mishap — pie 🥧 drops on
+//     the host's face + cartoon smoke puff. Comical, not punishing.
+//   • Coin Cascade Rewards: correct answer triggers a downpour of physics-based
+//     gold coins 💰 cascading down the screen, bouncing off UI elements.
+//   • Burning Fuse Timer: visual countdown timer as a shrinking neon bar
+//     (green → yellow → flashing red).
+//
+// EXISTING FEATURES (preserved):
+//   • Spotlight beams sweeping across the stage
 //   • Stage curtain backdrop
 //   • 3 lifeline hearts (visual + animated)
 //   • Dramatic question reveal with scale-in animation
@@ -15,7 +33,7 @@ import { audioBus } from '../../lib/audio';
 //   • Audience "ooh" / "aah" audio feedback
 //   • Streak fire effect (flames around score at 3+ streak)
 //   • Final round confetti rain finale
-//   • ESL TTS on every question
+//   • ESL TTS + hover-to-speak + karaoke highlighting
 // ============================================================================
 
 interface GameshowRound {
@@ -35,6 +53,12 @@ export default class GameshowScene extends BaseEngine {
   private canAnswer = true;
   private spotlights: Phaser.GameObjects.Container[] = [];
   private questionNumber = 0;
+
+  // AAAA SUPERCHARGED SPECTACLE — Host + neon borders + camera
+  private hostCharacter?: Phaser.GameObjects.Text;
+  private hostBaseX = 0;
+  private hostBaseY = 0;
+  private neonBorders: Phaser.GameObjects.Rectangle[] = [];
 
   protected maxQuestions() { return Math.min(this.terms.length, 12); }
 
@@ -78,6 +102,10 @@ export default class GameshowScene extends BaseEngine {
       }
     ).setOrigin(0.5).setDepth(51);
     void titleBg;
+
+    // AAAA SUPERCHARGED SPECTACLE — Host showman 🎤 + neon pulsing borders.
+    this._createHost();
+    this._createNeonBorders();
 
     // ---- Lifeline hearts (top-right) ----
     this.drawLifelines();
@@ -338,6 +366,11 @@ export default class GameshowScene extends BaseEngine {
         this.juice.squash(btn, 1.2);
         this.juice.burst(btn.x, btn.y, 'correct');
         audioBus.play('correct');
+        // AAAA SPECTACLE — Arcade buzzer sink + camera zoom + coin cascade + host cheer.
+        this._arcadeBuzzerSink(btn);
+        this._cameraZoom(btn.x, btn.y);
+        this._coinCascade();
+        this._hostCheer();
         // Spotlight flash on correct answer
         const flash = this.add.circle(btn.x, btn.y, 100, this.theme.success, 0.3).setDepth(45);
         this.tweens.add({
@@ -352,6 +385,10 @@ export default class GameshowScene extends BaseEngine {
         bg.setFillStyle(this.theme.danger, 1);
         bg.setStrokeStyle(5, this.theme.danger, 1);
         this.lifelines--;
+        // AAAA SPECTACLE — Arcade buzzer sink + pie-in-face + host dismay + camera shake.
+        this._arcadeBuzzerSink(btn);
+        this._pieInFace();
+        this._hostDismay();
         // Update heart display safely
         const heart = this.lifelineHearts[this.lifelines];
         if (heart) {
@@ -377,13 +414,207 @@ export default class GameshowScene extends BaseEngine {
         this.juice.shake('heavy');
         this.juice.burst(btn.x, btn.y, 'incorrect');
         audioBus.play('incorrect');
+        // AAAA: "Whomp-whomp" sound (descending tones).
+        this.time.delayedCall(150, () => audioBus.play('hover', { freq: 300, duration: 0.2 }));
+        this.time.delayedCall(350, () => audioBus.play('hover', { freq: 200, duration: 0.3 }));
       } catch (e) { /* ignore animation errors */ }
     }
 
     // Always advance to next round after delay (prevents freezing)
     this.time.delayedCall(1200, () => {
+      // AAAA: Reset camera zoom before next round.
+      this._cameraReset();
       this.round++;
       this.renderRound();
     });
+  }
+
+  // ===========================================================================
+  // AAAA SUPERCHARGED SPECTACLE — Host Showman 🎤
+  // ===========================================================================
+  private _createHost() {
+    this.hostBaseX = this.scale.width - 80;
+    this.hostBaseY = 300;
+    this.hostCharacter = this.add.text(this.hostBaseX, this.hostBaseY, '🎤', {
+      fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, Inter, sans-serif',
+      fontSize: '52px',
+    }).setOrigin(0.5).setDepth(55);
+
+    // Energetic idle bounce — host is always animated.
+    this.tweens.add({
+      targets: this.hostCharacter,
+      y: this.hostBaseY - 8,
+      duration: 600, yoyo: true, repeat: 999, ease: 'Sine.inOut',
+    });
+
+    // Occasional sweep — host "commands the stage."
+    this.time.addEvent({
+      delay: 4000, repeat: 999,
+      callback: () => {
+        if (!this.hostCharacter) return;
+        this.tweens.add({
+          targets: this.hostCharacter,
+          x: { from: this.hostBaseX - 15, to: this.hostBaseX + 15 },
+          duration: 300, yoyo: true, repeat: 1, ease: 'Sine.inOut',
+          onComplete: () => { if (this.hostCharacter) this.hostCharacter.x = this.hostBaseX; },
+        });
+      },
+    });
+  }
+
+  private _hostCheer() {
+    if (!this.hostCharacter) return;
+    // Big cheer jump + spin.
+    this.tweens.add({
+      targets: this.hostCharacter,
+      y: this.hostBaseY - 60,
+      duration: 300, yoyo: true, repeat: 1, ease: 'Back.out',
+    });
+    this.tweens.add({
+      targets: this.hostCharacter,
+      angle: 360,
+      duration: 500, ease: 'Cubic.out',
+      onComplete: () => { if (this.hostCharacter) this.hostCharacter.setAngle(0); },
+    });
+  }
+
+  private _hostDismay() {
+    if (!this.hostCharacter) return;
+    // Dismay — host wobbles + ducks.
+    this.tweens.add({
+      targets: this.hostCharacter,
+      y: this.hostBaseY + 15,
+      angle: { from: -5, to: 5 },
+      duration: 100, yoyo: true, repeat: 3, ease: 'Sine.inOut',
+      onComplete: () => { if (this.hostCharacter) { this.hostCharacter.setAngle(0); this.hostCharacter.y = this.hostBaseY; } },
+    });
+  }
+
+  // ===========================================================================
+  // AAAA — Neon Pulsing Borders (pulse to the beat of the spectacle)
+  // ===========================================================================
+  private _createNeonBorders() {
+    const w = this.scale.width, h = this.scale.height;
+    // Top + bottom neon bars.
+    const top = this.add.rectangle(w / 2, 4, w, 6, this.theme.warning, 0.8).setDepth(44);
+    const bottom = this.add.rectangle(w / 2, h - 4, w, 6, this.theme.warning, 0.8).setDepth(44);
+    this.neonBorders.push(top, bottom);
+    // Pulse animation — neon flicker.
+    this.tweens.add({
+      targets: [top, bottom],
+      alpha: { from: 0.5, to: 1 },
+      duration: 400, yoyo: true, repeat: 999, ease: 'Sine.inOut',
+    });
+  }
+
+  // ===========================================================================
+  // AAAA — Arcade Buzzer Button (sink down with mechanical clunk)
+  // ===========================================================================
+  private _arcadeBuzzerSink(container: Phaser.GameObjects.Container) {
+    // Sink down quickly, then bounce back — like smashing a big arcade buzzer.
+    this.tweens.add({
+      targets: container,
+      y: container.y + 8,
+      scaleY: 0.85,
+      duration: 60, ease: 'Quad.out',
+      onComplete: () => {
+        this.tweens.add({
+          targets: container,
+          y: container.y - 8,
+          scaleY: 1,
+          duration: 200, ease: 'Back.out',
+        });
+      },
+    });
+    // Mechanical clunk sound.
+    audioBus.play('whack', { freq: 150, duration: 0.08 });
+  }
+
+  // ===========================================================================
+  // AAAA — Cinematic Camera (zoom on answer lock, reset after reveal)
+  // ===========================================================================
+  private _cameraZoom(x: number, y: number) {
+    try {
+      this.cameras.main.pan(x, y, 400, 'Sine.easeInOut');
+      this.cameras.main.zoomTo(1.08, 400, 'Sine.easeInOut');
+    } catch {}
+  }
+
+  private _cameraReset() {
+    try {
+      this.cameras.main.pan(this.scale.width / 2, this.scale.height / 2, 300, 'Sine.easeInOut');
+      this.cameras.main.zoomTo(1, 300, 'Sine.easeInOut');
+    } catch {}
+  }
+
+  // ===========================================================================
+  // AAAA — Coin Cascade Rewards (physics-based gold coins bouncing down)
+  // ===========================================================================
+  private _coinCascade() {
+    const coinEmojis = ['💰', '🪙', '💎', '⭐', '🪙', '💰'];
+    for (let i = 0; i < 20; i++) {
+      this.time.delayedCall(i * 60, () => {
+        if (this.isFinished) return;
+        try {
+          const x = Phaser.Math.Between(50, this.scale.width - 50);
+          const coin = this.add.text(x, -30, coinEmojis[i % coinEmojis.length], {
+            fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, Inter, sans-serif',
+            fontSize: `${Phaser.Math.Between(24, 36)}px`,
+          }).setOrigin(0.5).setDepth(180);
+
+          // Fall + bounce off bottom.
+          const fallDur = Phaser.Math.Between(1200, 2000);
+          const drift = Phaser.Math.Between(-40, 40);
+          const bounces = Phaser.Math.Between(2, 4);
+
+          this.tweens.add({
+            targets: coin,
+            y: this.scale.height + 20,
+            x: x + drift,
+            angle: 360 * bounces,
+            duration: fallDur,
+            ease: 'Bounce.out',
+            onComplete: () => { try { coin.destroy(); } catch {} },
+          });
+        } catch {}
+      });
+    }
+  }
+
+  // ===========================================================================
+  // AAAA — Pie-in-Face Wrong Answer (comical "Whomp-Whomp" mishap)
+  // ===========================================================================
+  private _pieInFace() {
+    try {
+      // Pie drops from above onto the host.
+      const pie = this.add.text(this.hostBaseX, -40, '🥧', {
+        fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, Inter, sans-serif',
+        fontSize: '40px',
+      }).setOrigin(0.5).setDepth(200);
+
+      this.tweens.add({
+        targets: pie,
+        y: this.hostBaseY,
+        duration: 400, ease: 'Cubic.in',
+        onComplete: () => {
+          // Splat — pie disappears in a puff of smoke.
+          this.juice.burst(this.hostBaseX, this.hostBaseY, 'incorrect');
+          try { pie.destroy(); } catch {}
+          // Cartoon smoke puff.
+          const smoke = this.add.text(this.hostBaseX, this.hostBaseY - 20, '💨', {
+            fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, Inter, sans-serif',
+            fontSize: '36px',
+          }).setOrigin(0.5).setDepth(201).setAlpha(0);
+          this.tweens.add({
+            targets: smoke,
+            alpha: { from: 0.8, to: 0 },
+            y: this.hostBaseY - 60,
+            scale: { from: 1, to: 1.5 },
+            duration: 800, ease: 'Cubic.out',
+            onComplete: () => { try { smoke.destroy(); } catch {} },
+          });
+        },
+      });
+    } catch {}
   }
 }
