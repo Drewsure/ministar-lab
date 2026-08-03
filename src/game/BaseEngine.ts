@@ -383,23 +383,12 @@ export abstract class BaseEngine extends Phaser.Scene {
         },
       });
 
-      // Tappable → speaks random encouragement.
-      this._mascot.setInteractive({ useHandCursor: true });
-      this._mascot.on('pointerdown', () => {
-        try {
-          const phrases = ['You can do it!', 'Keep going!', 'I believe in you!', 'You got this!'];
-          audioBus.speak(phrases[Math.floor(Math.random() * phrases.length)]);
-          if (this._mascot) {
-            const startX = this._mascot.x;
-            this.tweens.add({
-              targets: this._mascot,
-              x: { from: startX - 6, to: startX + 6 },
-              duration: 80, yoyo: true, repeat: 3, ease: 'Sine.inOut',
-              onComplete: () => { if (this._mascot) this._mascot.x = this._mascotBaseX; },
-            });
-          }
-        } catch {}
-      });
+      // AAAA: Mascot is NOT tappable — removed the "keep playing" encouragement
+      // speech per user feedback. The mascot still provides visual presence
+      // (bob + chin-tap) + celebrates on correct answers (jump + spin), but
+      // no longer speaks generic phrases when tapped. This reduces audio clutter
+      // and avoids the mascot competing with the game's actual speech (prompts,
+      // options, praise). The mascot is a silent visual companion now.
     } catch (e) {
       console.error('[BaseEngine] _createAutoMascot error:', e);
     }

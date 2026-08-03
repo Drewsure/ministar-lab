@@ -575,23 +575,10 @@ export default class QuizScene extends BaseEngine {
       },
     });
 
-    // Tappable for encouragement.
-    this.storyMascot.setInteractive({ useHandCursor: true });
-    this.storyMascot.on('pointerdown', () => {
-      if (this._isPaused || this.isFinished) return;
-      const phrases = ['You can do it!', 'I believe in you!', 'Take your time!', 'You got this!'];
-      audioBus.speak(phrases[Math.floor(Math.random() * phrases.length)]);
-      // Happy wiggle.
-      if (this.storyMascot) {
-        const startX = this.storyMascot.x;
-        this.tweens.add({
-          targets: this.storyMascot,
-          x: { from: startX - 6, to: startX + 6 },
-          duration: 80, yoyo: true, repeat: 3, ease: 'Sine.inOut',
-          onComplete: () => { if (this.storyMascot) this.storyMascot.x = this.storyMascotBaseX; },
-        });
-      }
-    });
+    // AAAA: Storybook mascot is NOT tappable — removed "keep playing" encouragement
+    // speech per user feedback. Mascot still provides visual presence (bob +
+    // chin-tap) + celebrates on correct (bounce + spin) + gentle nod on wrong.
+    // It's a silent visual companion now — doesn't compete with game speech.
   }
 
   // Storybook mascot reactions.
