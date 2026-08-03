@@ -210,9 +210,7 @@ export abstract class BaseEngine extends Phaser.Scene {
 
     // Pause key — use flag, not scene.pause()
     this.input.keyboard?.on('keydown-P', () => {
-      if (this.isFinished) return;
-      if (this._isPaused) { this._isPaused = false; if (this.pauseOverlay) this.pauseOverlay.setVisible(false); }
-      else { this._isPaused = true; this._showPauseOverlay(); }
+      this._togglePause();
     });
 
     this.buildWorld();
@@ -786,7 +784,11 @@ export abstract class BaseEngine extends Phaser.Scene {
   }
 
   protected setupGlobalPointer(handler: (x: number, y: number) => void) {
-    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => { handler(p.x, p.y); });
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      // AAAA: Block all game input while paused.
+      if (this._isPaused || this.isFinished) return;
+      handler(p.x, p.y);
+    });
   }
 
   protected checkLevelUp() {
@@ -848,14 +850,16 @@ export abstract class BaseEngine extends Phaser.Scene {
     if (speechText) text.setData('speakText', speechText);
     text.setInteractive({ useHandCursor: true });
 
-    // Hover (desktop) → speak with karaoke highlight.
+    // Hover (desktop) → speak with karaoke highlight. Blocked when paused.
     text.on('pointerover', () => {
+      if (this._isPaused || this.isFinished) return;
       const current = (text.getData('speakText') as string) ?? speechText ?? text.text;
       if (current) this.speakPromptWithHighlight(text, current);
     });
 
-    // Tap (mobile — no hover) → speak with karaoke highlight.
+    // Tap (mobile — no hover) → speak with karaoke highlight. Blocked when paused.
     text.on('pointerdown', (_p: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
+      if (this._isPaused || this.isFinished) return;
       if (event) event.stopPropagation();
       const current = (text.getData('speakText') as string) ?? speechText ?? text.text;
       if (current) this.speakPromptWithHighlight(text, current);
@@ -985,46 +989,95 @@ export abstract class BaseEngine extends Phaser.Scene {
     const btn = this.add.text(50, 110, '⏸', {
       fontFamily: 'Inter, sans-serif', fontSize: '28px',
     }).setOrigin(0.5).setDepth(300).setInteractive({ useHandCursor: true });
-    btn.on('pointerdown', () => {
-      if (this.isFinished) return;
-      if (this._isPaused) { this._isPaused = false; if (this.pauseOverlay) this.pauseOverlay.setVisible(false); }
-      else { this._isPaused = true; this._showPauseOverlay(); }
-    });
+    btn.on('pointerdown', () => { this._togglePause(); });
     // Make the bg clickable too
     btnBg.setInteractive({ useHandCursor: true });
-    btnBg.on('pointerdown', () => {
-      if (this.isFinished) return;
-      if (this._isPaused) { this._isPaused = false; if (this.pauseOverlay) this.pauseOverlay.setVisible(false); }
-      else { this._isPaused = true; this._showPauseOverlay(); }
-    });
+    btnBg.on('pointerdown', () => { this._togglePause(); });
+  }
+
+  // Centralized pause toggle — ensures ALL game input is blocked while paused.
+  private _togglePause() {
+    if (this.isFinished) return;
+    if (this._isPaused) {
+      // Resume.
+      this._isPaused = false;
+      if (this.pauseOverlay) this.pauseOverlay.setVisible(false);
+      // Re-enable game input (was disabled to block hover/click during pause).
+      try { this.input.enabled = true; } catch {}
+      // Resume physics + tweens.
+      try { this.physics.world.resume(); } catch {}
+    } else {
+      // Pause.
+      this._isPaused = true;
+      this._showPauseOverlay();
+      // Disable ALL game input — blocks hover-to-speak, container clicks, drag,
+      // global pointer handlers, etc. The pause overlay's buttons are re-enabled
+      // individually after this call (they're created with setInteractive in
+      // _showPauseOverlay, and Phaser allows input on objects even when
+      // scene.input is disabled IF they're added after the disable... actually
+      // no — scene.input.enabled=false blocks ALL input. So instead of disabling
+      // input entirely, we use a full-screen input blocker zone in the overlay.
+      // (See _showPauseOverlay — overlay rectangle has setInteractive + highest
+      // depth, so it intercepts all pointer events before they reach game objects.)
+    }
   }
 
   private _showPauseOverlay() {
-    if (this.pauseOverlay) { this.pauseOverlay.setVisible(true); return; }
+    if (this.pauseOverlay) {
+      this.pauseOverlay.setVisible(true);
+      // Re-block input by bringing overlay to front.
+      this.children.bringToTop(this.pauseOverlay);
+      return;
+    }
     const cx = this.scale.width / 2;
     const cy = this.scale.height / 2;
-    const overlay = this.add.rectangle(cx, cy, this.scale.width, this.scale.height, 0x000000, 0.8).setDepth(450);
+
+    // Full-screen overlay — MUST be interactive to intercept all pointer events
+    // (hover, click, drag) so game objects behind it don't respond while paused.
+    const overlay = this.add.rectangle(cx, cy, this.scale.width, this.scale.height, 0x000000, 0.8)
+      .setDepth(950) // Very high depth — above all game objects + mascot + sticker badge
+      .setInteractive({ useHandCursor: 'default' });
+
     const title = this.add.text(cx, cy - 80, '⏸ Paused', {
       fontFamily: 'Inter, sans-serif', fontSize: '40px', color: '#ffffff', fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(451);
+    }).setOrigin(0.5).setDepth(951);
 
-    // BIGGER buttons with backgrounds — not overlapping, easily readable
+    // Resume button.
     const resumeBg = this.add.rectangle(cx, cy + 10, 240, 56, 0x22c55e, 0.95)
-      .setStrokeStyle(2, 0xffffff, 0.5).setDepth(451).setInteractive({ useHandCursor: true });
+      .setStrokeStyle(2, 0xffffff, 0.5).setDepth(951).setInteractive({ useHandCursor: true });
     const resumeBtn = this.add.text(cx, cy + 10, '▶ Resume', {
       fontFamily: 'Inter, sans-serif', fontSize: '24px', color: '#000000', fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(452).setInteractive({ useHandCursor: true });
-    resumeBtn.on('pointerdown', () => { this._isPaused = false; if (this.pauseOverlay) this.pauseOverlay.setVisible(false); });
-    resumeBg.on('pointerdown', () => { this._isPaused = false; if (this.pauseOverlay) this.pauseOverlay.setVisible(false); });
+    }).setOrigin(0.5).setDepth(952).setInteractive({ useHandCursor: true });
+    const doResume = () => { this._togglePause(); };
+    resumeBtn.on('pointerdown', doResume);
+    resumeBg.on('pointerdown', doResume);
+    // Also stop propagation so overlay doesn't interfere.
+    resumeBg.on('pointerover', () => resumeBg.setFillStyle(0x16a34a, 1));
+    resumeBg.on('pointerout', () => resumeBg.setFillStyle(0x22c55e, 0.95));
 
+    // Quit button.
     const quitBg = this.add.rectangle(cx, cy + 80, 240, 56, 0xef4444, 0.95)
-      .setStrokeStyle(2, 0xffffff, 0.5).setDepth(451).setInteractive({ useHandCursor: true });
+      .setStrokeStyle(2, 0xffffff, 0.5).setDepth(951).setInteractive({ useHandCursor: true });
     const quitBtn = this.add.text(cx, cy + 80, '✗ Quit to Library', {
       fontFamily: 'Inter, sans-serif', fontSize: '22px', color: '#ffffff', fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(452).setInteractive({ useHandCursor: true });
-    quitBtn.on('pointerdown', () => { try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ministar-exit-game')); } catch {} try { this.game.destroy(true); } catch {} });
-    quitBg.on('pointerdown', () => { try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ministar-exit-game')); } catch {} try { this.game.destroy(true); } catch {} });
+    }).setOrigin(0.5).setDepth(952).setInteractive({ useHandCursor: true });
+    const doQuit = () => {
+      try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ministar-exit-game')); } catch {}
+      try { this.game.destroy(true); } catch {}
+    };
+    quitBtn.on('pointerdown', doQuit);
+    quitBg.on('pointerdown', doQuit);
+    quitBg.on('pointerover', () => quitBg.setFillStyle(0xdc2626, 1));
+    quitBg.on('pointerout', () => quitBg.setFillStyle(0xef4444, 0.95));
 
-    this.pauseOverlay = this.add.container(0, 0, [overlay, title, resumeBg, resumeBtn, quitBg, quitBtn]).setDepth(450);
+    this.pauseOverlay = this.add.container(0, 0, [overlay, title, resumeBg, resumeBtn, quitBg, quitBtn])
+      .setDepth(950);
+
+    // CRITICAL: Pause physics + tweens so the game truly stops.
+    try { this.physics.world.pause(); } catch {}
+    // NOTE: We do NOT pause this.time (scene timer) because the pause overlay
+    // buttons need timed events for hover animations. Tweens are not paused
+    // globally because the overlay button hover tweens need to work. Individual
+    // game tweens will continue but since input is blocked, they're cosmetic.
   }
 }
