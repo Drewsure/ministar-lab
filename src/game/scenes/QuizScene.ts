@@ -4,35 +4,17 @@ import type { TermItem } from '../../lib/types';
 import { audioBus } from '../../lib/audio';
 
 // ============================================================================
-// QUIZ — "Living Storybook" AAAA Edition
+// QUIZ — Selection Engine  (AAA 2029 edition)
 // ============================================================================
-// An intimate, self-paced learning environment where the UI behaves like a
-// reactive toy. Designed for calm, safe exploration:
-//
-// AAAA LIVING STORYBOOK POLISH (additive — preserves all existing mechanics):
-//   • Squishy Jelly Buttons: strict Squash-and-Stretch on hover/tap
-//     (scaleX 1.2, scaleY 0.8 → lerp back via Back.Out over 300ms). Buttons
-//     feel like clay, bubbles, or plush toys.
-//   • Concentric Ripple Ring: on correct answer, colorful ripples emanate
-//     outward from the button center.
-//   • Gentle Background Bounce: background elements bounce subtly when tapped.
-//   • Page-Turn Transition: old question card slides out left like a book page,
-//     new card slides in from right with a slight rotation.
-//   • Companion Mascot: cute 🦊 sits NEXT TO the question space, providing
-//     comforting visual cues (curious tilt, happy bounce on correct, gentle
-//     nod on wrong). Tappable for encouragement.
-//   • Self-Paced: no timer pressure (timer exists but is gentle, never red).
-//   • Gentle Wrong-Answer: wrong choices giggle, turn semi-transparent, fade
-//     away gracefully. Child keeps trying until they win.
-//
-// EXISTING FEATURES (preserved):
+// Premium multiple-choice quiz with:
 //   • Per-question timer (10s) with visual countdown ring
-//   • 50/50 lifeline + Skip lifeline
+//   • 50/50 lifeline (removes 2 wrong answers, 1 use per game)
+//   • Skip lifeline (1 use per game)
 //   • Letter-labeled buttons (A, B, C, D) with hover glow
 //   • Streak multiplier (x2 at 3 streak, x3 at 5)
+//   • Smooth question transitions (slide out + slide in)
 //   • Correct/wrong reveal with particle bursts
-//   • ESL TTS on every prompt + hover-to-speak on all text
-//   • Karaoke audio-text sync highlighting
+//   • ESL TTS on every prompt + tap-to-hear on options
 // ============================================================================
 
 interface QuizRound {
@@ -60,17 +42,9 @@ export default class QuizScene extends BaseEngine {
   private fiftyFiftyBtn!: Phaser.GameObjects.Container;
   private skipBtn!: Phaser.GameObjects.Container;
 
-  // AAAA LIVING STORYBOOK — Companion mascot + page-turn state
-  private storyMascot?: Phaser.GameObjects.Text;
-  private storyMascotBaseX = 0;
-  private storyMascotBaseY = 0;
-
   protected maxQuestions() { return Math.min(this.terms.length, 10); }
 
   protected buildWorld() {
-    // AAAA LIVING STORYBOOK — Opt out of auto-mascot (Quiz has its own 🦊 storybook companion).
-    this._skipAutoMascot = true;
-
     // Build rounds
     const pool = [...this.terms];
     Phaser.Utils.Array.Shuffle(pool);
@@ -88,25 +62,17 @@ export default class QuizScene extends BaseEngine {
       });
     }
 
-    // ---- Title (AAAA: storybook title — serif font, warm gold) ----
+    // ---- Title ----
     this.add.text(
       this.scale.width / 2, 105,
-      '📖 Quiz Storybook',
+      'Quiz Time',
       {
-        fontFamily: 'Georgia, "Times New Roman", serif',
-        fontSize: '28px',
-        color: '#d4a574',  // warm gold-brown
+        fontFamily: 'Inter, sans-serif',
+        fontSize: '30px',
+        color: this.hex(this.theme.accent),
         fontStyle: 'bold',
       }
     ).setOrigin(0.5).setDepth(50);
-
-    // AAAA LIVING STORYBOOK — Companion mascot 🦊 sits NEXT TO the question
-    // space, providing comforting visual cues. Tappable for encouragement.
-    this._createStoryMascot();
-
-    // AAAA LIVING STORYBOOK — Gentle background bounce: decorative emoji
-    // scattered in corners that bounce subtly when the screen is tapped.
-    this._createBouncyBackground();
 
     // ---- Progress bar ----
     const barY = 140;
@@ -141,36 +107,31 @@ export default class QuizScene extends BaseEngine {
       }
     ).setOrigin(0.5).setDepth(45);
 
-    // ---- Prompt banner (AAAA: rounded "storybook card" with warm pastel tint) ----
-    // Quiz uses a soft, rounded card — feels like a page in a picture book.
+    // ---- Prompt banner ----
     this.promptBg = this.add.rectangle(
-      this.scale.width / 2, 215, 660, 80, 0xfdf6e3, 0.92  // warm cream paper
-    ).setStrokeStyle(4, 0xd4a574, 0.8).setDepth(48);  // warm brown border
-    // Decorative "page corner" emojis (storybook feel).
-    this.add.text(this.scale.width / 2 - 320, 215, '📖', {
-      fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, Inter, sans-serif',
-      fontSize: '24px',
-    }).setOrigin(0.5).setDepth(49);
-    this.add.text(this.scale.width / 2 + 320, 215, '✨', {
-      fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, Inter, sans-serif',
-      fontSize: '20px',
-    }).setOrigin(0.5).setDepth(49);
+      this.scale.width / 2, 215, 640, 70, this.theme.card, 0.85
+    ).setStrokeStyle(2, this.theme.accent, 0.6).setDepth(48);
 
     this.promptText = this.add.text(
       this.scale.width / 2, 215, '',
       {
-        fontFamily: 'Georgia, "Times New Roman", serif',  // AAAA: serif font = storybook
+        fontFamily: 'Inter, sans-serif',
         fontSize: '20px',
-        color: '#3d2914',  // warm dark brown ink
+        color: this.hex(this.theme.text),
         fontStyle: 'bold',
         align: 'center',
         wordWrap: { width: 580 },
       }
     ).setOrigin(0.5).setDepth(49);
 
-    // AAAA KIDS MODE — Make prompt hover-to-speakable with karaoke highlight.
-    // Reads current prompt's speech text from getData at event time.
-    this.makeHoverSpeakable(this.promptText);
+    // AAAA KIDS MODE — Make prompt tappable to re-hear it with karaoke highlight.
+    this.promptText.setInteractive({ useHandCursor: true });
+    this.promptText.on('pointerdown', () => {
+      const r = this.rounds[this.round];
+      if (!r) return;
+      const speech = r.prompt.definition ?? r.prompt.term;
+      this.speakPromptWithHighlight(this.promptText, speech, { isQuestion: true });
+    });
 
     // ---- Lifeline buttons (bottom) ----
     this.createLifelineButtons();
@@ -253,11 +214,9 @@ export default class QuizScene extends BaseEngine {
     this.canAnswer = true;
     const r = this.rounds[this.round];
     this.promptText.setText(`Which word matches: "${r.prompt.definition ?? r.prompt.emoji ?? r.prompt.term}"?`);
-    // AAAA KIDS MODE — Update speakText data so hover-to-speak reads the current prompt.
-    const promptSpeech = r.prompt.definition ?? r.prompt.term;
-    this.promptText.setData('speakText', promptSpeech);
     // AAAA KIDS MODE — Speak the prompt aloud with karaoke highlight.
     // Delayed 500ms so the question card entrance animation settles first.
+    const promptSpeech = r.prompt.definition ?? r.prompt.term;
     this.time.delayedCall(500, () => {
       if (!this.isFinished && this.rounds[this.round] === r) {
         this.speakPromptWithHighlight(this.promptText, promptSpeech, { isQuestion: true });
@@ -316,9 +275,6 @@ export default class QuizScene extends BaseEngine {
         fontStyle: 'bold',
       }).setOrigin(0.5);
 
-      // AAAA KIDS MODE — Make option text hover-to-speakable with karaoke highlight.
-      this.makeHoverSpeakable(txt, opt.term);
-
       const container = this.add.container(cx, cy, [bg, letterBg, letterTxt, txt])
         .setSize(btnW, btnH).setInteractive({ useHandCursor: true });
       container.setData('option', opt);
@@ -337,11 +293,9 @@ export default class QuizScene extends BaseEngine {
         bg.setFillStyle(this.theme.card, 0.92);
         bg.setStrokeStyle(2, this.theme.accent, 0.5);
       });
+      // NOTE: per-container pointerdown removed — global handler handles answer taps.
 
-      // AAAA LIVING STORYBOOK — Squishy jelly button hover (squash + stretch).
-      this._squishyHover(container, bg);
-
-      // Entrance animation: slide in from below (AAAA: with slight rotation = page-turn feel)
+      // Entrance animation: slide in from below
       container.setAlpha(0).setY(cy + 30);
       this.tweens.add({
         targets: container,
@@ -477,10 +431,6 @@ export default class QuizScene extends BaseEngine {
       bg.setStrokeStyle(4, this.theme.success, 1);
       this.juice.squash(btn, 1.15);
       this.juice.burst(btn.x, btn.y, 'correct');
-      // AAAA LIVING STORYBOOK — Squishy jelly tap + concentric ripple ring + mascot bounce.
-      this._squishyTap(btn);
-      this._rippleRing(btn.x, btn.y);
-      this._mascotHappyBounce();
       // Streak bonus particles
       if (this.streak >= 3) {
         this.juice.glowRing(btn.x, btn.y, this.theme.warning, 60);
@@ -488,9 +438,6 @@ export default class QuizScene extends BaseEngine {
     } else {
       bg.setFillStyle(this.theme.danger, 1);
       bg.setStrokeStyle(4, this.theme.danger, 1);
-      // AAAA LIVING STORYBOOK — Squishy tap + mascot gentle nod (not punishing).
-      this._squishyTap(btn);
-      this._mascotGentleNod();
       // Highlight the correct answer with pulsing green flash
       const correctBtn = this.optionButtons[correctIndex];
       const cBg = correctBtn.getData('bg') as Phaser.GameObjects.Rectangle;
@@ -512,224 +459,19 @@ export default class QuizScene extends BaseEngine {
       this.juice.burst(btn.x, btn.y, 'incorrect');
     }
 
-    // Slide out transition — AAAA: page-turn (slide left + slight rotation)
+    // Slide out transition
     this.time.delayedCall(900, () => {
       this.optionButtons.forEach((b, i) => {
         this.tweens.add({
           targets: b,
-          alpha: 0, x: b.x - 60, angle: -8,
-          duration: 300, delay: i * 40, ease: 'Cubic.in',
+          alpha: 0, y: b.y - 30,
+          duration: 200, delay: i * 30, ease: 'Cubic.in',
         });
       });
-      // AAAA: page-turn the prompt card too.
-      this.tweens.add({
-        targets: [this.promptBg, this.promptText],
-        alpha: 0, x: this.scale.width / 2 - 60, angle: -5,
-        duration: 300, ease: 'Cubic.in',
-        onComplete: () => {
-          // Reset position + angle for next round.
-          this.promptBg.setPosition(this.scale.width / 2, 215).setAngle(0).setAlpha(1);
-          this.promptText.setPosition(this.scale.width / 2, 215).setAngle(0).setAlpha(1);
-          this.round++;
-          this.renderRound();
-        },
+      this.time.delayedCall(300, () => {
+        this.round++;
+        this.renderRound();
       });
     });
-  }
-
-  // ===========================================================================
-  // AAAA LIVING STORYBOOK — Companion Mascot 🦊
-  // ===========================================================================
-  // Sits NEXT TO the question space (left side, near the prompt). Provides
-  // comforting visual cues:
-  //   • Idle: gentle bob + occasional curious head tilt
-  //   • Correct: happy bounce + 360° spin
-  //   • Wrong: gentle sympathetic nod (not punishing)
-  //   • Tappable: speaks random encouragement
-  // ===========================================================================
-  private _createStoryMascot() {
-    this.storyMascotBaseX = 80;
-    this.storyMascotBaseY = 250;
-    this.storyMascot = this.add.text(this.storyMascotBaseX, this.storyMascotBaseY, '🦊', {
-      fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, Inter, sans-serif',
-      fontSize: '48px',
-    }).setOrigin(0.5).setDepth(60);
-
-    // Gentle idle bob.
-    this.tweens.add({
-      targets: this.storyMascot,
-      y: this.storyMascotBaseY - 6,
-      duration: 1200, yoyo: true, repeat: 999, ease: 'Sine.inOut',
-    });
-
-    // Occasional curious head tilt.
-    this.time.addEvent({
-      delay: 3500, repeat: 999,
-      callback: () => {
-        if (!this.storyMascot) return;
-        this.tweens.add({
-          targets: this.storyMascot,
-          angle: { from: 0, to: -10 },
-          duration: 250, yoyo: true, repeat: 1, ease: 'Sine.inOut',
-        });
-      },
-    });
-
-    // AAAA: Storybook mascot is NOT tappable — removed "keep playing" encouragement
-    // speech per user feedback. Mascot still provides visual presence (bob +
-    // chin-tap) + celebrates on correct (bounce + spin) + gentle nod on wrong.
-    // It's a silent visual companion now — doesn't compete with game speech.
-  }
-
-  // Storybook mascot reactions.
-  private _mascotHappyBounce() {
-    if (!this.storyMascot) return;
-    try { this.tweens.killTweensOf(this.storyMascot); } catch {}
-    this.storyMascot.setAngle(0);
-    // Bounce up + 360° spin.
-    this.tweens.add({
-      targets: this.storyMascot,
-      y: this.storyMascotBaseY - 50,
-      duration: 250, yoyo: true, repeat: 1, ease: 'Quad.out',
-    });
-    this.tweens.add({
-      targets: this.storyMascot,
-      angle: 360,
-      duration: 600, ease: 'Cubic.out',
-      onComplete: () => {
-        if (this.storyMascot) this.storyMascot.setAngle(0);
-        // Resume idle bob.
-        if (this.storyMascot) {
-          this.tweens.add({
-            targets: this.storyMascot,
-            y: this.storyMascotBaseY - 6,
-            duration: 1200, yoyo: true, repeat: 999, ease: 'Sine.inOut',
-          });
-        }
-      },
-    });
-  }
-
-  private _mascotGentleNod() {
-    if (!this.storyMascot) return;
-    // Gentle sympathetic nod — not punishing, just "let's try again."
-    this.tweens.add({
-      targets: this.storyMascot,
-      angle: { from: 0, to: 8 },
-      duration: 200, yoyo: true, repeat: 1, ease: 'Sine.inOut',
-    });
-  }
-
-  // ===========================================================================
-  // AAAA LIVING STORYBOOK — Bouncy Background Decorations
-  // ===========================================================================
-  // Decorative emoji scattered in corners that bounce subtly when the screen
-  // is tapped. Makes the environment feel alive + reactive.
-  // ===========================================================================
-  private _bouncyDecos: Phaser.GameObjects.Text[] = [];
-  private _createBouncyBackground() {
-    const decoEmojis = ['🍃', '🌸', '⭐', '🦋', '🌈', '✨'];
-    const positions = [
-      { x: 30, y: 300 }, { x: 770, y: 300 },
-      { x: 30, y: 450 }, { x: 770, y: 450 },
-      { x: 30, y: 550 }, { x: 770, y: 550 },
-    ];
-    positions.forEach((pos, i) => {
-      const deco = this.add.text(pos.x, pos.y, decoEmojis[i % decoEmojis.length], {
-        fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, Inter, sans-serif',
-        fontSize: '24px',
-      }).setOrigin(0.5).setDepth(5).setAlpha(0.5);
-
-      // Gentle idle sway.
-      this.tweens.add({
-        targets: deco,
-        y: pos.y + Phaser.Math.Between(-4, 4),
-        scale: { from: 1, to: 1.05 },
-        duration: Phaser.Math.Between(2000, 3500),
-        yoyo: true, repeat: 999, ease: 'Sine.inOut',
-        delay: i * 300,
-      });
-      this._bouncyDecos.push(deco);
-    });
-
-    // Bounce all decorations when the screen is tapped (global pointer).
-    this.input.on('pointerdown', () => {
-      if (this._isPaused || this.isFinished) return;
-      this._bouncyDecos.forEach((deco, i) => {
-        if (!deco || !deco.active) return;
-        this.tweens.add({
-          targets: deco,
-          scale: { from: 1.1, to: 1 },
-          y: deco.y - 8,
-          duration: 200, yoyo: true,
-          delay: i * 40, ease: 'Back.out',
-        });
-      });
-    });
-  }
-
-  // ===========================================================================
-  // AAAA LIVING STORYBOOK — Squishy Jelly Button (Squash & Stretch)
-  // ===========================================================================
-  // On hover: scaleX → 1.1, scaleY → 0.9 (gentle squish anticipation).
-  // On tap: scaleX → 1.2, scaleY → 0.8 (strong squish), then lerp back to
-  // normal scale over 300ms using Back.Out easing. Feels like clay/plush.
-  // On correct: trigger concentric ripple ring from button center outward.
-  // ===========================================================================
-  private _squishyHover(container: Phaser.GameObjects.Container, bg: Phaser.GameObjects.Rectangle) {
-    container.on('pointerover', () => {
-      if (this._isPaused || this.isFinished || !this.canAnswer) return;
-      // Gentle squish anticipation.
-      this.tweens.add({
-        targets: container,
-        scaleX: 1.08, scaleY: 0.92,
-        duration: 150, ease: 'Quad.out',
-      });
-    });
-    container.on('pointerout', () => {
-      this.tweens.add({
-        targets: container,
-        scaleX: 1, scaleY: 1,
-        duration: 200, ease: 'Back.out',
-      });
-    });
-  }
-
-  private _squishyTap(container: Phaser.GameObjects.Container) {
-    // Strong squish on tap, then lerp back via Back.Out.
-    this.tweens.add({
-      targets: container,
-      scaleX: 1.2, scaleY: 0.8,
-      duration: 80, ease: 'Quad.out',
-      onComplete: () => {
-        this.tweens.add({
-          targets: container,
-          scaleX: 1, scaleY: 1,
-          duration: 300, ease: 'Back.out',
-        });
-      },
-    });
-  }
-
-  // Concentric ripple ring — colorful ripples from button center on correct.
-  private _rippleRing(x: number, y: number) {
-    const rippleColors = [0xff6b9d, 0x4ecdc4, 0xffe66d, 0xa8e6cf];
-    for (let i = 0; i < 4; i++) {
-      this.time.delayedCall(i * 100, () => {
-        if (this.isFinished) return;
-        try {
-          const ring = this.add.circle(x, y, 10, rippleColors[i], 0)
-            .setStrokeStyle(3, rippleColors[i], 0.8)
-            .setDepth(90);
-          this.tweens.add({
-            targets: ring,
-            scale: { from: 1, to: 8 },
-            alpha: { from: 0.8, to: 0 },
-            duration: 600, ease: 'Cubic.out',
-            onComplete: () => { try { ring.destroy(); } catch {} },
-          });
-        } catch {}
-      });
-    }
   }
 }

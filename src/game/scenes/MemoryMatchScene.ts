@@ -146,12 +146,6 @@ export default class MemoryMatchScene extends BaseEngine {
         align: 'center',
         wordWrap: { width: cardW - 10 },
       }).setOrigin(0.5).setVisible(false);
-      // AAAA KIDS MODE — Hover-to-speak on card label (only active when the
-      // card is flipped and the label is visible). The scene-level global
-      // pointer handler in setupGlobalPointer still handles card flips via
-      // hit-test on unflipped cards (label is invisible then, so hover-speak
-      // doesn't interfere).
-      this.makeHoverSpeakable(label, c.text);
 
       // AAAA — Number badge on each card for verbal identification in online classes
       const numBg = this.add.circle(-cardW / 2 + 14, -cardH / 2 + 14, 12, this.theme.accent, 0.9)

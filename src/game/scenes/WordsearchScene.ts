@@ -51,8 +51,6 @@ export default class WordsearchScene extends BaseEngine {
         fontStyle: 'bold',
       }
     ).setOrigin(0.5).setDepth(50);
-    // AAAA KIDS MODE — Hover-to-speak on title (speaks the title prompt).
-    this.makeHoverSpeakable(titleText, 'Find the hidden words!');
     // AAAA KIDS MODE — Speak the title with karaoke highlight on entry.
     this.time.delayedCall(800, () => {
       if (!this.isFinished) this.speakPromptWithHighlight(titleText, 'Find the hidden words!', { isQuestion: true });
@@ -169,11 +167,6 @@ export default class WordsearchScene extends BaseEngine {
         fontSize: '18px',
         color: this.hex(this.theme.text),
       }).setDepth(50);
-      // AAAA KIDS MODE — Hover-to-speak on word list entry (speaks the word
-      // itself, not the ☐ checkbox glyph). The scene-level pointerdown handler
-      // for grid selection is unaffected (stopPropagation only halts
-      // game-object-chain, not scene-level input.on events).
-      this.makeHoverSpeakable(t, w.word);
       this.wordsList.push({ term: w.term, word: w.word, text: t });
     });
   }

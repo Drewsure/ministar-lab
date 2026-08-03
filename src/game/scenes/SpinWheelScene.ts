@@ -47,9 +47,6 @@ export default class SpinWheelScene extends BaseEngine {
       }
     ).setOrigin(0.5).setDepth(50);
 
-    // AAAA KIDS MODE — Make prompt hover-to-speakable with karaoke highlight.
-    this.makeHoverSpeakable(this.promptText);
-
     // ---- Wheel (center-top) ----
     const wheelX = this.scale.width / 2;
     const wheelY = 240;
@@ -248,7 +245,6 @@ export default class SpinWheelScene extends BaseEngine {
 
     // AAAA KIDS MODE — Speak the landed term with karaoke highlight.
     if (this.landedTerm) {
-      this.promptText.setData('speakText', this.landedTerm.term);
       this.speakPromptWithHighlight(this.promptText, this.landedTerm.term, { pitch: 1.15 });
     }
 
@@ -259,8 +255,6 @@ export default class SpinWheelScene extends BaseEngine {
   private showDefinitionOptions() {
     if (!this.landedTerm) return;
     this.promptText.setText(`Match: ${this.landedTerm.emoji ?? ''} ${this.landedTerm.term}`);
-    // AAAA KIDS MODE — Update speakText data so hover-to-speak reads the current prompt.
-    this.promptText.setData('speakText', this.landedTerm.term);
 
     // 3 options: 1 correct (landed term's definition), 2 decoys
     const decoys = this.terms.filter(t => t.id !== this.landedTerm!.id && t.definition);
@@ -290,9 +284,6 @@ export default class SpinWheelScene extends BaseEngine {
         align: 'center',
         wordWrap: { width: btnW - 20 },
       }).setOrigin(0.5);
-
-      // AAAA KIDS MODE — Make option text hover-to-speakable with karaoke highlight.
-      this.makeHoverSpeakable(txt, opt.term.definition ?? opt.term.term);
 
       const container = this.add.container(0, y, [bg, txt])
         .setSize(btnW, btnH).setDepth(40);
@@ -334,8 +325,6 @@ export default class SpinWheelScene extends BaseEngine {
     setTimeout(() => {
       try {
         this.promptText.setText('🎡 Spin the Wheel!');
-        // AAAA KIDS MODE — Reset speakText so hover no longer reads the landed term.
-        this.promptText.setData('speakText', 'Spin the Wheel!');
         this.answerButtons.forEach(b => { try { b.destroy(); } catch {} });
         this.answerButtons = [];
         this.landedTerm = undefined;

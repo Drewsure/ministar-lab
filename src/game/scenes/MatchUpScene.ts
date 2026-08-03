@@ -63,8 +63,6 @@ export default class MatchUpScene extends BaseEngine {
         fontStyle: 'bold',
       }
     ).setOrigin(0.5).setDepth(50);
-    // AAAA KIDS MODE — Hover-to-speak on prompt text.
-    this.makeHoverSpeakable(this.promptText, 'Drag terms to definitions!');
     // AAAA KIDS MODE — Speak the prompt with karaoke highlight on entry.
     this.time.delayedCall(800, () => {
       if (!this.isFinished) this.speakPromptWithHighlight(this.promptText, 'Drag terms to definitions!', { isQuestion: true });
@@ -141,10 +139,6 @@ export default class MatchUpScene extends BaseEngine {
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
       }).setOrigin(0.5).setDepth(18);
-      // AAAA KIDS MODE — Hover-to-speak on card text (term). Drag is initiated
-      // from the card edges / non-text areas; the scene-level global pointer
-      // handler in setupGlobalPointer still fires for tap-to-speak fallback.
-      this.makeHoverSpeakable(txt, term.term);
 
       const container = this.add.container(x, y, [glow, shadow, bg, shine, txt])
         .setSize(cardW, cardH).setInteractive({ useHandCursor: true, draggable: true }).setDepth(20);
@@ -224,8 +218,6 @@ export default class MatchUpScene extends BaseEngine {
       const container = this.add.container(x, y, [bg, indicator]).setSize(cardW, cardH).setDepth(10);
       // Store speak text for the global pointer handler (Phaser 4 per-object input is unreliable)
       indicator.setData('speakText', def.term);
-      // AAAA KIDS MODE — Hover-to-speak on slot definition text.
-      this.makeHoverSpeakable(indicator, def.term);
       this.slots.push({
         definition: def, container, bg,
         occupied: false, x, y,

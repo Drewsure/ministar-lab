@@ -210,7 +210,9 @@ export abstract class BaseEngine extends Phaser.Scene {
 
     // Pause key — use flag, not scene.pause()
     this.input.keyboard?.on('keydown-P', () => {
-      this._togglePause();
+      if (this.isFinished) return;
+      if (this._isPaused) { this._isPaused = false; if (this.pauseOverlay) this.pauseOverlay.setVisible(false); }
+      else { this._isPaused = true; this._showPauseOverlay(); }
     });
 
     this.buildWorld();
@@ -383,12 +385,23 @@ export abstract class BaseEngine extends Phaser.Scene {
         },
       });
 
-      // AAAA: Mascot is NOT tappable — removed the "keep playing" encouragement
-      // speech per user feedback. The mascot still provides visual presence
-      // (bob + chin-tap) + celebrates on correct answers (jump + spin), but
-      // no longer speaks generic phrases when tapped. This reduces audio clutter
-      // and avoids the mascot competing with the game's actual speech (prompts,
-      // options, praise). The mascot is a silent visual companion now.
+      // Tappable → speaks random encouragement.
+      this._mascot.setInteractive({ useHandCursor: true });
+      this._mascot.on('pointerdown', () => {
+        try {
+          const phrases = ['You can do it!', 'Keep going!', 'I believe in you!', 'You got this!'];
+          audioBus.speak(phrases[Math.floor(Math.random() * phrases.length)]);
+          if (this._mascot) {
+            const startX = this._mascot.x;
+            this.tweens.add({
+              targets: this._mascot,
+              x: { from: startX - 6, to: startX + 6 },
+              duration: 80, yoyo: true, repeat: 3, ease: 'Sine.inOut',
+              onComplete: () => { if (this._mascot) this._mascot.x = this._mascotBaseX; },
+            });
+          }
+        } catch {}
+      });
     } catch (e) {
       console.error('[BaseEngine] _createAutoMascot error:', e);
     }
@@ -773,11 +786,7 @@ export abstract class BaseEngine extends Phaser.Scene {
   }
 
   protected setupGlobalPointer(handler: (x: number, y: number) => void) {
-    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
-      // AAAA: Block all game input while paused.
-      if (this._isPaused || this.isFinished) return;
-      handler(p.x, p.y);
-    });
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => { handler(p.x, p.y); });
   }
 
   protected checkLevelUp() {
@@ -822,55 +831,22 @@ export abstract class BaseEngine extends Phaser.Scene {
     });
   }
 
-  // ===========================================================================
-  // AAAA KIDS MODE — Hover-to-Speak with Karaoke Highlight
-  // ===========================================================================
-  // Wires BOTH pointerover (hover) AND pointerdown (tap) on a text object to
-  // speak the text with karaoke highlight. The text is read aloud every time
-  // the mouse hovers over it OR when tapped on mobile.
-  //
-  // The speech text is read from getData('speakText') at event time (not
-  // capture time) so it stays current when the text content changes per round.
-  //
-  // Usage: this.makeHoverSpeakable(this.promptText);
-  //        this.makeHoverSpeakable(optionText, optionTerm);
-  // ===========================================================================
+  // AAAA KIDS MODE — Hover-to-Speak with Karaoke Highlight.
+  // Wires BOTH pointerover (hover) AND pointerdown (tap) to speak text with
+  // karaoke highlight. Blocked when paused. Reads from getData('speakText').
   protected makeHoverSpeakable(text: Phaser.GameObjects.Text, speechText?: string) {
     if (speechText) text.setData('speakText', speechText);
     text.setInteractive({ useHandCursor: true });
-
-    // Hover (desktop) → speak with karaoke highlight. Blocked when paused.
     text.on('pointerover', () => {
       if (this._isPaused || this.isFinished) return;
       const current = (text.getData('speakText') as string) ?? speechText ?? text.text;
       if (current) this.speakPromptWithHighlight(text, current);
     });
-
-    // Tap (mobile — no hover) → speak with karaoke highlight. Blocked when paused.
     text.on('pointerdown', (_p: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
       if (this._isPaused || this.isFinished) return;
       if (event) event.stopPropagation();
       const current = (text.getData('speakText') as string) ?? speechText ?? text.text;
       if (current) this.speakPromptWithHighlight(text, current);
-    });
-  }
-
-  // ===========================================================================
-  // AAAA KIDS MODE — Auto-speak first question on game entry
-  // ===========================================================================
-  // Called 800ms after create() to ensure the first prompt is read aloud.
-  // Games can override _getFirstPromptSpeech() to return the text to speak.
-  // Default: speaks the game instructions (already handled by speakGameInstructions).
-  // Games that have a prompt text should call this.makeHoverSpeakable on their
-  // prompt in buildWorld(), AND ensure renderRound()/spawnNext() speaks the
-  // first prompt with a delayed call.
-  // ===========================================================================
-  protected _autoSpeakFirstPrompt() {
-    // This is a hook — games override _getFirstPromptSpeech() or call
-    // speakPromptWithHighlight directly in their first renderRound.
-    // Base implementation just ensures instructions are spoken.
-    this.time.delayedCall(800, () => {
-      if (!this.isFinished) this.speakGameInstructions();
     });
   }
 
@@ -978,93 +954,46 @@ export abstract class BaseEngine extends Phaser.Scene {
     const btn = this.add.text(50, 110, '⏸', {
       fontFamily: 'Inter, sans-serif', fontSize: '28px',
     }).setOrigin(0.5).setDepth(300).setInteractive({ useHandCursor: true });
-    btn.on('pointerdown', () => { this._togglePause(); });
+    btn.on('pointerdown', () => {
+      if (this.isFinished) return;
+      if (this._isPaused) { this._isPaused = false; if (this.pauseOverlay) this.pauseOverlay.setVisible(false); }
+      else { this._isPaused = true; this._showPauseOverlay(); }
+    });
     // Make the bg clickable too
     btnBg.setInteractive({ useHandCursor: true });
-    btnBg.on('pointerdown', () => { this._togglePause(); });
-  }
-
-  // Centralized pause toggle — ensures ALL game input is blocked while paused.
-  // Centralized pause toggle — freezes ALL game activity (tweens, timers, physics).
-  private _togglePause() {
-    if (this.isFinished) return;
-    if (this._isPaused) {
-      // ---- RESUME ----
-      this._isPaused = false;
-      if (this.pauseOverlay) this.pauseOverlay.setVisible(false);
-      // Restore normal time scale (unfreezes all tweens + timer events).
-      try { this.time.timeScale = 1; } catch {}
-      // Resume physics.
-      try { this.physics.world.resume(); } catch {}
-    } else {
-      // ---- PAUSE ----
-      this._isPaused = true;
-      this._showPauseOverlay();
-      // Freeze ALL time-based activity:
-      //   • timeScale = 0 → stops all tweens (falling banners, rising balloons,
-      //     popping moles, note falling, card flips, etc.)
-      //   • timeScale = 0 → stops all timer events (spawn timers, mole retreat
-      //     timers, delayed calls, etc.) — no new objects spawn, no auto-retracts
-      //   • physics.world.pause() → stops arcade physics bodies (ghosts, plane,
-      //     snake, projectiles, etc.)
-      // Input system (pointerdown/pointerover) is NOT affected by timeScale —
-      // it uses real time, so the Resume/Quit buttons still work.
-      try { this.time.timeScale = 0; } catch {}
-      try { this.physics.world.pause(); } catch {}
-    }
+    btnBg.on('pointerdown', () => {
+      if (this.isFinished) return;
+      if (this._isPaused) { this._isPaused = false; if (this.pauseOverlay) this.pauseOverlay.setVisible(false); }
+      else { this._isPaused = true; this._showPauseOverlay(); }
+    });
   }
 
   private _showPauseOverlay() {
-    if (this.pauseOverlay) {
-      this.pauseOverlay.setVisible(true);
-      // Re-block input by bringing overlay to front.
-      this.children.bringToTop(this.pauseOverlay);
-      return;
-    }
+    if (this.pauseOverlay) { this.pauseOverlay.setVisible(true); return; }
     const cx = this.scale.width / 2;
     const cy = this.scale.height / 2;
-
-    // Full-screen overlay — MUST be interactive to intercept all pointer events
-    // (hover, click, drag) so game objects behind it don't respond while paused.
-    const overlay = this.add.rectangle(cx, cy, this.scale.width, this.scale.height, 0x000000, 0.8)
-      .setDepth(950) // Very high depth — above all game objects + mascot + sticker badge
-      .setInteractive({ useHandCursor: 'default' });
-
+    const overlay = this.add.rectangle(cx, cy, this.scale.width, this.scale.height, 0x000000, 0.8).setDepth(450);
     const title = this.add.text(cx, cy - 80, '⏸ Paused', {
       fontFamily: 'Inter, sans-serif', fontSize: '40px', color: '#ffffff', fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(951);
+    }).setOrigin(0.5).setDepth(451);
 
-    // Resume button.
+    // BIGGER buttons with backgrounds — not overlapping, easily readable
     const resumeBg = this.add.rectangle(cx, cy + 10, 240, 56, 0x22c55e, 0.95)
-      .setStrokeStyle(2, 0xffffff, 0.5).setDepth(951).setInteractive({ useHandCursor: true });
+      .setStrokeStyle(2, 0xffffff, 0.5).setDepth(451).setInteractive({ useHandCursor: true });
     const resumeBtn = this.add.text(cx, cy + 10, '▶ Resume', {
       fontFamily: 'Inter, sans-serif', fontSize: '24px', color: '#000000', fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(952).setInteractive({ useHandCursor: true });
-    const doResume = () => { this._togglePause(); };
-    resumeBtn.on('pointerdown', doResume);
-    resumeBg.on('pointerdown', doResume);
-    // Also stop propagation so overlay doesn't interfere.
-    resumeBg.on('pointerover', () => resumeBg.setFillStyle(0x16a34a, 1));
-    resumeBg.on('pointerout', () => resumeBg.setFillStyle(0x22c55e, 0.95));
+    }).setOrigin(0.5).setDepth(452).setInteractive({ useHandCursor: true });
+    resumeBtn.on('pointerdown', () => { this._isPaused = false; if (this.pauseOverlay) this.pauseOverlay.setVisible(false); });
+    resumeBg.on('pointerdown', () => { this._isPaused = false; if (this.pauseOverlay) this.pauseOverlay.setVisible(false); });
 
-    // Quit button.
     const quitBg = this.add.rectangle(cx, cy + 80, 240, 56, 0xef4444, 0.95)
-      .setStrokeStyle(2, 0xffffff, 0.5).setDepth(951).setInteractive({ useHandCursor: true });
+      .setStrokeStyle(2, 0xffffff, 0.5).setDepth(451).setInteractive({ useHandCursor: true });
     const quitBtn = this.add.text(cx, cy + 80, '✗ Quit to Library', {
       fontFamily: 'Inter, sans-serif', fontSize: '22px', color: '#ffffff', fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(952).setInteractive({ useHandCursor: true });
-    const doQuit = () => {
-      try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ministar-exit-game')); } catch {}
-      try { this.game.destroy(true); } catch {}
-    };
-    quitBtn.on('pointerdown', doQuit);
-    quitBg.on('pointerdown', doQuit);
-    quitBg.on('pointerover', () => quitBg.setFillStyle(0xdc2626, 1));
-    quitBg.on('pointerout', () => quitBg.setFillStyle(0xef4444, 0.95));
+    }).setOrigin(0.5).setDepth(452).setInteractive({ useHandCursor: true });
+    quitBtn.on('pointerdown', () => { try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ministar-exit-game')); } catch {} try { this.game.destroy(true); } catch {} });
+    quitBg.on('pointerdown', () => { try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ministar-exit-game')); } catch {} try { this.game.destroy(true); } catch {} });
 
-    this.pauseOverlay = this.add.container(0, 0, [overlay, title, resumeBg, resumeBtn, quitBg, quitBtn])
-      .setDepth(950);
-
-    // Physics + timeScale freeze is handled by _togglePause() (caller).
+    this.pauseOverlay = this.add.container(0, 0, [overlay, title, resumeBg, resumeBtn, quitBg, quitBtn]).setDepth(450);
   }
 }

@@ -72,8 +72,7 @@ export default class BalloonPopScene extends BaseEngine {
       fontFamily: 'Inter, sans-serif', fontSize: '14px',
       color: this.hex(this.theme.text), fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(49);
-    // AAAA KIDS MODE — Make prompt hover-to-speakable with karaoke highlight.
-    this.makeHoverSpeakable(this.promptText);
+    this.makeSpeakable(this.promptText);
 
     // ---- Build definition boxes at bottom ----
     this._buildDefBoxes();
@@ -136,15 +135,12 @@ export default class BalloonPopScene extends BaseEngine {
         color: this.hex(this.theme.text), fontStyle: 'bold',
         align: 'center', wordWrap: { width: boxW - 10 },
       }).setOrigin(0.5).setDepth(31);
-      // AAAA KIDS MODE — Make def-box text hover-to-speakable with karaoke highlight.
-      this.makeHoverSpeakable(text, term.definition ?? term.term);
+      this.makeSpeakable(text, term.definition ?? term.term);
 
       this.defBoxes.push({ term, x, y: boxY, w: boxW, h: boxH, bg, text });
     });
 
     this.promptText.setText(`Pop the balloon carrying: ${this.activeTerm.term}`);
-    // AAAA KIDS MODE — Update speakText data so hover-to-speak reads the current prompt.
-    this.promptText.setData('speakText', `Pop the balloon carrying: ${this.activeTerm.term}`);
     // AAAA KIDS MODE — Speak the prompt with karaoke highlight.
     this.speakPromptWithHighlight(this.promptText, `Pop the balloon carrying: ${this.activeTerm.term}`, { isQuestion: true });
   }

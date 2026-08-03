@@ -33,7 +33,7 @@ export default class PhysicsPuzzlerScene extends BaseEngine {
       fontFamily: 'Inter, sans-serif', fontSize: '18px', color: this.hex(this.theme.text), fontStyle: 'bold',
       align: 'center', wordWrap: { width: 600 },
     }).setOrigin(0.5).setDepth(49);
-    this.makeHoverSpeakable(this.promptText);
+    this.makeSpeakable(this.promptText);
 
     this.shotsText = this.add.text(this.scale.width - 20, 220, `🔫 ${this.shotsLeft}`, {
       fontFamily: 'Inter, sans-serif', fontSize: '18px', color: this.hex(this.theme.warning), fontStyle: 'bold',
@@ -89,7 +89,7 @@ export default class PhysicsPuzzlerScene extends BaseEngine {
         fontFamily: 'Inter, sans-serif', fontSize: '18px', color: this.hex(this.theme.text), fontStyle: 'bold',
         backgroundColor: '#' + this.theme.card.toString(16).padStart(6, '0'), padding: { x: 12, y: 8 },
       }).setOrigin(0.5);
-      this.makeHoverSpeakable(txt, term.term);
+      txt.setData('speakText', term.term);
       const container = this.add.container(x, y, [txt]).setDepth(40);
       this.blocks.push({ text: txt, container, term, isCorrect: term.id === this.currentPrompt!.id, vx: (Math.random() - 0.5) * 80, vy: (Math.random() - 0.5) * 60 });
     });
@@ -106,8 +106,6 @@ export default class PhysicsPuzzlerScene extends BaseEngine {
     const updateProj = () => {
       if (!proj.active || this.isFinished) return;
       if (!this.sys.isActive()) return;
-      // AAAA: Freeze projectile during pause.
-      if (this._isPaused) { requestAnimationFrame(updateProj); return; }
       if (this.time.now - startTime > 3000) { proj.destroy(); return; }
       proj.x += proj.getData('vx') * 0.016; proj.y += proj.getData('vy') * 0.016;
       proj.setData('vy', proj.getData('vy') + 200 * 0.016);

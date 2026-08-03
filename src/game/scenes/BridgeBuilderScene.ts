@@ -108,7 +108,6 @@ export default class BridgeBuilderScene extends BaseEngine {
       align: 'center',
       wordWrap: { width: 560 },
     }).setOrigin(0.5).setDepth(49);
-    this.makeHoverSpeakable(this.hintText);
 
     // ---- Hint button ----
     const hintBtnBg = this.add.rectangle(0, 0, 100, 34, this.theme.warning, 0.6)
@@ -198,7 +197,6 @@ export default class BridgeBuilderScene extends BaseEngine {
     // Hint
     const hintText = term.definition ? `Hint: ${term.emoji ?? ''} ${term.definition}` : (term.emoji ? `Hint: ${term.emoji}` : '');
     this.hintText.setText(hintText);
-    this.hintText.setData('speakText', hintText);
     // AAAA KIDS MODE — Speak the hint with karaoke highlight.
     this.time.delayedCall(400, () => {
       if (!this.isFinished) this.speakPromptWithHighlight(this.hintText, hintText, { isQuestion: true });
@@ -227,7 +225,6 @@ export default class BridgeBuilderScene extends BaseEngine {
           color: isUsed ? '#888888' : this.hex(this.theme.text),
           fontStyle: 'bold',
         }).setOrigin(0.5);
-        this.makeHoverSpeakable(txt, letter);
         const container = this.add.container(x, y, [bg, txt]).setSize(kbBtnSize, kbBtnSize).setInteractive({ useHandCursor: true });
         container.setData('letter', letter);
         container.setData('bg', bg);

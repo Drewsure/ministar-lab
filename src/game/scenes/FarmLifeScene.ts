@@ -98,7 +98,7 @@ export default class FarmLifeScene extends BaseEngine {
       fontFamily: 'Inter, sans-serif', fontSize: '13px',
       color: this.hex(this.theme.text), fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(49);
-    this.makeHoverSpeakable(this.promptText, 'Select a tool, then tap a plot!');
+    this.makeSpeakable(this.promptText);
 
     // Coins + timer + weather
     this.coinsText = this.add.text(20, 110, '💰 0', {
@@ -194,7 +194,6 @@ export default class FarmLifeScene extends BaseEngine {
         const bg = this.add.rectangle(0, 0, cellSize, cellSize, 0x8b5a2b, 0.55)
           .setStrokeStyle(2, this.theme.accent, 0.25);
         const emoji = this.add.text(0, 0, '🟫', { fontSize: '30px' }).setOrigin(0.5);
-        this.makeHoverSpeakable(emoji, 'Empty plot');
         const container = this.add.container(x, y, [bg, emoji]).setSize(cellSize, cellSize).setDepth(20);
         this.grid[row][col] = { container, state: 'empty', cropIdx: 0, growth: 0, emoji, bg };
       }
@@ -205,7 +204,6 @@ export default class FarmLifeScene extends BaseEngine {
     // Chicken (left of grid)
     this.chickenText = this.add.text(40, 250, '🐔', { fontSize: '36px' })
       .setOrigin(0.5).setDepth(30).setInteractive({ useHandCursor: true });
-    this.makeHoverSpeakable(this.chickenText, 'chicken');
     this.add.text(40, 285, 'Feed', {
       fontFamily: 'Inter, sans-serif', fontSize: '10px',
       color: this.hex(this.theme.textMuted),
@@ -214,7 +212,6 @@ export default class FarmLifeScene extends BaseEngine {
     // Cow (right of grid)
     this.cowText = this.add.text(this.scale.width - 40, 250, '🐄', { fontSize: '36px' })
       .setOrigin(0.5).setDepth(30).setInteractive({ useHandCursor: true });
-    this.makeHoverSpeakable(this.cowText, 'cow');
     this.add.text(this.scale.width - 40, 285, 'Feed', {
       fontFamily: 'Inter, sans-serif', fontSize: '10px',
       color: this.hex(this.theme.textMuted),
@@ -235,7 +232,6 @@ export default class FarmLifeScene extends BaseEngine {
         fontFamily: 'Inter, sans-serif', fontSize: '12px',
         color: '#ffffff', fontStyle: 'bold',
       }).setOrigin(0.5);
-      this.makeHoverSpeakable(txt, TOOL_NAMES[i]);
       const container = this.add.container(x, startY, [bg, txt]).setSize(100, 44).setDepth(40);
       this.toolButtons.push(container);
     });
@@ -245,7 +241,7 @@ export default class FarmLifeScene extends BaseEngine {
     this.selectedTool = idx;
     audioBus.play('tap');
     this.promptText.setText(`Tool: ${TOOLS[idx]} ${TOOL_NAMES[idx]} — tap a plot!`);
-    this.promptText.setData('speakText', `Tool: ${TOOL_NAMES[idx]}. Tap a plot!`);
+    this.makeSpeakable(this.promptText, TOOL_NAMES[idx]);
     // AAAA KIDS MODE — Speak the prompt with karaoke highlight.
     this.speakPromptWithHighlight(this.promptText, `Tool: ${TOOL_NAMES[idx]}. Tap a plot!`);
     this.vocabLearned.add(TOOL_VOCAB[idx]);
@@ -265,7 +261,6 @@ export default class FarmLifeScene extends BaseEngine {
         cell.cropIdx = Math.floor(Math.random() * CROPS.length);
         cell.growth = 0;
         cell.emoji.setText('🌱');
-        cell.emoji.setData('speakText', `Planted ${CROPS[cell.cropIdx].name} seed`);
         audioBus.play('flip');
         this.vocabLearned.add('seed');
         this._pulseCell(cell);
@@ -307,7 +302,6 @@ export default class FarmLifeScene extends BaseEngine {
         this._recordHarvest(crop.name, crop.vocab);
         cell.state = 'empty';
         cell.emoji.setText('🟫');
-        cell.emoji.setData('speakText', 'Empty plot');
         cell.bg.setFillStyle(0x8b5a2b, 0.55);
         cell.growth = 0;
       }
@@ -404,13 +398,11 @@ export default class FarmLifeScene extends BaseEngine {
           if (cell.growth >= crop.growTime) {
             cell.state = 'ready';
             cell.emoji.setText(crop.emoji);
-            cell.emoji.setData('speakText', `${crop.name} is ready to harvest`);
             cell.bg.setFillStyle(this.theme.success, 0.4);
             this.juice.scorePopup(cell.container.x, cell.container.y - 28, 'Ready!', this.theme.success);
             audioBus.play('correct');
           } else if (cell.growth === Math.floor(crop.growTime / 2)) {
             cell.emoji.setText('🌿');
-            cell.emoji.setData('speakText', `${crop.name} is growing`);
           }
         }
       }

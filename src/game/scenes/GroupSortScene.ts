@@ -50,8 +50,6 @@ export default class GroupSortScene extends BaseEngine {
         fontStyle: 'bold',
       }
     ).setOrigin(0.5).setDepth(50);
-    // AAAA KIDS MODE — Hover-to-speak on prompt text.
-    this.makeHoverSpeakable(this.promptText, 'Sort terms into categories!');
     // AAAA KIDS MODE — Speak the prompt with karaoke highlight on entry.
     this.time.delayedCall(800, () => {
       if (!this.isFinished) this.speakPromptWithHighlight(this.promptText, 'Sort terms into categories!', { isQuestion: true });
@@ -101,8 +99,6 @@ export default class GroupSortScene extends BaseEngine {
       catLabel.setData('speakText', name);
       catLabel.setData('catX', x);
       catLabel.setData('catY', bucketY - bucketH / 2 + 20);
-      // AAAA KIDS MODE — Hover-to-speak on category label.
-      this.makeHoverSpeakable(catLabel, name);
 
       // Drop zone indicator
       this.add.text(x, bucketY + 20, 'Drop here', {
@@ -167,10 +163,6 @@ export default class GroupSortScene extends BaseEngine {
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
       }).setOrigin(0.5).setDepth(43);
-      // AAAA KIDS MODE — Hover-to-speak on term card text. Drag is initiated
-      // from the card edges / non-text areas; the scene-level global pointer
-      // handler in setupGlobalPointer still fires for category label taps.
-      this.makeHoverSpeakable(txt, term.term);
 
       const container = this.add.container(x, y, [glow, shadow, bg, shine, txt])
         .setSize(termW, termH).setInteractive({ useHandCursor: true, draggable: true }).setDepth(40);

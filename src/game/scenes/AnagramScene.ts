@@ -60,9 +60,6 @@ export default class AnagramScene extends BaseEngine {
       }
     ).setOrigin(0.5).setDepth(49);
 
-    // AAAA KIDS MODE — Make prompt hover-to-speakable with karaoke highlight.
-    this.makeHoverSpeakable(this.promptText);
-
     // ---- Answer slots indicator (dashed line) ----
     this.add.text(
       this.scale.width / 2, 180, 'Your Answer',
@@ -181,8 +178,6 @@ export default class AnagramScene extends BaseEngine {
     // Definition hint
     const hint = term.definition ? `${term.emoji ?? ''} ${term.definition}`.trim() : `${term.emoji ?? 'Unscramble the word'}`;
     this.promptText.setText(`${hint}  (${word.length} letters)`);
-    // AAAA KIDS MODE — Update speakText data so hover-to-speak reads the current prompt.
-    this.promptText.setData('speakText', `${term.definition ?? 'Unscramble the word'}. ${word.length} letters.`);
     // AAAA KIDS MODE — Speak the prompt with karaoke highlight.
     this.speakPromptWithHighlight(this.promptText, `${term.definition ?? 'Unscramble the word'}. ${word.length} letters.`, { isQuestion: true });
 
@@ -210,8 +205,6 @@ export default class AnagramScene extends BaseEngine {
       color: this.hex(this.theme.text),
       fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(17);
-    // AAAA KIDS MODE — Make letter tile text hover-to-speakable with karaoke highlight.
-    this.makeHoverSpeakable(txt, letter);
 
     const container = this.add.container(x, y, [glow, shadow, bg, shine, txt])
       .setSize(size, size).setDepth(15);

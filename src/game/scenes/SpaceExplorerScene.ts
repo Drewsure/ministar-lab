@@ -101,7 +101,7 @@ export default class SpaceExplorerScene extends BaseEngine {
       fontFamily: 'Inter, sans-serif', fontSize: '13px',
       color: this.hex(this.theme.text), fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(49);
-    this.makeHoverSpeakable(this.promptText, 'Tap a planet to fly there and scan it!');
+    this.makeSpeakable(this.promptText);
 
     // Discovery log (bottom-left, hidden behind options)
     this.logText = this.add.text(20, 410, '', {
@@ -179,7 +179,6 @@ export default class SpaceExplorerScene extends BaseEngine {
         color: '#' + this.theme.textMuted.toString(16).padStart(6, '0'),
         fontStyle: 'bold',
       }).setOrigin(0.5).setDepth(21);
-      this.makeHoverSpeakable(sprite, `Unknown planet ${i + 1}`);
 
       this.planets.push({
         name: def.name, emoji: def.emoji, orbitR, angle,
@@ -236,7 +235,6 @@ export default class SpaceExplorerScene extends BaseEngine {
     const term = this.terms[this.currentRound % this.terms.length];
     const hint = VOCAB_HINTS[term.term.toLowerCase()] || term.definition || 'A space object';
     this.promptText.setText(`📡 Scan complete! What is "${hint}"?`);
-    this.promptText.setData('speakText', `Scan complete! What is ${hint}?`);
     // AAAA KIDS MODE — Speak the prompt with karaoke highlight.
     this.speakPromptWithHighlight(this.promptText, `Scan complete! What is ${hint}?`, { isQuestion: true });
 
@@ -260,7 +258,7 @@ export default class SpaceExplorerScene extends BaseEngine {
         color: '#ffffff', fontStyle: 'bold',
       }).setOrigin(0.5);
       const container = this.add.container(x, y, [bg, txt]).setSize(240, 40).setDepth(40);
-      this.makeHoverSpeakable(txt, t.term);
+      this.makeSpeakable(txt, t.term);
       this.optionButtons.push(container);
     });
   }
@@ -285,7 +283,6 @@ export default class SpaceExplorerScene extends BaseEngine {
       planet.discovered = true;
       planet.sprite.setText(planet.emoji);
       planet.sprite.setColor('#ffffff');
-      planet.sprite.setData('speakText', `${planet.name} discovered`);
       planet.glow.setFillStyle(0x60a5fa, 0.3);
       this.planetsDiscovered++;
       this.discoveryText.setText(`🪐 ${this.planetsDiscovered}`);

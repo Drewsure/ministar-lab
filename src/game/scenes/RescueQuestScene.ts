@@ -44,9 +44,6 @@ export default class RescueQuestScene extends BaseEngine {
     this.statusText = this.add.text(this.scale.width / 2, this.scale.height - 140, '', {
       fontFamily: 'Inter, sans-serif', fontSize: '18px', color: this.hex(this.theme.warning), fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(50);
-    // AAAA KIDS MODE — Hover-to-speak on status text (reads CURRENT prompt
-    // via speakText data, updated per obstacle in updateCurrentObstacle).
-    this.makeHoverSpeakable(this.statusText);
     this.heardText = this.add.text(this.scale.width / 2, this.scale.height - 105, '', {
       fontFamily: 'Inter, sans-serif', fontSize: '14px', color: this.hex(this.theme.textMuted), fontStyle: 'italic',
     }).setOrigin(0.5).setDepth(50);
@@ -76,10 +73,6 @@ export default class RescueQuestScene extends BaseEngine {
       const label = this.add.text(x, y - 40, obsType.label, {
         fontFamily: 'Inter, sans-serif', fontSize: '12px', color: this.hex(this.theme.textMuted),
       }).setOrigin(0.5).setDepth(50).setAlpha(0);
-      // AAAA KIDS MODE — Hover-to-speak on obstacle label (label starts
-      // invisible; Phaser skips invisible hit-test targets, so hover-speak
-      // only activates on the currently-active obstacle whose label is shown).
-      this.makeHoverSpeakable(label, obsType.label);
       this.obstacles.push({ type: obsType.type, command: obsType.command, emoji: obsType.emoji, x, y, cleared: false, text, label });
     }
   }
@@ -89,17 +82,14 @@ export default class RescueQuestScene extends BaseEngine {
     const obs = this.obstacles[this.currentObstacleIdx];
     this.canAnswer = true;
     const labelText = obs.label.text;
-    const speech = `Say ${obs.command} to ${labelText.toLowerCase()}`;
     this.statusText.setText(`Say "${obs.command}" to ${labelText.toLowerCase()}`);
-    // AAAA KIDS MODE — Update speakText so hover reads the CURRENT prompt.
-    this.statusText.setData('speakText', speech);
     this.heardText.setText('');
     this.obstacles.forEach((o, i) => {
       o.label.setAlpha(i === this.currentObstacleIdx ? 1 : 0);
       if (i === this.currentObstacleIdx) this.tweens.add({ targets: o.text, scale: { from: 1, to: 1.2 }, duration: 500, yoyo: true, repeat: 999, ease: 'Sine.inOut' });
     });
     // AAAA KIDS MODE — Speak the prompt with karaoke highlight.
-    this.speakPromptWithHighlight(this.statusText, speech, { isQuestion: true });
+    this.speakPromptWithHighlight(this.statusText, `Say ${obs.command} to ${labelText.toLowerCase()}`, { isQuestion: true });
   }
 
   private initSpeechRecognition() {

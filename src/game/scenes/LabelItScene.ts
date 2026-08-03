@@ -21,8 +21,7 @@ export default class LabelItScene extends BaseEngine {
     this.promptText = this.add.text(this.scale.width / 2, 160, 'Game loading...', {
       fontFamily: 'Inter, sans-serif', fontSize: '18px', color: this.hex(this.theme.text), fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(49);
-    // AAAA KIDS MODE — Make prompt hover-to-speakable with karaoke highlight.
-    this.makeHoverSpeakable(this.promptText);
+    this.makeSpeakable(this.promptText);
 
     const pool = [...this.terms];
     Phaser.Utils.Array.Shuffle(pool);
@@ -43,15 +42,11 @@ export default class LabelItScene extends BaseEngine {
         fontFamily: 'Inter, sans-serif', fontSize: '18px', color: this.hex(this.theme.text), fontStyle: 'bold',
       }).setOrigin(0.5);
       txt.setData('speakText', term.term);
-      // AAAA KIDS MODE — Make option text hover-to-speakable with karaoke highlight.
-      this.makeHoverSpeakable(txt, term.term);
       const container = this.add.container(cx, cy, [bg, txt]).setSize(btnW, btnH).setDepth(40);
       this.tweens.add({ targets: container, scale: { from: 0, to: 1 }, duration: 300, delay: i * 80, ease: 'Back.out' });
     });
 
     this.promptText.setText('Tap the correct answer!');
-    // AAAA KIDS MODE — Update speakText data so hover-to-speak reads the current prompt.
-    this.promptText.setData('speakText', 'Tap the correct answer!');
     // AAAA KIDS MODE — Speak the prompt with karaoke highlight.
     this.speakPromptWithHighlight(this.promptText, 'Tap the correct answer!', { isQuestion: true });
     this.setupGlobalPointer((x, y) => {

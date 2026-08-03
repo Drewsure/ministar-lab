@@ -56,9 +56,6 @@ export default class TypeAnswerScene extends BaseEngine {
       }
     ).setOrigin(0.5).setDepth(50);
 
-    // AAAA KIDS MODE — Make prompt hover-to-speakable with karaoke highlight.
-    this.makeHoverSpeakable(this.promptText);
-
     // ---- Input box ----
     this.inputBg = this.add.rectangle(
       this.scale.width / 2, 240, 400, 50, this.theme.card, 0.8
@@ -183,8 +180,6 @@ export default class TypeAnswerScene extends BaseEngine {
 
     const def = this.currentTerm.definition ?? this.currentTerm.term;
     this.promptText.setText(`"${def}"`);
-    // AAAA KIDS MODE — Update speakText data so hover-to-speak reads the current prompt.
-    this.promptText.setData('speakText', def);
     // AAAA KIDS MODE — Speak the definition with karaoke highlight.
     this.time.delayedCall(400, () => {
       if (!this.isFinished) this.speakPromptWithHighlight(this.promptText, def, { isQuestion: true });
@@ -213,8 +208,6 @@ export default class TypeAnswerScene extends BaseEngine {
           color: this.hex(this.theme.text),
           fontStyle: 'bold',
         }).setOrigin(0.5);
-        // AAAA KIDS MODE — Make keyboard letter hover-to-speakable with karaoke highlight.
-        this.makeHoverSpeakable(txt, letter);
         const container = this.add.container(x, y, [bg, txt])
           .setSize(keySize, keySize).setInteractive({ useHandCursor: true }).setDepth(40);
         container.on('pointerover', () => bg.setFillStyle(this.theme.cardAlt, 1));

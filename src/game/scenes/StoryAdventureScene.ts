@@ -150,9 +150,7 @@ export default class StoryAdventureScene extends BaseEngine {
       fontFamily: 'Inter, sans-serif', fontSize: '18px',
       color: this.hex(this.theme.warning), fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(49);
-    // AAAA KIDS MODE — Hover-to-speak on chapter title (falls back to
-    // text.text = chapter.title when no speakText data is set).
-    this.makeHoverSpeakable(this.titleText);
+    this.makeSpeakable(this.titleText);
 
     // Narrative card
     this.narrativeBg = this.add.rectangle(this.scale.width / 2, 220, this.scale.width - 40, 140,
@@ -163,10 +161,6 @@ export default class StoryAdventureScene extends BaseEngine {
       color: this.hex(this.theme.text),
       align: 'center', wordWrap: { width: this.scale.width - 80 }, lineSpacing: 4,
     }).setOrigin(0.5).setDepth(49);
-    // AAAA KIDS MODE — Hover-to-speak on narrative text (wired ONCE here;
-    // speakText data is updated per chapter in _renderChapter so hover reads
-    // the FULL chapter narrative regardless of typewriter progress).
-    this.makeHoverSpeakable(this.narrativeText);
 
     // Feedback
     this.feedbackText = this.add.text(this.scale.width / 2, 460, '', {
@@ -221,7 +215,7 @@ export default class StoryAdventureScene extends BaseEngine {
       },
     });
 
-    this.narrativeText.setData('speakText', chapter.narrative);
+    this.makeSpeakable(this.narrativeText, chapter.narrative);
     this.time.delayedCall(Math.min(2500, chapter.narrative.length * 25 + 500), () => {
       if (!this.isFinished) this.speakPromptWithHighlight(this.narrativeText, chapter.narrative);
     });
@@ -246,8 +240,7 @@ export default class StoryAdventureScene extends BaseEngine {
       }).setOrigin(0.5);
       const container = this.add.container(this.scale.width / 2, y, [bg, txt])
         .setSize(500, 44).setDepth(40);
-      // AAAA KIDS MODE — Hover-to-speak on choice button text.
-      this.makeHoverSpeakable(txt, choice.text);
+      this.makeSpeakable(txt, choice.text);
       this.choiceButtons.push(container);
     });
 
@@ -261,8 +254,6 @@ export default class StoryAdventureScene extends BaseEngine {
       }).setOrigin(0.5);
       const container = this.add.container(this.scale.width / 2, startY, [bg, txt])
         .setSize(500, 44).setDepth(40);
-      // AAAA KIDS MODE — Hover-to-speak on fallback Continue button.
-      this.makeHoverSpeakable(txt, 'Continue');
       this.choiceButtons.push(container);
     }
   }

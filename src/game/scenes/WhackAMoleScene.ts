@@ -60,8 +60,6 @@ export default class WhackAMoleScene extends BaseEngine {
         fontStyle: 'bold',
       }
     ).setOrigin(0.5).setDepth(49);
-    // AAAA KIDS MODE — Hover-to-speak on prompt text (reads CURRENT prompt).
-    this.makeHoverSpeakable(this.promptText, 'Whack the correct mole!');
 
     // ---- Combo display ----
     this.comboText = this.add.text(
@@ -185,8 +183,6 @@ export default class WhackAMoleScene extends BaseEngine {
       return;
     }
     this.promptText.setText(`Whack: ${this.activePrompt.emoji ?? ''} ${this.activePrompt.term}`);
-    // AAAA KIDS MODE — Update speakText so hover reads the CURRENT prompt.
-    this.promptText.setData('speakText', `Whack: ${this.activePrompt.term}`);
     // AAAA KIDS MODE — Speak the prompt with karaoke highlight.
     this.speakPromptWithHighlight(this.promptText, `Whack: ${this.activePrompt.term}`, { isQuestion: true });
 
@@ -218,8 +214,6 @@ export default class WhackAMoleScene extends BaseEngine {
       backgroundColor: '#' + (isCorrect ? this.theme.success : this.theme.card).toString(16).padStart(6, '0'),
       padding: { x: 8, y: 4 },
     }).setOrigin(0.5);
-    // AAAA KIDS MODE — Hover-to-speak on mole term label.
-    this.makeHoverSpeakable(txt, term.term);
 
     const container = this.add.container(hole.x, hole.y + 40, [moleImg, txt]).setSize(60, 60).setInteractive({ useHandCursor: false });
     container.setDepth(5);

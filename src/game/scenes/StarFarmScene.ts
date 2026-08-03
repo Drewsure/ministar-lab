@@ -328,7 +328,7 @@ export default class StarFarmScene extends BaseEngine {
       fontFamily: 'Inter, sans-serif', fontSize: '11px',
       color: this.hex(this.theme.text), fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(49);
-    this.makeHoverSpeakable(this.promptText, 'Pick a tool, tap a tile!');
+    this.makeSpeakable(this.promptText);
 
     this._buildGrid();
     this._buildNPCs();
@@ -506,7 +506,6 @@ export default class StarFarmScene extends BaseEngine {
         fontFamily: 'Inter, sans-serif', fontSize: '9px',
         color: '#ffffff', fontStyle: 'bold',
       }).setOrigin(0.5);
-      this.makeHoverSpeakable(txt, TOOL_NAMES[t]);
       const lvlTxt = this.add.text(0, 8, `Lv${this.toolLevel[t]}`, {
         fontFamily: 'Inter, sans-serif', fontSize: '8px',
         color: this.hex(this.theme.warning),
@@ -940,11 +939,9 @@ export default class StarFarmScene extends BaseEngine {
     audioBus.play('tap');
     audioBus.speak(TOOL_NAMES[t]);
     this.vocabLearned.add(TOOL_NAMES[t].toLowerCase());
-    const speechText = `Tool: ${TOOL_NAMES[t]}. Tap a tile!`;
     this.promptText.setText(`Tool: ${TOOL_NAMES[t]} — tap a tile!`);
-    this.promptText.setData('speakText', speechText);
     // AAAA KIDS MODE — Speak the prompt with karaoke highlight.
-    this.speakPromptWithHighlight(this.promptText, speechText);
+    this.speakPromptWithHighlight(this.promptText, `Tool: ${TOOL_NAMES[t]}. Tap a tile!`);
     const tools: ToolType[] = ['hoe', 'water', 'seed', 'harvest', 'axe', 'pickaxe'];
     this.toolButtons.forEach((btn, i) => {
       const bg = btn.getAt(0) as Phaser.GameObjects.Rectangle;

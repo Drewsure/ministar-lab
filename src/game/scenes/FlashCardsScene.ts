@@ -83,9 +83,6 @@ export default class FlashCardsScene extends BaseEngine {
       align: 'center',
       wordWrap: { width: cardW - 50 },
     }).setOrigin(0.5).setDepth(50);
-    // AAAA KIDS MODE — Hover-to-speak on card text (reads CURRENT card
-    // content via speakText data, updated in showCard on every flip).
-    this.makeHoverSpeakable(this.cardText);
 
     // Hint text (below card) — bigger
     this.hintText = this.add.text(cardX, cardY + cardH / 2 + 30, 'Tap card to flip · Tap text to hear', {
@@ -103,9 +100,6 @@ export default class FlashCardsScene extends BaseEngine {
       fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(50).setInteractive({ useHandCursor: true });
     prevArrow.on('pointerdown', () => this.prevCard());
-    // AAAA KIDS MODE — Hover-to-speak on prev arrow (speaks 'Previous card'
-    // rather than the meaningless '◀' glyph).
-    this.makeHoverSpeakable(prevArrow, 'Previous card');
 
     const nextArrow = this.add.text(cardX + cardW / 2 + 50, arrowY, '▶', {
       fontFamily: 'Inter, sans-serif',
@@ -114,8 +108,6 @@ export default class FlashCardsScene extends BaseEngine {
       fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(50).setInteractive({ useHandCursor: true });
     nextArrow.on('pointerdown', () => this.nextCard());
-    // AAAA KIDS MODE — Hover-to-speak on next arrow.
-    this.makeHoverSpeakable(nextArrow, 'Next card');
 
     // Known / Review buttons — BIGGER and more colorful
     const btnY = cardY + cardH / 2 + 80;
@@ -149,6 +141,17 @@ export default class FlashCardsScene extends BaseEngine {
 
     // Card flip on tap
     this.cardBg.on('pointerdown', () => this.flipCard());
+    this.cardText.on('pointerdown', () => {
+      // Tap text to hear it
+      const card = this.cards[this.currentIdx];
+      if (!card) return;
+      if (card.isFlipped) {
+    
+      } else {
+    
+      }
+      audioBus.play('tap');
+    });
     this.cardEmoji.on('pointerdown', () => this.flipCard());
 
     // Nav text (bottom)
@@ -226,10 +229,6 @@ export default class FlashCardsScene extends BaseEngine {
     // AAAA KIDS MODE — Speak the term with karaoke highlight when card is shown.
     // (card is already declared at the top of showCard() — reuse it.)
     const speech = card.isFlipped ? (card.term.definition ?? card.term.term) : card.term.term;
-    // AAAA KIDS MODE — Update speakText data so hover reads the CURRENT card
-    // content (term on front, definition on back). The makeHoverSpeakable
-    // listener was wired once in buildWorld; only the data needs updating.
-    this.cardText.setData('speakText', speech);
     this.time.delayedCall(300, () => {
       if (!this.isFinished) this.speakPromptWithHighlight(this.cardText, speech);
     });
