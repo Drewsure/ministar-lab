@@ -54,7 +54,7 @@ export default class AirplaneScene extends BaseEngine {
   private stormClouds: StormCloud[] = [];
   private slowedUntil = 0;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 8); }
+  protected maxQuestions() { return Math.min(this.terms.length, 15); }
 
   protected buildWorld() {
     // ---- Title ----

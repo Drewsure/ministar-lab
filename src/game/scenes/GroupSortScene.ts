@@ -36,7 +36,7 @@ export default class GroupSortScene extends BaseEngine {
   private promptText!: Phaser.GameObjects.Text;
   private unsortedY = 180;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 6); }
+  protected maxQuestions() { return Math.min(this.terms.length, 10); }
 
   protected buildWorld() {
     // ---- Title ----

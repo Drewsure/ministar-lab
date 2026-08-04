@@ -54,7 +54,7 @@ export default class CrosswordScene extends BaseEngine {
   private keyboardKeys: Phaser.GameObjects.Container[] = [];
   private solvedCount = 0;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 5); }
+  protected maxQuestions() { return Math.min(this.terms.length, 7); }
 
   protected buildWorld() {
     this.add.text(

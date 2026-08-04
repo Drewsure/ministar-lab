@@ -242,48 +242,48 @@
 | Player 120px/s | `baseSpeed = this.lod.isMobile ? 100 : 120` | YES |
 | Ghost 80px/s | `chaseSpeed = (this.lod.isMobile ? 60 : 80)` | YES |
 
-### maxQuestions — Hyper-Focus Window (90-150 seconds)
+### maxQuestions — Hyper-Focus Window (FILL 150 seconds)
 
-**NEW GUIDELINE:** All games MUST fit within a child's hyper-focus window of 90-150 seconds.
-The HUD timer defaults to 150,000ms (2.5 minutes). maxQuestions caps are calibrated so
-games finish within this window based on estimated time per question/round.
+**GUIDELINE:** All games MUST fill the full 150-second (2.5 minute) hyper-focus window.
+150s is both the minimum AND the maximum target. Games should last ~150s, not finish early.
+The HUD timer defaults to 150,000ms. maxQuestions caps are calibrated to FILL this window.
 
 | Game | Expected Cap | Est. Time/Q | Total Est. |
 |------|-------------|-------------|-----------|
-| Airplane | 8 | ~10s | 80s |
-| Anagram | 5 | ~20s | 100s |
-| BalloonPop | 8 | ~10s | 80s |
-| BridgeBuilder | 4 | ~20s | 80s |
-| Crossword | 5 | ~20s | 100s |
-| EndlessRunner | 8 | ~10s | 80s |
-| FarmLife | 8 | ~10s | 80s |
-| FlashCards | 8 | ~10s | 80s |
-| Gameshow | 5 | ~20s | 100s |
-| GroupSort | 6 | ~15s | 90s |
-| LabelIt | 5 | ~15s | 75s |
-| MatchUp | 5 | ~15s | 75s |
-| MazeChase | 6 | ~15s | 90s |
-| MemoryMatch | 5 | ~20s | 100s |
+| Airplane | 15 | ~10s | 150s |
+| Anagram | 7 | ~20s | 140s |
+| BalloonPop | 15 | ~10s | 150s |
+| BridgeBuilder | 7 | ~20s | 140s |
+| Crossword | 7 | ~20s | 140s |
+| EndlessRunner | 15 | ~10s | 150s |
+| FarmLife | 15 | ~10s | 150s |
+| FlashCards | 15 | ~10s | 150s |
+| Gameshow | 8 | ~20s | 160s |
+| GroupSort | 10 | ~15s | 150s |
+| LabelIt | 10 | ~15s | 150s |
+| MatchUp | 10 | ~15s | 150s |
+| MazeChase | 10 | ~15s | 150s |
+| MemoryMatch | 8 | ~18s | 144s |
 | MonsterFighter | MONSTERS.length | structural | — |
-| PhysicsPuzzler | 5 | ~20s | 100s |
-| Quiz | 5 | ~20s | 100s |
+| PhysicsPuzzler | 7 | ~20s | 140s |
+| Quiz | 8 | ~20s | 160s |
 | RescueQuest | min(6, OBSTACLE_TYPES) | structural | — |
-| RhythmTap | 8 | ~10s | 80s |
-| Snaking | 4 | ~25s/word | 100s |
-| SpaceExplorer | 6 | ~15s | 90s |
-| SpeakIt | 5 | ~15s | 75s |
-| SpinWheel | 5 | ~20s | 100s |
-| SpotIt | 8 | ~8s | 64s |
-| StarFarm | 6 | ~15s | 90s |
+| RhythmTap | 15 | ~10s | 150s |
+| Snaking | 6 | ~25s/word | 150s |
+| SpaceExplorer | 10 | ~15s | 150s |
+| SpeakIt | 10 | ~15s | 150s |
+| SpinWheel | 8 | ~20s | 160s |
+| SpotIt | 15 | ~10s | 150s |
+| StarFarm | 10 | ~15s | 150s |
 | StoryAdventure | CHAPTERS (structural) | — | — |
-| TowerDefense | 8 | ~15s | 120s |
-| TrainingAcademy | 6 | ~15s | 90s |
-| TreasureHunt | 5 | ~20s | 100s |
-| TypeAnswer | 5 | ~20s | 100s |
-| WhackAMole | 8 | ~8s | 64s |
-| Wordsearch | 4 | ~25s | 100s |
+| TowerDefense | 7 | ~20s | 140s |
+| TrainingAcademy | 10 | ~15s | 150s |
+| TreasureHunt | 8 | ~20s | 160s |
+| TypeAnswer | 8 | ~20s | 160s |
+| WhackAMole | 15 | ~10s | 150s |
+| Wordsearch | 6 | ~25s | 150s |
 
-**HUD Timer:** `src/game/Juice.ts` — `initialTimeMs = 150_000` (2.5 minutes max).
+**HUD Timer:** `src/game/Juice.ts` — `initialTimeMs = 150_000` (2.5 minutes).
 
 ---
 

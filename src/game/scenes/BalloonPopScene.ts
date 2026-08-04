@@ -56,7 +56,7 @@ export default class BalloonPopScene extends BaseEngine {
   private lastCorrectTime = 0;
   private currentRound = 0;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 8); }
+  protected maxQuestions() { return Math.min(this.terms.length, 15); }
 
   protected buildWorld() {
     // ---- Title ----

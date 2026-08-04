@@ -43,7 +43,7 @@ export default class WhackAMoleScene extends BaseEngine {
   private lastWhackTime = 0;
   private comboText!: Phaser.GameObjects.Text;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 8); }
+  protected maxQuestions() { return Math.min(this.terms.length, 15); }
 
   protected buildWorld() {
     // ---- Prompt banner ----

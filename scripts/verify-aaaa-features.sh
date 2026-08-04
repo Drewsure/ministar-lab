@@ -230,35 +230,35 @@ echo ""
 # ---- Hyper-Focus Window: HUD Timer + maxQuestions ----
 echo "--- Hyper-Focus Window (90-150s) ---"
 check "HUD timer 150s" "initialTimeMs = 150" "src/game/Juice.ts" 1
-check "Airplane maxQ=8" "terms.length, 8\)" "src/game/scenes/AirplaneScene.ts" 1
-check "Anagram maxQ=5" "terms.length, 5\)" "src/game/scenes/AnagramScene.ts" 1
-check "BalloonPop maxQ=8" "terms.length, 8\)" "src/game/scenes/BalloonPopScene.ts" 1
-check "BridgeBuilder maxQ=4" "terms.length, 4\)" "src/game/scenes/BridgeBuilderScene.ts" 1
-check "Crossword maxQ=5" "terms.length, 5\)" "src/game/scenes/CrosswordScene.ts" 1
-check "EndlessRunner maxQ=8" "return 8" "src/game/scenes/EndlessRunnerScene.ts" 1
-check "FarmLife maxQ=8" "terms.length, 8\)" "src/game/scenes/FarmLifeScene.ts" 1
-check "FlashCards maxQ=8" "terms.length, 8\)" "src/game/scenes/FlashCardsScene.ts" 1
-check "Gameshow maxQ=5" "terms.length, 5\)" "src/game/scenes/GameshowScene.ts" 1
-check "GroupSort maxQ=6" "terms.length, 6\)" "src/game/scenes/GroupSortScene.ts" 1
-check "LabelIt maxQ=5" "terms.length, 5\)" "src/game/scenes/LabelItScene.ts" 1
-check "MatchUp maxQ=5" "terms.length, 5\)" "src/game/scenes/MatchUpScene.ts" 1
-check "MazeChase maxQ=6" "terms.length, 6\)" "src/game/scenes/MazeChaseScene.ts" 1
-check "MemoryMatch maxQ=5" "terms.length, 5\)" "src/game/scenes/MemoryMatchScene.ts" 1
-check "PhysicsPuzzler maxQ=5" "terms.length, 5\)" "src/game/scenes/PhysicsPuzzlerScene.ts" 1
-check "Quiz maxQ=5" "terms.length, 5\)" "src/game/scenes/QuizScene.ts" 1
-check "RhythmTap maxQ=8" "terms.length, 8\)" "src/game/scenes/RhythmTapScene.ts" 1
-check "Snaking maxQ=4" "terms.length, 4\)" "src/game/scenes/SnakingScene.ts" 1
-check "SpaceExplorer maxQ=6" "terms.length, 6\)" "src/game/scenes/SpaceExplorerScene.ts" 1
-check "SpeakIt maxQ=5" "terms.length, 5\)" "src/game/scenes/SpeakItScene.ts" 1
-check "SpinWheel maxQ=5" "terms.length, 5\)" "src/game/scenes/SpinWheelScene.ts" 1
-check "SpotIt maxQ=8" "terms.length, 8\)" "src/game/scenes/SpotItScene.ts" 1
-check "StarFarm maxQ=6" "return 6" "src/game/scenes/StarFarmScene.ts" 1
-check "TowerDefense maxQ=8" "terms.length, 8\)" "src/game/scenes/TowerDefenseScene.ts" 1
-check "TrainingAcademy maxQ=6" "return 6" "src/game/scenes/TrainingAcademyScene.ts" 1
-check "TreasureHunt maxQ=5" "terms.length, 5\)" "src/game/scenes/TreasureHuntScene.ts" 1
-check "TypeAnswer maxQ=5" "terms.length, 5\)" "src/game/scenes/TypeAnswerScene.ts" 1
-check "WhackAMole maxQ=8" "terms.length, 8\)" "src/game/scenes/WhackAMoleScene.ts" 1
-check "Wordsearch maxQ=4" "terms.length, 4\)" "src/game/scenes/WordsearchScene.ts" 1
+check "Airplane maxQ=15" "terms.length, 15\)" "src/game/scenes/AirplaneScene.ts" 1
+check "Anagram maxQ=7" "terms.length, 7\)" "src/game/scenes/AnagramScene.ts" 1
+check "BalloonPop maxQ=15" "terms.length, 15\)" "src/game/scenes/BalloonPopScene.ts" 1
+check "BridgeBuilder maxQ=7" "terms.length, 7\)" "src/game/scenes/BridgeBuilderScene.ts" 1
+check "Crossword maxQ=7" "terms.length, 7\)" "src/game/scenes/CrosswordScene.ts" 1
+check "EndlessRunner maxQ=15" "return 15" "src/game/scenes/EndlessRunnerScene.ts" 1
+check "FarmLife maxQ=15" "terms.length, 15\)" "src/game/scenes/FarmLifeScene.ts" 1
+check "FlashCards maxQ=15" "terms.length, 15\)" "src/game/scenes/FlashCardsScene.ts" 1
+check "Gameshow maxQ=8" "terms.length, 8\)" "src/game/scenes/GameshowScene.ts" 1
+check "GroupSort maxQ=10" "terms.length, 10\)" "src/game/scenes/GroupSortScene.ts" 1
+check "LabelIt maxQ=10" "terms.length, 10\)" "src/game/scenes/LabelItScene.ts" 1
+check "MatchUp maxQ=10" "terms.length, 10\)" "src/game/scenes/MatchUpScene.ts" 1
+check "MazeChase maxQ=10" "terms.length, 10\)" "src/game/scenes/MazeChaseScene.ts" 1
+check "MemoryMatch maxQ=8" "terms.length, 8\)" "src/game/scenes/MemoryMatchScene.ts" 1
+check "PhysicsPuzzler maxQ=7" "terms.length, 7\)" "src/game/scenes/PhysicsPuzzlerScene.ts" 1
+check "Quiz maxQ=8" "terms.length, 8\)" "src/game/scenes/QuizScene.ts" 1
+check "RhythmTap maxQ=15" "terms.length, 15\)" "src/game/scenes/RhythmTapScene.ts" 1
+check "Snaking maxQ=6" "terms.length, 6\)" "src/game/scenes/SnakingScene.ts" 1
+check "SpaceExplorer maxQ=10" "terms.length, 10\)" "src/game/scenes/SpaceExplorerScene.ts" 1
+check "SpeakIt maxQ=10" "terms.length, 10\)" "src/game/scenes/SpeakItScene.ts" 1
+check "SpinWheel maxQ=8" "terms.length, 8\)" "src/game/scenes/SpinWheelScene.ts" 1
+check "SpotIt maxQ=15" "terms.length, 15\)" "src/game/scenes/SpotItScene.ts" 1
+check "StarFarm maxQ=10" "return 10" "src/game/scenes/StarFarmScene.ts" 1
+check "TowerDefense maxQ=7" "terms.length, 7\)" "src/game/scenes/TowerDefenseScene.ts" 1
+check "TrainingAcademy maxQ=10" "return 10" "src/game/scenes/TrainingAcademyScene.ts" 1
+check "TreasureHunt maxQ=8" "terms.length, 8\)" "src/game/scenes/TreasureHuntScene.ts" 1
+check "TypeAnswer maxQ=8" "terms.length, 8\)" "src/game/scenes/TypeAnswerScene.ts" 1
+check "WhackAMole maxQ=15" "terms.length, 15\)" "src/game/scenes/WhackAMoleScene.ts" 1
+check "Wordsearch maxQ=6" "terms.length, 6\)" "src/game/scenes/WordsearchScene.ts" 1
 echo ""
 
 # ---- SUMMARY ----

@@ -32,7 +32,7 @@ export default class SpinWheelScene extends BaseEngine {
   private landedTerm?: TermItem;
   private optionsContainer!: Phaser.GameObjects.Container;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 5); }
+  protected maxQuestions() { return Math.min(this.terms.length, 8); }
 
   protected buildWorld() {
     // ---- Title ----

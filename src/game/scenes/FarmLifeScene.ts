@@ -73,7 +73,7 @@ export default class FarmLifeScene extends BaseEngine {
   private cowFed = false;
   private animalCoinBonus = 0;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 8); }
+  protected maxQuestions() { return Math.min(this.terms.length, 15); }
 
   protected buildWorld() {
     // Sky background (dynamic — color shifts with day/night cycle)

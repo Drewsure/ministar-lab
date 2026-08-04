@@ -39,7 +39,7 @@ export default class BridgeBuilderScene extends BaseEngine {
   private hintBtn!: Phaser.GameObjects.Container;
   private usedLetters = new Set<string>();
 
-  protected maxQuestions() { return Math.min(this.terms.length, 4); }
+  protected maxQuestions() { return Math.min(this.terms.length, 7); }
 
   protected buildWorld() {
     // ---- Title ----
