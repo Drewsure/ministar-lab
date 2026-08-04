@@ -39,7 +39,7 @@ export default class BridgeBuilderScene extends BaseEngine {
   private hintBtn!: Phaser.GameObjects.Container;
   private usedLetters = new Set<string>();
 
-  protected maxQuestions() { return Math.min(this.terms.length, 7); }
+  protected maxQuestions() { return Math.min(this.terms.length, 8); }
 
   protected buildWorld() {
     // ---- Title ----
@@ -108,7 +108,6 @@ export default class BridgeBuilderScene extends BaseEngine {
       align: 'center',
       wordWrap: { width: 560 },
     }).setOrigin(0.5).setDepth(49);
-    this.makeHoverSpeakable(this.hintText);
 
     // ---- Hint button ----
     const hintBtnBg = this.add.rectangle(0, 0, 100, 34, this.theme.warning, 0.6)

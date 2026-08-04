@@ -67,7 +67,7 @@ export default class SpaceExplorerScene extends BaseEngine {
   private selectedPlanet: Planet | null = null;
   private scanCircles: Phaser.GameObjects.Arc[] = [];
 
-  protected maxQuestions() { return Math.min(this.terms.length, 10); }
+  protected maxQuestions() { return Math.min(this.terms.length, 15); }
 
   protected buildWorld() {
     this.add.text(this.scale.width / 2, 30, '🚀 Space Explorer', {
@@ -101,7 +101,7 @@ export default class SpaceExplorerScene extends BaseEngine {
       fontFamily: 'Inter, sans-serif', fontSize: '13px',
       color: this.hex(this.theme.text), fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(49);
-    this.makeHoverSpeakable(this.promptText);
+    this.makeSpeakable(this.promptText);
 
     // Discovery log (bottom-left, hidden behind options)
     this.logText = this.add.text(20, 410, '', {
@@ -258,7 +258,7 @@ export default class SpaceExplorerScene extends BaseEngine {
         color: '#ffffff', fontStyle: 'bold',
       }).setOrigin(0.5);
       const container = this.add.container(x, y, [bg, txt]).setSize(240, 40).setDepth(40);
-      this.makeHoverSpeakable(txt, t.term);
+      this.makeSpeakable(txt, t.term);
       this.optionButtons.push(container);
     });
   }

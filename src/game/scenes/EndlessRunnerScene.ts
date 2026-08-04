@@ -27,7 +27,7 @@ export default class EndlessRunnerScene extends BaseEngine {
   private instructionsText!: Phaser.GameObjects.Text;
   private canSwitch = true;
 
-  protected maxQuestions() { return 15; }
+  protected maxQuestions() { return 20; }
 
   protected buildWorld() {
     this.add.text(this.scale.width / 2, 55, '🏃 Endless Runner', {
@@ -41,7 +41,7 @@ export default class EndlessRunnerScene extends BaseEngine {
       fontFamily: 'Inter, sans-serif', fontSize: '18px', color: this.hex(this.theme.text), fontStyle: 'bold',
       align: 'center', wordWrap: { width: 660 },
     }).setOrigin(0.5).setDepth(49);
-    this.makeHoverSpeakable(this.promptText);
+    this.makeSpeakable(this.promptText);
 
     // Strikes + distance
     this.strikesText = this.add.text(20, 155, '❤❤❤', { fontFamily: 'Inter, sans-serif', fontSize: '20px' }).setDepth(50);
@@ -78,7 +78,7 @@ export default class EndlessRunnerScene extends BaseEngine {
         align: 'center',
       }
     ).setOrigin(0.5).setDepth(50).setAlpha(0.7);
-    this.makeHoverSpeakable(this.instructionsText, 'Tap left or right side of screen to switch lanes! Catch the word that matches the meaning!');
+    this.makeSpeakable(this.instructionsText, 'Tap left or right side of screen to switch lanes! Catch the word that matches the meaning!');
 
     // Player
     this.player = this.add.text(this.laneX[this.playerLane], this.scale.height - 80, '🏃', { fontSize: '40px' }).setOrigin(0.5).setDepth(100);
@@ -169,7 +169,7 @@ export default class EndlessRunnerScene extends BaseEngine {
 
     const def = prompt.definition ?? prompt.emoji ?? prompt.term;
     this.promptText.setText(`Which word means: "${def}"?`);
-    this.makeHoverSpeakable(this.promptText, `Which word means: ${def}?`);
+    this.makeSpeakable(this.promptText, `Which word means: ${def}?`);
     // AAAA KIDS MODE — Speak the prompt with karaoke highlight.
     this.time.delayedCall(400, () => {
       if (!this.isFinished) this.speakPromptWithHighlight(this.promptText, `Which word means: ${def}?`, { isQuestion: true });
@@ -182,7 +182,7 @@ export default class EndlessRunnerScene extends BaseEngine {
         fontFamily: 'Inter, sans-serif', fontSize: '18px', color: this.hex(this.theme.text), fontStyle: 'bold',
         backgroundColor: '#' + this.theme.card.toString(16).padStart(6, '0'), padding: { x: 12, y: 8 },
       }).setOrigin(0.5).setDepth(40);
-      this.makeHoverSpeakable(t, opt.term);
+      this.makeSpeakable(t, opt.term);
       this.optionTexts.push(t);
     });
   }

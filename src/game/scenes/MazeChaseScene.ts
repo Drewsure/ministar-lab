@@ -101,7 +101,7 @@ export default class MazeChaseScene extends BaseEngine {
     ).setOrigin(0.5).setDepth(50);
     // The speakable text should be the ACTUAL target word's definition
     // It gets updated in spawnTargetsAndEnemies when the prompt changes
-    this.makeHoverSpeakable(this.promptText, 'Tap to hear what to find');
+    this.makeSpeakable(this.promptText, 'Tap to hear what to find');
 
     this.compassArrow = this.add.text(
       this.scale.width / 2, 96,

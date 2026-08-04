@@ -35,13 +35,8 @@ export default class GameshowScene extends BaseEngine {
   private canAnswer = true;
   private spotlights: Phaser.GameObjects.Container[] = [];
   private questionNumber = 0;
-  // AAAA "Supercharged Spectacle" state
-  private hostCharacter?: Phaser.GameObjects.Text;
-  private hostBaseX = 0;
-  private hostBaseY = 0;
-  private neonBorders: Phaser.GameObjects.Rectangle[] = [];
 
-  protected maxQuestions() { return Math.min(this.terms.length, 8); }
+  protected maxQuestions() { return Math.min(this.terms.length, 12); }
 
   protected buildWorld() {
     // Build rounds
@@ -68,26 +63,21 @@ export default class GameshowScene extends BaseEngine {
       this.createSpotlight(i);
     }
 
-    // ---- Title (AAAA Supercharged Spectacle — Arial Black neon yellow + magenta glow) ----
+    // ---- Title ----
     const titleBg = this.add.rectangle(
-      this.scale.width / 2, 70, 300, 54, 0x000000, 0.7
-    ).setStrokeStyle(3, 0xff00ff, 0.9).setDepth(50);
+      this.scale.width / 2, 70, 280, 50, 0x000000, 0.6
+    ).setStrokeStyle(2, this.theme.warning, 0.8).setDepth(50);
     this.add.text(
       this.scale.width / 2, 70,
       '🎯 GAMESHOW',
       {
-        fontFamily: 'Arial Black, Impact, sans-serif',
-        fontSize: '32px',
-        color: '#ffeb3b',
-        stroke: '#ff00ff',
-        strokeThickness: 3,
+        fontFamily: 'Inter, sans-serif',
+        fontSize: '28px',
+        color: this.hex(this.theme.warning),
+        fontStyle: 'bold',
       }
     ).setOrigin(0.5).setDepth(51);
     void titleBg;
-
-    // ---- AAAA Host showman 🎤 + neon stage borders ----
-    this._createHost();
-    this._createNeonBorders();
 
     // ---- Lifeline hearts (top-right) ----
     this.drawLifelines();
@@ -104,37 +94,26 @@ export default class GameshowScene extends BaseEngine {
       }
     ).setDepth(50);
 
-    // ---- Prompt banner (AAAA — dark navy 0x0a0a1a "TV screen" + cyan 0x00ffff neon border + magenta/cyan double stripes) ----
+    // ---- Prompt banner ----
     this.promptBg = this.add.rectangle(
-      this.scale.width / 2, 200, 660, 80, 0x0a0a1a, 0.92
-    ).setStrokeStyle(5, 0x00ffff, 0.9).setDepth(48);
-    // Double-line TV-screen stripes (magenta outer + cyan inner) — top + bottom
+      this.scale.width / 2, 200, 660, 80, this.theme.card, 0.9
+    ).setStrokeStyle(3, this.theme.accent2, 0.7).setDepth(48);
+    // Decorative top stripe
     this.add.rectangle(
-      this.scale.width / 2, 200 - 40, 660, 3, 0xff00ff, 0.95
-    ).setDepth(49);
-    this.add.rectangle(
-      this.scale.width / 2, 200 - 36, 660, 2, 0x00ffff, 0.95
-    ).setDepth(49);
-    this.add.rectangle(
-      this.scale.width / 2, 200 + 40, 660, 3, 0xff00ff, 0.95
-    ).setDepth(49);
-    this.add.rectangle(
-      this.scale.width / 2, 200 + 36, 660, 2, 0x00ffff, 0.95
+      this.scale.width / 2, 200 - 38, 660, 4, this.theme.warning, 0.8
     ).setDepth(49);
 
     this.promptText = this.add.text(
       this.scale.width / 2, 200, '',
       {
-        fontFamily: 'Arial Black, Impact, sans-serif',
+        fontFamily: 'Inter, sans-serif',
         fontSize: '22px',
-        color: '#ffffff',
-        stroke: '#00ffff',
-        strokeThickness: 2,
+        color: this.hex(this.theme.text),
+        fontStyle: 'bold',
         align: 'center',
         wordWrap: { width: 600 },
       }
     ).setOrigin(0.5).setDepth(49);
-    this.makeHoverSpeakable(this.promptText);
 
     this.renderRound();
 
@@ -361,11 +340,6 @@ export default class GameshowScene extends BaseEngine {
           onComplete: () => { try { flash.destroy(); } catch {} },
         });
       } catch (e) { /* ignore animation errors */ }
-      // AAAA Supercharged Spectacle — arcade buzzer sink + camera zoom + coin cascade + host cheer
-      this._arcadeBuzzerSink(btn);
-      this._cameraZoom(btn.x, btn.y);
-      this._coinCascade();
-      this._hostCheer();
     } else {
       try {
         bg.setFillStyle(this.theme.danger, 1);
@@ -397,232 +371,12 @@ export default class GameshowScene extends BaseEngine {
         this.juice.burst(btn.x, btn.y, 'incorrect');
         audioBus.play('incorrect');
       } catch (e) { /* ignore animation errors */ }
-      // AAAA Supercharged Spectacle — arcade buzzer sink + pie-in-face + host dismay + whomp-whomp
-      this._arcadeBuzzerSink(btn);
-      this._pieInFace();
-      this._hostDismay();
-      this.time.delayedCall(150, () => { try { audioBus.play('hover', { freq: 300 }); } catch {} });
-      this.time.delayedCall(350, () => { try { audioBus.play('hover', { freq: 200 }); } catch {} });
     }
 
     // Always advance to next round after delay (prevents freezing)
     this.time.delayedCall(1200, () => {
-      this._cameraReset();
       this.round++;
       this.renderRound();
     });
-  }
-
-  // ===========================================================================
-  // AAAA "SUPERCHARGED SPECTACLE" — host showman 🎤, neon stage borders,
-  // arcade buzzer sink, camera zoom (NO pan — pan moves content off-frame),
-  // coin cascade 💰🪙💎⭐, pie-in-face 🥧💨, host cheer / dismay.
-  // ===========================================================================
-
-  /** 🎤 Host showman — sits at (width-80, 300), idle bounce + sweeping x drift every 4s. */
-  private _createHost() {
-    const x = this.scale.width - 80;
-    const y = 300;
-    this.hostBaseX = x;
-    this.hostBaseY = y;
-    this.hostCharacter = this.add.text(x, y, '🎤', {
-      fontFamily: 'Arial Black, Impact, sans-serif',
-      fontSize: '48px',
-    }).setOrigin(0.5).setDepth(60);
-
-    // Idle bounce (gentle float)
-    this.tweens.add({
-      targets: this.hostCharacter,
-      y: y - 10,
-      duration: 700,
-      yoyo: true,
-      repeat: 999,
-      ease: 'Sine.inOut',
-    });
-
-    // Sweeping x movement every 4s (showman pacing the stage)
-    this.time.addEvent({
-      delay: 4000,
-      loop: true,
-      callback: () => {
-        if (!this.hostCharacter || !this.hostCharacter.active) return;
-        const driftX = this.hostBaseX + (Math.random() * 40 - 20);
-        this.tweens.add({
-          targets: this.hostCharacter,
-          x: driftX,
-          duration: 2000,
-          yoyo: true,
-          ease: 'Sine.inOut',
-        });
-      },
-    });
-  }
-
-  /** Host cheer — jump up 60px + 360° spin on a correct answer. */
-  private _hostCheer() {
-    if (!this.hostCharacter || !this.hostCharacter.active) return;
-    const baseY = this.hostBaseY;
-    this.tweens.add({
-      targets: this.hostCharacter,
-      y: baseY - 60,
-      duration: 250,
-      yoyo: true,
-      ease: 'Back.out',
-    });
-    this.tweens.add({
-      targets: this.hostCharacter,
-      angle: 360,
-      duration: 500,
-      ease: 'Cubic.out',
-      onComplete: () => {
-        if (this.hostCharacter) this.hostCharacter.setAngle(0);
-      },
-    });
-  }
-
-  /** Host dismay — wobble angle -5..+5 + duck down 15px on a wrong answer. */
-  private _hostDismay() {
-    if (!this.hostCharacter || !this.hostCharacter.active) return;
-    const baseY = this.hostBaseY;
-    this.tweens.add({
-      targets: this.hostCharacter,
-      y: baseY + 15,
-      duration: 200,
-      yoyo: true,
-      ease: 'Sine.inOut',
-    });
-    this.tweens.add({
-      targets: this.hostCharacter,
-      angle: { from: -5, to: 5 },
-      duration: 120,
-      yoyo: true,
-      repeat: 3,
-      ease: 'Sine.inOut',
-      onComplete: () => {
-        if (this.hostCharacter) this.hostCharacter.setAngle(0);
-      },
-    });
-  }
-
-  /** Neon stage borders — top + bottom rectangles (warning color, depth 44),
-   *  pulsing alpha 0.5↔1.0 every 400ms. */
-  private _createNeonBorders() {
-    const w = this.scale.width;
-    const h = this.scale.height;
-    const top = this.add.rectangle(w / 2, 6, w, 6, this.theme.warning, 1).setDepth(44);
-    const bot = this.add.rectangle(w / 2, h - 6, w, 6, this.theme.warning, 1).setDepth(44);
-    this.neonBorders.push(top, bot);
-    [top, bot].forEach((r) => {
-      this.tweens.add({
-        targets: r,
-        alpha: { from: 1, to: 0.5 },
-        duration: 400,
-        yoyo: true,
-        repeat: 999,
-        ease: 'Sine.inOut',
-      });
-    });
-  }
-
-  /** Arcade buzzer sink — button sinks y+8, scaleY 0.85 for 60ms, then bounces
-   *  back y-8 scaleY 1 via Back.out 200ms. Plays 'whack' at 150Hz. */
-  private _arcadeBuzzerSink(container: Phaser.GameObjects.Container) {
-    try {
-      const baseY = container.y;
-      const baseScaleY = container.scaleY;
-      this.tweens.add({
-        targets: container,
-        y: baseY + 8,
-        scaleY: baseScaleY * 0.85,
-        duration: 60,
-        ease: 'Quad.in',
-        onComplete: () => {
-          this.tweens.add({
-            targets: container,
-            y: baseY - 8,
-            scaleY: baseScaleY,
-            duration: 200,
-            ease: 'Back.out',
-            onComplete: () => {
-              container.y = baseY;
-              container.scaleY = baseScaleY;
-            },
-          });
-        },
-      });
-      audioBus.play('whack', { freq: 150 });
-    } catch { /* ignore animation errors */ }
-  }
-
-  /** Camera zoom-in on the answer (zoomTo 1.06, 200ms, Sine.easeInOut).
-   *  NO pan — pan moves content off-frame and freezes the camera. */
-  private _cameraZoom(_x: number, _y: number) {
-    try {
-      this.cameras.main.zoomTo(1.06, 200, 'Sine.easeInOut');
-    } catch { /* ignore camera errors */ }
-  }
-
-  /** Camera reset to 1.0 zoom before the next round (zoomTo 1, 300ms, Sine.easeInOut). NO pan. */
-  private _cameraReset() {
-    try {
-      this.cameras.main.zoomTo(1, 300, 'Sine.easeInOut');
-    } catch { /* ignore camera errors */ }
-  }
-
-  /** Coin cascade — 20 coins (💰🪙💎⭐) fall from top with Bounce.out,
-   *  random x drift + full rotation. */
-  private _coinCascade() {
-    try {
-      const coins = ['💰', '🪙', '💎', '⭐'];
-      const w = this.scale.width;
-      for (let i = 0; i < 20; i++) {
-        const startX = Math.random() * w;
-        const drift = (Math.random() - 0.5) * 120;
-        const emoji = coins[i % coins.length];
-        const coin = this.add.text(startX, -30, emoji, {
-          fontFamily: 'Arial Black, Impact, sans-serif',
-          fontSize: '28px',
-        }).setOrigin(0.5).setDepth(70);
-        this.tweens.add({
-          targets: coin,
-          y: this.scale.height + 40,
-          x: startX + drift,
-          angle: Math.random() * 720 - 360,
-          duration: 1400 + Math.random() * 600,
-          ease: 'Bounce.out',
-          onComplete: () => { try { coin.destroy(); } catch {} },
-        });
-      }
-    } catch { /* ignore animation errors */ }
-  }
-
-  /** Pie-in-face — 🥧 drops from above onto host (Cubic.in), then splats into 💨 smoke puff. */
-  private _pieInFace() {
-    try {
-      if (!this.hostCharacter || !this.hostCharacter.active) return;
-      const targetX = this.hostCharacter.x;
-      const targetY = this.hostCharacter.y;
-      const pie = this.add.text(targetX, -40, '🥧', {
-        fontFamily: 'Arial Black, Impact, sans-serif',
-        fontSize: '40px',
-      }).setOrigin(0.5).setDepth(71);
-      this.tweens.add({
-        targets: pie,
-        y: targetY,
-        duration: 450,
-        ease: 'Cubic.in',
-        onComplete: () => {
-          try { pie.setText('💨'); } catch {}
-          this.tweens.add({
-            targets: pie,
-            alpha: 0,
-            scale: 1.6,
-            duration: 500,
-            ease: 'Sine.out',
-            onComplete: () => { try { pie.destroy(); } catch {} },
-          });
-        },
-      });
-    } catch { /* ignore animation errors */ }
   }
 }

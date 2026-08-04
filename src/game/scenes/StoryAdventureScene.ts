@@ -150,7 +150,7 @@ export default class StoryAdventureScene extends BaseEngine {
       fontFamily: 'Inter, sans-serif', fontSize: '18px',
       color: this.hex(this.theme.warning), fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(49);
-    this.makeHoverSpeakable(this.titleText);
+    this.makeSpeakable(this.titleText);
 
     // Narrative card
     this.narrativeBg = this.add.rectangle(this.scale.width / 2, 220, this.scale.width - 40, 140,
@@ -215,7 +215,7 @@ export default class StoryAdventureScene extends BaseEngine {
       },
     });
 
-    this.makeHoverSpeakable(this.narrativeText, chapter.narrative);
+    this.makeSpeakable(this.narrativeText, chapter.narrative);
     this.time.delayedCall(Math.min(2500, chapter.narrative.length * 25 + 500), () => {
       if (!this.isFinished) this.speakPromptWithHighlight(this.narrativeText, chapter.narrative);
     });
@@ -240,7 +240,7 @@ export default class StoryAdventureScene extends BaseEngine {
       }).setOrigin(0.5);
       const container = this.add.container(this.scale.width / 2, y, [bg, txt])
         .setSize(500, 44).setDepth(40);
-      this.makeHoverSpeakable(txt, choice.text);
+      this.makeSpeakable(txt, choice.text);
       this.choiceButtons.push(container);
     });
 

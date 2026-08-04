@@ -42,22 +42,9 @@ export default class QuizScene extends BaseEngine {
   private fiftyFiftyBtn!: Phaser.GameObjects.Container;
   private skipBtn!: Phaser.GameObjects.Container;
 
-  // AAAA KIDS MODE — Living Storybook 📖
-  // (silent fox mascot + page-turn transitions + squishy juice)
-  private storyMascot?: Phaser.GameObjects.Text;
-  private storyMascotBaseX = 0;
-  private storyMascotBaseY = 0;
-  private _bouncyDecos: Phaser.GameObjects.Text[] = [];
-
-  protected maxQuestions() { return Math.min(this.terms.length, 8); }
+  protected maxQuestions() { return Math.min(this.terms.length, 10); }
 
   protected buildWorld() {
-    // AAAA Living Storybook — opt out of the generic auto-mascot &
-    // auto-celebrate fanfare (we have our own storybook mascot +
-    // custom squishy/ripple feedback that fits the warm paper theme).
-    this._skipAutoMascot = true;
-    this._skipAutoCelebrate = true;
-
     // Build rounds
     const pool = [...this.terms];
     Phaser.Utils.Array.Shuffle(pool);
@@ -75,22 +62,17 @@ export default class QuizScene extends BaseEngine {
       });
     }
 
-    // ---- Storybook title (serif, warm gold) ----
+    // ---- Title ----
     this.add.text(
       this.scale.width / 2, 105,
-      '📖 Quiz Storybook',
+      'Quiz Time',
       {
-        fontFamily: 'Georgia, serif',
-        fontSize: '32px',
-        color: '#d4a574',
-        fontStyle: 'bold italic',
+        fontFamily: 'Inter, sans-serif',
+        fontSize: '30px',
+        color: this.hex(this.theme.accent),
+        fontStyle: 'bold',
       }
     ).setOrigin(0.5).setDepth(50);
-
-    // AAAA Living Storybook — silent fox mascot companion (gentle bob).
-    this._createStoryMascot();
-    // AAAA Living Storybook — bouncy decorative background emojis.
-    this._createBouncyBackground();
 
     // ---- Progress bar ----
     const barY = 140;
@@ -125,24 +107,17 @@ export default class QuizScene extends BaseEngine {
       }
     ).setOrigin(0.5).setDepth(45);
 
-    // ---- Prompt banner (warm cream paper, thick brown border) ----
+    // ---- Prompt banner ----
     this.promptBg = this.add.rectangle(
-      this.scale.width / 2, 215, 640, 70, 0xfdf6e3, 0.92
-    ).setStrokeStyle(4, 0xd4a574, 1).setDepth(48);
-    // Decorative book + sparkle emojis at the prompt's corners
-    this.add.text(this.scale.width / 2 - 322, 215, '📖', {
-      fontFamily: 'Inter, sans-serif', fontSize: '22px',
-    }).setOrigin(0.5).setDepth(49);
-    this.add.text(this.scale.width / 2 + 322, 215, '✨', {
-      fontFamily: 'Inter, sans-serif', fontSize: '22px',
-    }).setOrigin(0.5).setDepth(49);
+      this.scale.width / 2, 215, 640, 70, this.theme.card, 0.85
+    ).setStrokeStyle(2, this.theme.accent, 0.6).setDepth(48);
 
     this.promptText = this.add.text(
       this.scale.width / 2, 215, '',
       {
-        fontFamily: 'Georgia, serif',
+        fontFamily: 'Inter, sans-serif',
         fontSize: '20px',
-        color: '#3d2914',
+        color: this.hex(this.theme.text),
         fontStyle: 'bold',
         align: 'center',
         wordWrap: { width: 580 },
@@ -157,8 +132,6 @@ export default class QuizScene extends BaseEngine {
       const speech = r.prompt.definition ?? r.prompt.term;
       this.speakPromptWithHighlight(this.promptText, speech, { isQuestion: true });
     });
-    // AAAA KIDS MODE — Hover-to-speak + karaoke highlight on prompt.
-    this.makeHoverSpeakable(this.promptText);
 
     // ---- Lifeline buttons (bottom) ----
     this.createLifelineButtons();
@@ -322,9 +295,6 @@ export default class QuizScene extends BaseEngine {
       });
       // NOTE: per-container pointerdown removed — global handler handles answer taps.
 
-      // AAAA Living Storybook — squishy hover (juicy stretch on hover).
-      this._squishyHover(container, bg);
-
       // Entrance animation: slide in from below
       container.setAlpha(0).setY(cy + 30);
       this.tweens.add({
@@ -465,16 +435,6 @@ export default class QuizScene extends BaseEngine {
       if (this.streak >= 3) {
         this.juice.glowRing(btn.x, btn.y, this.theme.warning, 60);
       }
-      // AAAA Living Storybook — squishy tap + ripple ring + happy bounce.
-      this._squishyTap(btn);
-      this._rippleRing(btn.x, btn.y);
-      this._mascotHappyBounce();
-      // AAAA: Verbal verification — speak "Correct!" then the term.
-      const correctTerm = this.rounds[this.round].options[correctIndex].term;
-      const correctEmoji = this.rounds[this.round].options[correctIndex].emoji ?? '';
-      this.time.delayedCall(200, () => {
-        audioBus.speak(`Correct! ${correctEmoji} ${correctTerm}!`, { pitch: 1.2, rate: 1.0 });
-      });
     } else {
       bg.setFillStyle(this.theme.danger, 1);
       bg.setStrokeStyle(4, this.theme.danger, 1);
@@ -491,231 +451,26 @@ export default class QuizScene extends BaseEngine {
       });
       // Green glow ring around correct answer
       this.juice.glowRing(correctBtn.x, correctBtn.y, this.theme.success, 80);
-      // AAAA: Verbal verification — speak "Try again!" then the correct answer.
-      const correctTerm = this.rounds[this.round].options[correctIndex].term;
-      const correctEmoji = this.rounds[this.round].options[correctIndex].emoji ?? '';
-      this.time.delayedCall(200, () => {
-        audioBus.speak(`Try again! The answer is ${correctEmoji} ${correctTerm}.`, { pitch: 1.0, rate: 0.92 });
+      // Speak the correct answer
+      this.time.delayedCall(300, () => {
+        audioBus.speak(`The answer is ${this.rounds[this.round].options[correctIndex].term}`);
       });
       this.juice.shake('medium');
       this.juice.burst(btn.x, btn.y, 'incorrect');
-      // AAAA Living Storybook — squishy tap + gentle mascot nod.
-      this._squishyTap(btn);
-      this._mascotGentleNod();
     }
 
-    // Slide out transition — delayed 1500ms so verbal verification finishes first.
-    this.time.delayedCall(1500, () => {
-      // AAAA Living Storybook — page-turn the prompt banner + text too.
-      this.tweens.add({
-        targets: [this.promptBg, this.promptText],
-        alpha: 0,
-        x: this.promptBg.x - 60,
-        angle: -5,
-        duration: 200,
-        ease: 'Cubic.in',
-        onComplete: () => {
-          // Reset position + angle + alpha so the next renderRound() shows
-          // a freshly positioned prompt card.
-          this.promptBg.setX(this.scale.width / 2).setAngle(0).setAlpha(1);
-          this.promptText.setX(this.scale.width / 2).setAngle(0).setAlpha(1);
-        },
-      });
+    // Slide out transition
+    this.time.delayedCall(900, () => {
       this.optionButtons.forEach((b, i) => {
         this.tweens.add({
           targets: b,
-          alpha: 0, x: b.x - 60, angle: -8,
+          alpha: 0, y: b.y - 30,
           duration: 200, delay: i * 30, ease: 'Cubic.in',
         });
       });
       this.time.delayedCall(300, () => {
         this.round++;
         this.renderRound();
-      });
-    });
-  }
-
-  // ===========================================================================
-  // AAAA KIDS MODE — Living Storybook helpers 📖
-  // ===========================================================================
-
-  /**
-   * Storybook mascot — a silent 🦊 companion that bobs gently and
-   * periodically taps its chin (thinking pose). NOT tappable (per user
-   * feedback: silent companion, not a button).
-   */
-  private _createStoryMascot() {
-    this.storyMascotBaseX = 80;
-    this.storyMascotBaseY = 250;
-    this.storyMascot = this.add.text(
-      this.storyMascotBaseX, this.storyMascotBaseY, '🦊',
-      { fontFamily: 'Georgia, serif', fontSize: '44px' }
-    ).setOrigin(0.5).setDepth(60);
-
-    // Gentle vertical bob (continuous)
-    this.tweens.add({
-      targets: this.storyMascot,
-      y: this.storyMascotBaseY - 6,
-      duration: 1400, yoyo: true, repeat: 999, ease: 'Sine.inOut',
-    });
-
-    // Periodic chin-tap (thinking pose) every 3.5s
-    this.time.addEvent({
-      delay: 3500, loop: true,
-      callback: () => {
-        if (!this.storyMascot || this.isFinished) return;
-        this.tweens.add({
-          targets: this.storyMascot,
-          angle: { from: 0, to: -12 },
-          scale: { from: 1, to: 0.96 },
-          duration: 220, yoyo: true, repeat: 1, ease: 'Sine.inOut',
-        });
-      },
-    });
-  }
-
-  /** Happy bounce — jump + 360° spin on correct answer. */
-  private _mascotHappyBounce() {
-    if (!this.storyMascot) return;
-    try { this.tweens.killTweensOf(this.storyMascot); } catch {}
-    this.tweens.add({
-      targets: this.storyMascot,
-      y: this.storyMascotBaseY - 40,
-      duration: 220, ease: 'Quad.out',
-      yoyo: true,
-      onComplete: () => {
-        if (this.storyMascot) this.storyMascot.setY(this.storyMascotBaseY);
-      },
-    });
-    this.tweens.add({
-      targets: this.storyMascot,
-      angle: 360,
-      duration: 440, ease: 'Quad.inOut',
-      onComplete: () => {
-        if (this.storyMascot) this.storyMascot.setAngle(0);
-      },
-    });
-  }
-
-  /** Gentle nod — sympathetic tilt on wrong answer. */
-  private _mascotGentleNod() {
-    if (!this.storyMascot) return;
-    this.tweens.add({
-      targets: this.storyMascot,
-      angle: { from: 0, to: 10 },
-      duration: 280, yoyo: true, repeat: 1, ease: 'Sine.inOut',
-      onComplete: () => {
-        if (this.storyMascot) this.storyMascot.setAngle(0);
-      },
-    });
-  }
-
-  /**
-   * Bouncy background — 6 decorative emojis (🍃🌸⭐🦋🌈✨) scattered around
-   * the corners. Idle sway, and on screen tap they jump up briefly.
-   */
-  private _createBouncyBackground() {
-    const decos = ['🍃', '🌸', '⭐', '🦋', '🌈', '✨'];
-    const w = this.scale.width;
-    const h = this.scale.height;
-    const positions: Array<[number, number]> = [
-      [40, 80],            // top-left
-      [w - 40, 80],        // top-right
-      [40, h - 60],        // bottom-left
-      [w - 40, h - 60],    // bottom-right
-      [w / 2, 60],         // top-mid
-      [w / 2, h - 40],     // bottom-mid
-    ];
-    decos.forEach((emoji, i) => {
-      const [x, y] = positions[i];
-      const deco = this.add.text(x, y, emoji, {
-        fontFamily: 'Inter, sans-serif', fontSize: '28px',
-      }).setOrigin(0.5).setDepth(2).setAlpha(0.85);
-      // Idle sway (each at slightly different speed for variety)
-      this.tweens.add({
-        targets: deco,
-        y: y - 8, angle: i % 2 === 0 ? 8 : -8,
-        duration: 1800 + i * 250, yoyo: true, repeat: 999, ease: 'Sine.inOut',
-      });
-      this._bouncyDecos.push(deco);
-    });
-
-    // Screen-tap bounce for all decorations (does not interfere with
-    // button hit-testing — this is a separate input listener).
-    this.input.on('pointerdown', () => {
-      this._bouncyDecos.forEach((d, i) => {
-        this.tweens.add({
-          targets: d,
-          y: d.y - 18,
-          duration: 180, ease: 'Quad.out',
-          yoyo: true,
-          delay: i * 25,
-        });
-      });
-    });
-  }
-
-  /**
-   * Squishy hover — juicy stretch on hover (scaleX 1.08, scaleY 0.92),
-   * easing back to 1/1 via Back.out on pointerout.
-   */
-  private _squishyHover(
-    container: Phaser.GameObjects.Container,
-    _bg: Phaser.GameObjects.Rectangle
-  ) {
-    void _bg;
-    container.on('pointerover', () => {
-      if (!this.canAnswer) return;
-      this.tweens.add({
-        targets: container,
-        scaleX: 1.08, scaleY: 0.92,
-        duration: 120, ease: 'Quad.out',
-      });
-    });
-    container.on('pointerout', () => {
-      this.tweens.add({
-        targets: container,
-        scaleX: 1, scaleY: 1,
-        duration: 220, ease: 'Back.out',
-      });
-    });
-  }
-
-  /**
-   * Squishy tap — quick squash (scaleX 1.2, scaleY 0.8), then lerp back
-   * via Back.out over 300ms.
-   */
-  private _squishyTap(container: Phaser.GameObjects.Container) {
-    try { this.tweens.killTweensOf(container); } catch {}
-    this.tweens.add({
-      targets: container,
-      scaleX: 1.2, scaleY: 0.8,
-      duration: 80, ease: 'Quad.out',
-      onComplete: () => {
-        this.tweens.add({
-          targets: container,
-          scaleX: 1, scaleY: 1,
-          duration: 300, ease: 'Back.out',
-        });
-      },
-    });
-  }
-
-  /**
-   * Ripple ring — 4 colorful concentric circles expanding outward
-   * (pink / teal / yellow / mint).
-   */
-  private _rippleRing(x: number, y: number) {
-    const colors = [0xff6ec7, 0x4ecdc4, 0xffd93d, 0x95e1d3];
-    colors.forEach((color, i) => {
-      const ring = this.add.circle(x, y, 10, color, 0)
-        .setStrokeStyle(3, color, 1).setDepth(70);
-      this.tweens.add({
-        targets: ring,
-        scale: 8 + i * 1.8,
-        alpha: { from: 0.9, to: 0 },
-        duration: 600 + i * 80, delay: i * 60, ease: 'Cubic.out',
-        onComplete: () => { try { ring.destroy(); } catch {} },
       });
     });
   }

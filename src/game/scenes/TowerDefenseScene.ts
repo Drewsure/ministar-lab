@@ -59,7 +59,7 @@ export default class TowerDefenseScene extends BaseEngine {
   private canAct = true;
   private feedbackText!: Phaser.GameObjects.Text;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 7); }
+  protected maxQuestions() { return Math.min(this.terms.length, 15); }
 
   protected buildWorld() {
     this.add.text(this.scale.width / 2, 30, '🏰 Tower Defense', {
@@ -73,7 +73,7 @@ export default class TowerDefenseScene extends BaseEngine {
       fontFamily: 'Inter, sans-serif', fontSize: '12px',
       color: this.hex(this.theme.text), fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(49);
-    this.makeHoverSpeakable(this.promptText);
+    this.makeSpeakable(this.promptText);
 
     // Stats row
     this.waveText = this.add.text(20, 85, 'Wave 1/3', {

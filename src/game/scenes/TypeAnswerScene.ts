@@ -28,7 +28,7 @@ export default class TypeAnswerScene extends BaseEngine {
   private hintUsed = false;
   private canSubmit = true;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 8); }
+  protected maxQuestions() { return Math.min(this.terms.length, 15); }
 
   protected buildWorld() {
     // ---- Title ----
@@ -55,7 +55,6 @@ export default class TypeAnswerScene extends BaseEngine {
         wordWrap: { width: 600 },
       }
     ).setOrigin(0.5).setDepth(50);
-    this.makeHoverSpeakable(this.promptText);
 
     // ---- Input box ----
     this.inputBg = this.add.rectangle(
@@ -120,45 +119,38 @@ export default class TypeAnswerScene extends BaseEngine {
     this.rounds = this.pickTerms(this.maxScore);
     this.showRound();
 
-    // Global pointer handler for reliable keyboard clicks
+    // Global pointer handler for submit/backspace/hint/skip buttons only.
+    // Letter keys use DIRECT container.on('pointerdown') — NOT this global handler
+    // (was causing double-typing: both global + per-container fired on one tap).
     this.setupGlobalPointer((x, y) => {
       if (!this.canSubmit) return;
       // DEBOUNCE: prevent double-tap on Android
       const now = Date.now();
       if (now - this._lastKeyTime < 150) return;
-      // Hit-test letter keys
-      for (const key of this.keyboardKeys) {
-        if (Math.abs(x - key.x) < 18 && Math.abs(y - key.y) < 18) {
-          const txt = key.getAt(1) as Phaser.GameObjects.Text;
-          if (txt) {
-            this._lastKey = txt.text;
-            this._lastKeyTime = now;
-            audioBus.speak(txt.text);
-            this.typeLetter(txt.text);
-          }
-          return;
-        }
-      }
       // Hit-test submit button
       const submitX = this.scale.width / 2 - 140;
       const btnY = 410 + 3 * 40 + 10;
       if (Math.abs(x - submitX) < 60 && Math.abs(y - btnY) < 18) {
+        this._lastKeyTime = now;
         this.submit();
         return;
       }
       // Hit-test backspace button
       const backX = this.scale.width / 2 + 140;
       if (Math.abs(x - backX) < 60 && Math.abs(y - btnY) < 18) {
+        this._lastKeyTime = now;
         this.deleteLetter();
         return;
       }
       // Hit-test hint button
       if (Math.abs(x - (this.scale.width / 2 - 100)) < 80 && Math.abs(y - 340) < 20) {
+        this._lastKeyTime = now;
         this.useHint();
         return;
       }
       // Hit-test skip button
       if (Math.abs(x - (this.scale.width / 2 + 100)) < 80 && Math.abs(y - 340) < 20) {
+        this._lastKeyTime = now;
         this.skip();
         return;
       }
@@ -213,7 +205,11 @@ export default class TypeAnswerScene extends BaseEngine {
           .setSize(keySize, keySize).setInteractive({ useHandCursor: true }).setDepth(40);
         container.on('pointerover', () => bg.setFillStyle(this.theme.cardAlt, 1));
         container.on('pointerout', () => bg.setFillStyle(this.theme.card, 0.9));
-        container.on('pointerdown', () => this.typeLetter(letter));
+        container.on('pointerdown', () => {
+          // AAAA: Speak the letter + type it (single handler — no double-typing).
+          audioBus.speak(letter);
+          this.typeLetter(letter);
+        });
         this.keyboardKeys.push(container);
       }
     });

@@ -98,7 +98,7 @@ export default class FarmLifeScene extends BaseEngine {
       fontFamily: 'Inter, sans-serif', fontSize: '13px',
       color: this.hex(this.theme.text), fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(49);
-    this.makeHoverSpeakable(this.promptText);
+    this.makeSpeakable(this.promptText);
 
     // Coins + timer + weather
     this.coinsText = this.add.text(20, 110, '💰 0', {
@@ -241,7 +241,7 @@ export default class FarmLifeScene extends BaseEngine {
     this.selectedTool = idx;
     audioBus.play('tap');
     this.promptText.setText(`Tool: ${TOOLS[idx]} ${TOOL_NAMES[idx]} — tap a plot!`);
-    this.makeHoverSpeakable(this.promptText, TOOL_NAMES[idx]);
+    this.makeSpeakable(this.promptText, TOOL_NAMES[idx]);
     // AAAA KIDS MODE — Speak the prompt with karaoke highlight.
     this.speakPromptWithHighlight(this.promptText, `Tool: ${TOOL_NAMES[idx]}. Tap a plot!`);
     this.vocabLearned.add(TOOL_VOCAB[idx]);

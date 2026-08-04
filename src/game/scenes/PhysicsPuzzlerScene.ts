@@ -17,7 +17,7 @@ export default class PhysicsPuzzlerScene extends BaseEngine {
   private shotsLeft = 15;
   private shotsText!: Phaser.GameObjects.Text;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 7); }
+  protected maxQuestions() { return Math.min(this.terms.length, 15); }
 
   protected buildWorld() {
     this.add.text(this.scale.width / 2, 105, 'Physics Puzzler', {
@@ -33,7 +33,7 @@ export default class PhysicsPuzzlerScene extends BaseEngine {
       fontFamily: 'Inter, sans-serif', fontSize: '18px', color: this.hex(this.theme.text), fontStyle: 'bold',
       align: 'center', wordWrap: { width: 600 },
     }).setOrigin(0.5).setDepth(49);
-    this.makeHoverSpeakable(this.promptText);
+    this.makeSpeakable(this.promptText);
 
     this.shotsText = this.add.text(this.scale.width - 20, 220, `🔫 ${this.shotsLeft}`, {
       fontFamily: 'Inter, sans-serif', fontSize: '18px', color: this.hex(this.theme.warning), fontStyle: 'bold',

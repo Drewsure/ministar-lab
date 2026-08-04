@@ -72,7 +72,7 @@ export default class BalloonPopScene extends BaseEngine {
       fontFamily: 'Inter, sans-serif', fontSize: '14px',
       color: this.hex(this.theme.text), fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(49);
-    this.makeHoverSpeakable(this.promptText);
+    this.makeSpeakable(this.promptText);
 
     // ---- Build definition boxes at bottom ----
     this._buildDefBoxes();
@@ -135,7 +135,7 @@ export default class BalloonPopScene extends BaseEngine {
         color: this.hex(this.theme.text), fontStyle: 'bold',
         align: 'center', wordWrap: { width: boxW - 10 },
       }).setOrigin(0.5).setDepth(31);
-      this.makeHoverSpeakable(text, term.definition ?? term.term);
+      this.makeSpeakable(text, term.definition ?? term.term);
 
       this.defBoxes.push({ term, x, y: boxY, w: boxW, h: boxH, bg, text });
     });

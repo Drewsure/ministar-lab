@@ -4,28 +4,18 @@ import type { TermItem } from '../../lib/types';
 import { audioBus } from '../../lib/audio';
 
 // ============================================================================
-// SPIN WHEEL — AAAA Kid-Juice Edition
+// SPIN WHEEL — Selection Engine  (AAA 2029 — new template #14)
 // ============================================================================
 // A colorful wheel of terms. Player spins, wheel lands on a term,
 // that term becomes the "answer" — player must select matching definition.
-//
-// AAAA FEATURES:
-//   • Initial prompt read aloud with karaoke highlight on entry
-//   • Hover-to-speak on ALL text (prompt + answer options)
-//   • Karaoke highlight on landed term + answer options
+// Features:
 //   • Smooth wheel rotation with ease-out deceleration
 //   • Tick sound as wheel passes each segment
+//   • Pointer arrow at top
 //   • Winner segment glows + pulses
-//   • Direct interactivity on answer buttons (not global hit-test)
+//   • Definition selection (4 multiple choice)
+//   • Level progression + TTS
 // ============================================================================
-
-interface AnswerOption {
-  term: TermItem;
-  isCorrect: boolean;
-  container: Phaser.GameObjects.Container;
-  bg: Phaser.GameObjects.Rectangle;
-  txt: Phaser.GameObjects.Text;
-}
 
 export default class SpinWheelScene extends BaseEngine {
   private wheel!: Phaser.GameObjects.Container;
@@ -33,44 +23,34 @@ export default class SpinWheelScene extends BaseEngine {
   private segmentTerms: TermItem[] = [];
   private pointer!: Phaser.GameObjects.Text;
   private promptText!: Phaser.GameObjects.Text;
-  private promptBg!: Phaser.GameObjects.Rectangle;
   private spinBtn!: Phaser.GameObjects.Container;
   private spinBtnX = 0;
   private spinBtnY = 0;
-  private answerOptions: AnswerOption[] = [];
+  private optionsContainerY = 480;
+  private answerButtons: Phaser.GameObjects.Container[] = [];
   private isSpinning = false;
   private landedTerm?: TermItem;
-  private canSelect = false;
+  private optionsContainer!: Phaser.GameObjects.Container;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 8); }
+  protected maxQuestions() { return Math.min(this.terms.length, 12); }
 
   protected buildWorld() {
-    // ---- Prompt (title + instruction, spoken on entry) ----
-    this.promptBg = this.add.rectangle(this.scale.width / 2, 80, 640, 50, this.theme.card, 0.85)
-      .setStrokeStyle(2, this.theme.accent, 0.6).setDepth(48);
+    // ---- Title ----
     this.promptText = this.add.text(
-      this.scale.width / 2, 80,
+      this.scale.width / 2, 100,
       '🎡 Spin the Wheel!',
       {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '20px',
-        color: this.hex(this.theme.text),
+        fontSize: '28px',
+        color: this.hex(this.theme.accent),
         fontStyle: 'bold',
-        align: 'center',
-        wordWrap: { width: 600 },
       }
-    ).setOrigin(0.5).setDepth(49);
-    this.makeHoverSpeakable(this.promptText, 'Spin the Wheel! Tap the green button to spin!');
-
-    // AAAA: Speak the initial prompt on entry.
-    this.time.delayedCall(800, () => {
-      if (!this.isFinished) this.speakPromptWithHighlight(this.promptText, 'Spin the Wheel! Tap the green button to spin!');
-    });
+    ).setOrigin(0.5).setDepth(50);
 
     // ---- Wheel (center-top) ----
     const wheelX = this.scale.width / 2;
-    const wheelY = 250;
-    const wheelRadius = 170;
+    const wheelY = 240;
+    const wheelRadius = 180;
 
     this.wheel = this.add.container(wheelX, wheelY).setDepth(30);
 
@@ -87,6 +67,7 @@ export default class SpinWheelScene extends BaseEngine {
       const startAngle = i * segmentAngle - 90 - segmentAngle / 2;
       const endAngle = startAngle + segmentAngle;
 
+      // Segment
       const seg = this.add.graphics();
       seg.fillStyle(segmentColors[i % segmentColors.length], 0.9);
       seg.beginPath();
@@ -99,6 +80,7 @@ export default class SpinWheelScene extends BaseEngine {
       this.wheel.add(seg);
       this.wheelSegments.push(seg);
 
+      // Term text on segment
       const midAngle = Phaser.Math.DegToRad(startAngle + segmentAngle / 2);
       const textRadius = wheelRadius * 0.65;
       const tx = Math.cos(midAngle) * textRadius;
@@ -113,12 +95,14 @@ export default class SpinWheelScene extends BaseEngine {
     });
 
     // Wheel center hub
-    const hub = this.add.circle(0, 0, 22, this.theme.warning, 1).setStrokeStyle(4, 0xffffff, 0.9);
+    const hub = this.add.circle(0, 0, 22, this.theme.warning, 1)
+      .setStrokeStyle(4, 0xffffff, 0.9);
     this.wheel.add(hub);
+    // Hub center jewel
     const jewel = this.add.circle(0, 0, 8, 0xffffff, 0.9);
     this.wheel.add(jewel);
 
-    // Decorative lights around the wheel rim
+    // ---- Decorative lights around the wheel rim ----
     const lightCount = 16;
     for (let i = 0; i < lightCount; i++) {
       const angle = (i / lightCount) * Math.PI * 2 - Math.PI / 2;
@@ -127,34 +111,38 @@ export default class SpinWheelScene extends BaseEngine {
       const lightColor = i % 2 === 0 ? this.theme.warning : 0xffffff;
       const light = this.add.circle(lx, ly, 4, lightColor, 1).setDepth(35);
       this.wheel.add(light);
+      // Blinking animation (alternating)
       this.tweens.add({
         targets: light,
         alpha: { from: 1, to: 0.3 },
         duration: 400 + i * 30,
-        yoyo: true, repeat: 999, ease: 'Sine.inOut',
+        yoyo: true,
+        repeat: 999,
+        ease: 'Sine.inOut',
       });
     }
 
-    // Outer ring
+    // Outer wheel ring (gold border)
     const ring = this.add.circle(0, 0, wheelRadius + 4, 0x000000, 0)
       .setStrokeStyle(6, this.theme.warning, 0.8).setDepth(34);
     this.wheel.add(ring);
 
-    // Pointer (at top, pointing down)
+    // Pointer (at top, pointing down) — bigger and more dramatic
     this.pointer = this.add.text(wheelX, wheelY - wheelRadius - 15, '▼', {
       fontFamily: 'Inter, sans-serif',
       fontSize: '44px',
       color: this.hex(this.theme.danger),
       fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(40);
+    // Pointer bounce
     this.tweens.add({
       targets: this.pointer,
       y: wheelY - wheelRadius - 5,
       duration: 600, yoyo: true, repeat: 999, ease: 'Sine.inOut',
     });
 
-    // ---- Spin button (DIRECT interactivity, not global hit-test) ----
-    const btnY = wheelY + wheelRadius + 55;
+    // ---- Spin button ----
+    const btnY = wheelY + wheelRadius + 60;
     const spinBtnBg = this.add.rectangle(0, 0, 220, 56, this.theme.success, 0.9)
       .setStrokeStyle(2, 0xffffff, 0.8);
     const spinBtnTxt = this.add.text(0, 0, '🎲 SPIN!', {
@@ -165,41 +153,56 @@ export default class SpinWheelScene extends BaseEngine {
     }).setOrigin(0.5);
     this.spinBtn = this.add.container(wheelX, btnY, [spinBtnBg, spinBtnTxt])
       .setSize(220, 56).setDepth(40);
+
+    // Use global pointerdown for reliability
     this.spinBtnX = wheelX;
     this.spinBtnY = btnY;
-
-    // DIRECT interactivity on spin button — reliable on mobile + desktop.
-    spinBtnBg.setInteractive({ useHandCursor: true });
-    spinBtnBg.on('pointerdown', () => { this.spin(); });
-    spinBtnTxt.setInteractive({ useHandCursor: true });
-    spinBtnTxt.on('pointerdown', () => { this.spin(); });
-
-    // Pulsing glow on spin button.
-    this.tweens.add({
-      targets: spinBtnBg,
-      scale: { from: 1, to: 1.08 },
-      duration: 600, yoyo: true, repeat: 999, ease: 'Sine.inOut',
+    this.optionsContainerY = 480; // below the wheel + spin button
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      // Check if SPIN button was clicked
+      if (!this.isSpinning && !this.landedTerm && Math.abs(p.x - this.spinBtnX) < 110 && Math.abs(p.y - this.spinBtnY) < 28) {
+        this.spin();
+        return;
+      }
+      // Check if any answer button was clicked — SINGLE TAP = select
+      if (this.landedTerm && this.answerButtons.length > 0) {
+        for (const btn of this.answerButtons) {
+          const opt = btn.getData('opt') as { isCorrect: boolean; term: TermItem };
+          if (!opt) continue;
+          const btnWorldY = btn.getData('worldY') as number;
+          const btnW = Math.min(400, this.scale.width - 40);
+          // Check if tap is within button bounds
+          if (Math.abs(p.x - this.spinBtnX) < btnW / 2 && Math.abs(p.y - btnWorldY) < 28) {
+            // Speak the definition, then select
+            audioBus.speak(opt.term.definition ?? opt.term.term);
+            this.selectOption(opt.isCorrect, opt.term, btn);
+            return;
+          }
+        }
+      }
     });
+
+    // ---- Options container (for definition selection after spin) ----
+    this.optionsContainer = this.add.container(wheelX, this.optionsContainerY).setDepth(40);
   }
 
   protected onTick(_remainingMs: number) { /* HUD */ }
 
   private spin() {
-    if (this.isSpinning || this.landedTerm) return;
+    if (this.isSpinning) return;
     this.isSpinning = true;
-    this.canSelect = false;
     audioBus.play('tap');
 
     // Clear previous options
-    this.answerOptions.forEach(o => { try { o.container.destroy(); } catch {} });
-    this.answerOptions = [];
+    this.answerButtons.forEach(b => b.destroy());
+    this.answerButtons = [];
 
-    // Random spin
+    // Random spin: 5-8 full rotations + random offset
     const rotations = 5 + Math.random() * 3;
     const offset = Math.random() * 360;
     const targetAngle = rotations * 360 + offset;
 
-    // Tick sounds
+    // Tick sound as wheel spins (simulate passing segments)
     const tickCount = Math.floor(rotations * this.segmentTerms.length);
     for (let i = 0; i < tickCount; i++) {
       this.time.delayedCall(i * 80, () => {
@@ -207,20 +210,25 @@ export default class SpinWheelScene extends BaseEngine {
       });
     }
 
-    // Spin animation
+    // Spin animation with ease-out
     this.tweens.add({
       targets: this.wheel,
       angle: targetAngle,
       duration: 3000 + Math.random() * 1000,
       ease: 'Cubic.out',
-      onComplete: () => { this.onWheelStopped(); },
+      onComplete: () => {
+        this.onWheelStopped();
+      },
     });
   }
 
   private onWheelStopped() {
     this.isSpinning = false;
+    // Calculate which segment the pointer is on
     const segmentAngle = 360 / this.segmentTerms.length;
     const currentAngle = ((this.wheel.angle % 360) + 360) % 360;
+    // Pointer is at top (0 degrees). Segment 0 starts at -90 - segmentAngle/2.
+    // After rotation, segment at top = floor((360 - currentAngle + segmentAngle/2) / segmentAngle) % count
     const pointerAngle = (360 - currentAngle) % 360;
     const landedIdx = Math.floor(pointerAngle / segmentAngle) % this.segmentTerms.length;
     this.landedTerm = this.segmentTerms[landedIdx];
@@ -235,161 +243,96 @@ export default class SpinWheelScene extends BaseEngine {
       duration: 300, yoyo: true, repeat: 3, ease: 'Sine.inOut',
     });
 
-    // Update prompt + speak the landed term with karaoke highlight.
-    this.promptText.setText(`Match: ${this.landedTerm.emoji ?? ''} ${this.landedTerm.term}`);
-    this.promptText.setData('speakText', this.landedTerm.term);
-    this.speakPromptWithHighlight(this.promptText, this.landedTerm.term, { pitch: 1.15 });
+    // AAAA KIDS MODE — Speak the landed term with karaoke highlight.
+    if (this.landedTerm) {
+      this.speakPromptWithHighlight(this.promptText, this.landedTerm.term, { pitch: 1.15 });
+    }
 
-    // Show definition options after a brief pause.
-    this.time.delayedCall(800, () => {
-      if (!this.isFinished) this.showDefinitionOptions();
-    });
+    // Show definition options
+    this.showDefinitionOptions();
   }
 
   private showDefinitionOptions() {
     if (!this.landedTerm) return;
+    this.promptText.setText(`Match: ${this.landedTerm.emoji ?? ''} ${this.landedTerm.term}`);
 
-    // 3 options: 1 correct, 2 decoys
+    // 3 options: 1 correct (landed term's definition), 2 decoys
     const decoys = this.terms.filter(t => t.id !== this.landedTerm!.id && t.definition);
     Phaser.Utils.Array.Shuffle(decoys);
-    const optionTerms = [
-      this.landedTerm,
-      decoys[0] ?? this.landedTerm,
-      decoys[1] ?? this.landedTerm,
+    const options = [
+      { term: this.landedTerm, isCorrect: true },
+      { term: decoys[0] ?? this.landedTerm, isCorrect: false },
+      { term: decoys[1] ?? this.landedTerm, isCorrect: false },
     ];
-    Phaser.Utils.Array.Shuffle(optionTerms);
+    Phaser.Utils.Array.Shuffle(options);
 
+    // Position buttons below the wheel, stacked vertically
     const btnW = Math.min(400, this.scale.width - 40);
-    const btnH = 50;
-    const gap = 10;
-    const startY = 460;
+    const btnH = 48;
+    const gap = 8;
+    const startY = this.optionsContainerY - (options.length * (btnH + gap)) / 2 + btnH / 2;
 
-    optionTerms.forEach((term, i) => {
-      const y = startY + i * (btnH + gap);
-      const isCorrect = term.id === this.landedTerm!.id;
-
-      const bg = this.add.rectangle(this.scale.width / 2, y, btnW, btnH, this.theme.card, 0.95)
-        .setStrokeStyle(3, this.theme.accent, 0.7)
-        .setDepth(45)
-        .setInteractive({ useHandCursor: true });
-
-      const txt = this.add.text(this.scale.width / 2, y, term.definition ?? term.term, {
+    options.forEach((opt, i) => {
+      const y = startY + i * (btnH + gap) - this.optionsContainerY; // local Y relative to container
+      const bg = this.add.rectangle(0, y, btnW, btnH, this.theme.card, 0.95)
+        .setStrokeStyle(3, this.theme.accent, 0.7);
+      const txt = this.add.text(0, y, opt.term.definition ?? opt.term.term, {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '16px',
+        fontSize: '18px',
         color: '#ffffff',
         fontStyle: 'bold',
         align: 'center',
         wordWrap: { width: btnW - 20 },
-      }).setOrigin(0.5).setDepth(46);
+      }).setOrigin(0.5);
 
-      // AAAA: Make option text hover-to-speakable with karaoke highlight.
-      this.makeHoverSpeakable(txt, term.definition ?? term.term);
+      const container = this.add.container(0, y, [bg, txt])
+        .setSize(btnW, btnH).setDepth(40);
+      container.setData('opt', opt);
+      container.setData('y', y);
+      container.setData('worldY', this.optionsContainerY + y); // store world Y for hit-test
 
-      // DIRECT interactivity on the button background — reliable tap.
-      bg.on('pointerdown', () => {
-        if (!this.canSelect || this._isPaused || this.isFinished) return;
-        this.canSelect = false;
-        this.speakPromptWithHighlight(txt, term.definition ?? term.term);
-        this.selectOption(isCorrect, term, bg, txt);
-      });
-
-      // Hover glow.
-      bg.on('pointerover', () => {
-        if (this.canSelect) {
-          bg.setFillStyle(this.theme.cardAlt, 1);
-          bg.setStrokeStyle(4, this.theme.accent, 1);
-        }
-      });
-      bg.on('pointerout', () => {
-        bg.setFillStyle(this.theme.card, 0.95);
-        bg.setStrokeStyle(3, this.theme.accent, 0.7);
-      });
-
-      // Entrance animation.
-      bg.setAlpha(0).setScale(0.8);
-      this.tweens.add({
-        targets: [bg, txt],
-        alpha: 1, scale: 1,
-        duration: 250, delay: i * 80, ease: 'Back.out',
-      });
-
-      this.answerOptions.push({
-        term, isCorrect,
-        container: this.add.container(0, 0), // dummy container for tracking
-        bg, txt,
-      });
-    });
-
-    // Enable selection after entrance animation.
-    this.time.delayedCall(400 + optionTerms.length * 80, () => {
-      this.canSelect = true;
-    });
-
-    // Speak each option in sequence after they appear.
-    this.time.delayedCall(600, () => {
-      if (!this.isFinished) {
-        const firstOpt = this.answerOptions[0];
-        if (firstOpt) {
-          this.speakPromptWithHighlight(firstOpt.txt, firstOpt.term.definition ?? firstOpt.term.term);
-        }
-      }
+      this.answerButtons.push(container);
+      this.optionsContainer.add(container);
     });
   }
 
-  private selectOption(isCorrect: boolean, term: TermItem, bg: Phaser.GameObjects.Rectangle, txt: Phaser.GameObjects.Text) {
+  private selectOption(isCorrect: boolean, term: TermItem, btn: Phaser.GameObjects.Container) {
     this.recordAnswer({
       term: this.landedTerm!.term,
       response: term.term,
       success: isCorrect,
-      coordinate: { x: bg.x, y: bg.y, t: this.time.now },
+      coordinate: { x: btn.x, y: btn.y, t: this.time.now },
     });
 
-    // Highlight correct/wrong.
+    // Highlight correct/wrong
+    const bg = btn.getAt(0) as Phaser.GameObjects.Rectangle;
     bg.setFillStyle(isCorrect ? this.theme.success : this.theme.danger, 1);
-    bg.setStrokeStyle(5, isCorrect ? this.theme.success : this.theme.danger, 1);
 
-    // Feedback.
+    // FEEDBACK: Show Correct! or Try again!
     const feedbackMsg = isCorrect ? '✅ Correct!' : '❌ Try again!';
     const feedbackColor = isCorrect ? this.theme.success : this.theme.danger;
-    this.juice.scorePopup(this.scale.width / 2, 420, feedbackMsg, feedbackColor);
+    this.juice.scorePopup(this.spinBtnX, this.optionsContainerY - 40, feedbackMsg, feedbackColor);
     this.juice.flash(feedbackColor, 0.3, 250);
-
     if (isCorrect) {
       audioBus.play('correct');
-      this.juice.burst(bg.x, bg.y, 'correct');
+      this.juice.burst(btn.x, btn.y, 'correct');
     } else {
       audioBus.play('incorrect');
       this.juice.shake('light');
     }
 
-    // Disable all buttons.
-    this.answerOptions.forEach(o => {
-      try { o.bg.disableInteractive(); } catch {}
-    });
+    // Close answers after 1.2s and reset for next spin
+    setTimeout(() => {
+      try {
+        this.promptText.setText('🎡 Spin the Wheel!');
+        this.answerButtons.forEach(b => { try { b.destroy(); } catch {} });
+        this.answerButtons = [];
+        this.landedTerm = undefined;
+      } catch {}
+    }, 1200);
 
     if (isCorrect) {
       this.checkWin();
-      // Reset for next spin.
-      this.time.delayedCall(1500, () => {
-        try {
-          this.promptText.setText('🎡 Spin the Wheel!');
-          this.promptText.setData('speakText', 'Spin the Wheel! Tap the green button to spin!');
-          this.answerOptions.forEach(o => { try { o.bg.destroy(); o.txt.destroy(); } catch {} });
-          this.answerOptions = [];
-          this.landedTerm = undefined;
-          this.canSelect = false;
-        } catch {}
-      });
-    } else {
-      // Re-enable other buttons after 1.2s.
-      this.time.delayedCall(1200, () => {
-        this.answerOptions.forEach(o => {
-          if (o.bg !== bg) {
-            try { o.bg.setInteractive({ useHandCursor: true }); } catch {}
-          }
-        });
-        this.canSelect = true;
-      });
     }
   }
 }

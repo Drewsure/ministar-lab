@@ -9,7 +9,7 @@ export default class LabelItScene extends BaseEngine {
   private promptBg!: Phaser.GameObjects.Rectangle;
   private canAnswer = true;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 10); }
+  protected maxQuestions() { return Math.min(this.terms.length, 12); }
 
   protected buildWorld() {
     this.add.text(this.scale.width / 2, 100, 'LabelIt', {
@@ -21,7 +21,7 @@ export default class LabelItScene extends BaseEngine {
     this.promptText = this.add.text(this.scale.width / 2, 160, 'Game loading...', {
       fontFamily: 'Inter, sans-serif', fontSize: '18px', color: this.hex(this.theme.text), fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(49);
-    this.makeHoverSpeakable(this.promptText);
+    this.makeSpeakable(this.promptText);
 
     const pool = [...this.terms];
     Phaser.Utils.Array.Shuffle(pool);

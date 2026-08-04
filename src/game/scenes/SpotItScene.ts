@@ -54,7 +54,7 @@ export default class SpotItScene extends BaseEngine {
   private speedBonusText!: Phaser.GameObjects.Text;
   private roundText!: Phaser.GameObjects.Text;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 15); }
+  protected maxQuestions() { return Math.min(this.terms.length, 12); }
 
   protected buildWorld() {
     this.maxRounds = this.maxScore;
@@ -92,7 +92,6 @@ export default class SpotItScene extends BaseEngine {
         wordWrap: { width: 560 },
       }
     ).setOrigin(0.5).setDepth(49);
-    this.makeHoverSpeakable(this.promptText);
 
     // ---- Round counter ----
     this.roundText = this.add.text(
