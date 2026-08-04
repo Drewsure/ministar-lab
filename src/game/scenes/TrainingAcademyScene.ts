@@ -39,7 +39,7 @@ export default class TrainingAcademyScene extends BaseEngine {
     this.commandText = this.add.text(this.scale.width / 2, 220, '', {
       fontFamily: 'Inter, sans-serif', fontSize: '48px', color: this.hex(this.theme.warning), fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(50);
-    this.makeSpeakable(this.commandText);
+    this.makeHoverSpeakable(this.commandText);
 
     this.mascot = this.add.text(this.scale.width / 2, this.scale.height / 2, '🐶', { fontSize: '96px' }).setOrigin(0.5).setDepth(50);
     this.statusText = this.add.text(this.scale.width / 2, this.scale.height / 2 + 100, '', {

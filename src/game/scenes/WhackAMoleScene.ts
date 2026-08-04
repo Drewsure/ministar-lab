@@ -60,6 +60,7 @@ export default class WhackAMoleScene extends BaseEngine {
         fontStyle: 'bold',
       }
     ).setOrigin(0.5).setDepth(49);
+    this.makeHoverSpeakable(this.promptText);
 
     // ---- Combo display ----
     this.comboText = this.add.text(

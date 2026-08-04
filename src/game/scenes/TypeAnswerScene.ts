@@ -55,6 +55,7 @@ export default class TypeAnswerScene extends BaseEngine {
         wordWrap: { width: 600 },
       }
     ).setOrigin(0.5).setDepth(50);
+    this.makeHoverSpeakable(this.promptText);
 
     // ---- Input box ----
     this.inputBg = this.add.rectangle(

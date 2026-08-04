@@ -59,6 +59,7 @@ export default class AnagramScene extends BaseEngine {
         wordWrap: { width: 560 },
       }
     ).setOrigin(0.5).setDepth(49);
+    this.makeHoverSpeakable(this.promptText);
 
     // ---- Answer slots indicator (dashed line) ----
     this.add.text(

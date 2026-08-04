@@ -83,7 +83,7 @@ export default class AirplaneScene extends BaseEngine {
         padding: { x: 16, y: 8 },
       }
     ).setOrigin(0.5).setDepth(49);
-    this.makeSpeakable(this.promptText);
+    this.makeHoverSpeakable(this.promptText);
 
     // ---- Clear instructions ----
     this.instructionsText = this.add.text(
@@ -94,7 +94,7 @@ export default class AirplaneScene extends BaseEngine {
         align: 'center',
       }
     ).setOrigin(0.5).setDepth(50).setAlpha(0.7);
-    this.makeSpeakable(this.instructionsText, 'Move left or right to catch the correct banner! Use arrow keys or tap left or right side of screen!');
+    this.makeHoverSpeakable(this.instructionsText, 'Move left or right to catch the correct banner! Use arrow keys or tap left or right side of screen!');
 
     // ---- Parallax clouds (3 layers, different speeds) ----
     this.spawnClouds();

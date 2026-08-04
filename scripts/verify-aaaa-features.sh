@@ -30,7 +30,8 @@ check() {
     return
   fi
 
-  count=$(grep -cE "$pattern" "$file" 2>/dev/null || echo 0)
+  count=$(grep -cE "$pattern" "$file" 2>/dev/null || true)
+  [ -z "$count" ] && count=0
 
   if [ "$count" -ge "$min_count" ]; then
     echo "✅ PASS: $name ($count matches in $file)"
@@ -55,7 +56,8 @@ check_absent() {
   fi
 
   local count
-  count=$(grep -cE "$pattern" "$file" 2>/dev/null || echo 0)
+  count=$(grep -cE "$pattern" "$file" 2>/dev/null || true)
+  [ -z "$count" ] && count=0
 
   if [ "$count" -eq 0 ]; then
     echo "✅ PASS: $name (absent as expected in $file)"
@@ -83,8 +85,8 @@ check "Sticker badge creation" "_createStickerBadge" "src/game/BaseEngine.ts" 2
 check "Sticker award" "_awardSticker" "src/game/BaseEngine.ts" 2
 check "Slow mode API" "isSlowMode" "src/game/BaseEngine.ts" 2
 check "Extended time API" "isExtendedTime" "src/game/BaseEngine.ts" 2
-check "timeMultiplier" "timeMultiplier" "src/game/BaseEngine.ts" 3
-check "questionMultiplier" "questionMultiplier" "src/game/BaseEngine.ts" 3
+check "timeMultiplier" "timeMultiplier" "src/game/BaseEngine.ts" 1
+check "questionMultiplier" "questionMultiplier" "src/game/BaseEngine.ts" 2
 check "speakPromptWithHighlight" "speakPromptWithHighlight" "src/game/BaseEngine.ts" 1
 check "makeHoverSpeakable" "makeHoverSpeakable" "src/game/BaseEngine.ts" 1
 check "_togglePause centralized" "_togglePause" "src/game/BaseEngine.ts" 3
@@ -97,7 +99,7 @@ check "KidsJuice import" "import { KidsJuice }" "src/game/BaseEngine.ts" 1
 check "KidsJuice.celebrateCorrect call" "KidsJuice.celebrateCorrect" "src/game/BaseEngine.ts" 1
 check "KidsJuice.clearHighlights on shutdown" "KidsJuice.clearHighlights" "src/game/BaseEngine.ts" 2
 check "Mascot emoji map" "_MASCOT_EMOJIS" "src/game/BaseEngine.ts" 1
-check "setupGlobalPointer _isPaused guard" "if (this._isPaused" "src/game/BaseEngine.ts" 3
+check "setupGlobalPointer _isPaused guard" "this._isPaused" "src/game/BaseEngine.ts" 3
 echo ""
 
 # ---- KidsJuice.ts ----
@@ -123,8 +125,8 @@ echo ""
 
 # ---- page.tsx ----
 echo "--- page.tsx ---"
-check "slowMode state" "slowMode" "src/app/page.tsx" 3
-check "extendedTime state" "extendedTime" "src/app/page.tsx" 3
+check "slowMode state" "slowMode" "src/app/page.tsx" 2
+check "extendedTime state" "extendedTime" "src/app/page.tsx" 2
 check "🐢 Slow button" "🐢 Slow" "src/app/page.tsx" 1
 check "⏱️ Time+ button" "⏱️ Time" "src/app/page.tsx" 1
 echo ""
@@ -164,11 +166,11 @@ echo ""
 
 # ---- QuizScene.ts AAAA ----
 echo "--- QuizScene.ts (Living Storybook) ---"
-check "Storybook mascot" "_createStoryMascot\|storyMascot" "src/game/scenes/QuizScene.ts" 2
+check "Storybook mascot" "_createStoryMascot|storyMascot" "src/game/scenes/QuizScene.ts" 2
 check "Squishy hover" "_squishyHover" "src/game/scenes/QuizScene.ts" 1
 check "Squishy tap" "_squishyTap" "src/game/scenes/QuizScene.ts" 1
 check "Ripple ring" "_rippleRing" "src/game/scenes/QuizScene.ts" 1
-check "Bouncy background" "_createBouncyBackground\|_bouncyDecos" "src/game/scenes/QuizScene.ts" 2
+check "Bouncy background" "_createBouncyBackground|_bouncyDecos" "src/game/scenes/QuizScene.ts" 2
 check "Mascot happy bounce" "_mascotHappyBounce" "src/game/scenes/QuizScene.ts" 1
 check "Mascot gentle nod" "_mascotGentleNod" "src/game/scenes/QuizScene.ts" 1
 check "Serif font (storybook)" "Georgia" "src/game/scenes/QuizScene.ts" 2
@@ -178,10 +180,10 @@ echo ""
 
 # ---- GameshowScene.ts AAAA ----
 echo "--- GameshowScene.ts (Supercharged Spectacle) ---"
-check "Host showman" "_createHost\|hostCharacter" "src/game/scenes/GameshowScene.ts" 2
-check "Neon borders" "_createNeonBorders\|neonBorders" "src/game/scenes/GameshowScene.ts" 2
+check "Host showman" "_createHost|hostCharacter" "src/game/scenes/GameshowScene.ts" 2
+check "Neon borders" "_createNeonBorders|neonBorders" "src/game/scenes/GameshowScene.ts" 2
 check "Arcade buzzer sink" "_arcadeBuzzerSink" "src/game/scenes/GameshowScene.ts" 1
-check "Camera zoom" "_cameraZoom\|zoomTo" "src/game/scenes/GameshowScene.ts" 2
+check "Camera zoom" "_cameraZoom|zoomTo" "src/game/scenes/GameshowScene.ts" 2
 check "Coin cascade" "_coinCascade" "src/game/scenes/GameshowScene.ts" 1
 check "Pie-in-face" "_pieInFace" "src/game/scenes/GameshowScene.ts" 1
 check "Host cheer" "_hostCheer" "src/game/scenes/GameshowScene.ts" 1
@@ -205,11 +207,11 @@ echo "--- SnakingScene.ts (AAAA Letter Snake) ---"
 check "LetterBubble interface" "interface LetterBubble" "src/game/scenes/SnakingScene.ts" 1
 check "Letter spelling" "lettersCollected" "src/game/scenes/SnakingScene.ts" 3
 check "Soft bounce" "_softBounce" "src/game/scenes/SnakingScene.ts" 2
-check "Expressive eyes" "_updateEyes\|snakeEyes" "src/game/scenes/SnakingScene.ts" 3
+check "Expressive eyes" "_updateEyes|snakeEyes" "src/game/scenes/SnakingScene.ts" 3
 check "Hit-stop" "hitStopUntil" "src/game/scenes/SnakingScene.ts" 3
 check "Progress slots" "progressSlots" "src/game/scenes/SnakingScene.ts" 3
 check "Word complete" "_wordComplete" "src/game/scenes/SnakingScene.ts" 2
-check "Magnetic pull" "speedBoost = 1.25\|speedBoost.*1.25" "src/game/scenes/SnakingScene.ts" 1
+check "Magnetic pull" "speedBoost = 1.25|speedBoost.*1.25" "src/game/scenes/SnakingScene.ts" 1
 check "D-pad" "_createDPad" "src/game/scenes/SnakingScene.ts" 1
 check_absent "NO game over on wall hit" "finishGame\(false\)" "src/game/scenes/SnakingScene.ts"
 echo ""

@@ -51,6 +51,7 @@ export default class WordsearchScene extends BaseEngine {
         fontStyle: 'bold',
       }
     ).setOrigin(0.5).setDepth(50);
+    this.makeHoverSpeakable(titleText, 'Find the hidden words!');
     // AAAA KIDS MODE — Speak the title with karaoke highlight on entry.
     this.time.delayedCall(800, () => {
       if (!this.isFinished) this.speakPromptWithHighlight(titleText, 'Find the hidden words!', { isQuestion: true });

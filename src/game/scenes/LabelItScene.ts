@@ -21,7 +21,7 @@ export default class LabelItScene extends BaseEngine {
     this.promptText = this.add.text(this.scale.width / 2, 160, 'Game loading...', {
       fontFamily: 'Inter, sans-serif', fontSize: '18px', color: this.hex(this.theme.text), fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(49);
-    this.makeSpeakable(this.promptText);
+    this.makeHoverSpeakable(this.promptText);
 
     const pool = [...this.terms];
     Phaser.Utils.Array.Shuffle(pool);

@@ -73,7 +73,7 @@ export default class TowerDefenseScene extends BaseEngine {
       fontFamily: 'Inter, sans-serif', fontSize: '12px',
       color: this.hex(this.theme.text), fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(49);
-    this.makeSpeakable(this.promptText);
+    this.makeHoverSpeakable(this.promptText);
 
     // Stats row
     this.waveText = this.add.text(20, 85, 'Wave 1/3', {

@@ -50,6 +50,7 @@ export default class GroupSortScene extends BaseEngine {
         fontStyle: 'bold',
       }
     ).setOrigin(0.5).setDepth(50);
+    this.makeHoverSpeakable(this.promptText);
     // AAAA KIDS MODE — Speak the prompt with karaoke highlight on entry.
     this.time.delayedCall(800, () => {
       if (!this.isFinished) this.speakPromptWithHighlight(this.promptText, 'Sort terms into categories!', { isQuestion: true });

@@ -33,7 +33,7 @@ export default class PhysicsPuzzlerScene extends BaseEngine {
       fontFamily: 'Inter, sans-serif', fontSize: '18px', color: this.hex(this.theme.text), fontStyle: 'bold',
       align: 'center', wordWrap: { width: 600 },
     }).setOrigin(0.5).setDepth(49);
-    this.makeSpeakable(this.promptText);
+    this.makeHoverSpeakable(this.promptText);
 
     this.shotsText = this.add.text(this.scale.width - 20, 220, `🔫 ${this.shotsLeft}`, {
       fontFamily: 'Inter, sans-serif', fontSize: '18px', color: this.hex(this.theme.warning), fontStyle: 'bold',

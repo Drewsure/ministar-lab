@@ -46,6 +46,7 @@ export default class SpinWheelScene extends BaseEngine {
         fontStyle: 'bold',
       }
     ).setOrigin(0.5).setDepth(50);
+    this.makeHoverSpeakable(this.promptText);
 
     // ---- Wheel (center-top) ----
     const wheelX = this.scale.width / 2;

@@ -43,7 +43,7 @@ export default class MemoryMatchScene extends BaseEngine {
 
   protected buildWorld() {
     // ---- Title ----
-    this.add.text(
+    const titleText = this.add.text(
       this.scale.width / 2, 100,
       'Memory Match',
       {
@@ -53,6 +53,7 @@ export default class MemoryMatchScene extends BaseEngine {
         fontStyle: 'bold',
       }
     ).setOrigin(0.5).setDepth(50);
+    this.makeHoverSpeakable(titleText, 'Memory Match — find the matching pairs!');
 
     // ---- Stats bar (moves + pairs) ----
     this.movesText = this.add.text(

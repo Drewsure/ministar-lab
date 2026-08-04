@@ -79,6 +79,7 @@ export default class CrosswordScene extends BaseEngine {
         wordWrap: { width: 700 },
       }
     ).setOrigin(0.5).setDepth(50);
+    this.makeHoverSpeakable(this.clueText);
 
     // Build crossword
     this.generateLayout();

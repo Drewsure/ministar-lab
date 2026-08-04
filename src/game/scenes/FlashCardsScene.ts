@@ -83,6 +83,7 @@ export default class FlashCardsScene extends BaseEngine {
       align: 'center',
       wordWrap: { width: cardW - 50 },
     }).setOrigin(0.5).setDepth(50);
+    this.makeHoverSpeakable(this.cardText);
 
     // Hint text (below card) — bigger
     this.hintText = this.add.text(cardX, cardY + cardH / 2 + 30, 'Tap card to flip · Tap text to hear', {

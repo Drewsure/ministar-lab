@@ -328,7 +328,7 @@ export default class StarFarmScene extends BaseEngine {
       fontFamily: 'Inter, sans-serif', fontSize: '11px',
       color: this.hex(this.theme.text), fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(49);
-    this.makeSpeakable(this.promptText);
+    this.makeHoverSpeakable(this.promptText);
 
     this._buildGrid();
     this._buildNPCs();

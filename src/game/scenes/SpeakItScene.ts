@@ -25,7 +25,7 @@ export default class SpeakItScene extends BaseEngine {
     this.promptText = this.add.text(this.scale.width / 2, 160, 'Listen, then tap the word!', {
       fontFamily: 'Inter, sans-serif', fontSize: '18px', color: this.hex(this.theme.text), fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(49);
-    this.makeSpeakable(this.promptText);
+    this.makeHoverSpeakable(this.promptText);
 
     // Replay button — tap to hear the word again
     const replayBtn = this.add.text(this.scale.width / 2, 220, '🔊 Tap to hear the word', {

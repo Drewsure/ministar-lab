@@ -92,6 +92,7 @@ export default class SpotItScene extends BaseEngine {
         wordWrap: { width: 560 },
       }
     ).setOrigin(0.5).setDepth(49);
+    this.makeHoverSpeakable(this.promptText);
 
     // ---- Round counter ----
     this.roundText = this.add.text(
