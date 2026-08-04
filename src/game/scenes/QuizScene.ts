@@ -469,6 +469,12 @@ export default class QuizScene extends BaseEngine {
       this._squishyTap(btn);
       this._rippleRing(btn.x, btn.y);
       this._mascotHappyBounce();
+      // AAAA: Verbal verification — speak "Correct!" then the term.
+      const correctTerm = this.rounds[this.round].options[correctIndex].term;
+      const correctEmoji = this.rounds[this.round].options[correctIndex].emoji ?? '';
+      this.time.delayedCall(200, () => {
+        audioBus.speak(`Correct! ${correctEmoji} ${correctTerm}!`, { pitch: 1.2, rate: 1.0 });
+      });
     } else {
       bg.setFillStyle(this.theme.danger, 1);
       bg.setStrokeStyle(4, this.theme.danger, 1);
@@ -485,9 +491,11 @@ export default class QuizScene extends BaseEngine {
       });
       // Green glow ring around correct answer
       this.juice.glowRing(correctBtn.x, correctBtn.y, this.theme.success, 80);
-      // Speak the correct answer
-      this.time.delayedCall(300, () => {
-        audioBus.speak(`The answer is ${this.rounds[this.round].options[correctIndex].term}`);
+      // AAAA: Verbal verification — speak "Try again!" then the correct answer.
+      const correctTerm = this.rounds[this.round].options[correctIndex].term;
+      const correctEmoji = this.rounds[this.round].options[correctIndex].emoji ?? '';
+      this.time.delayedCall(200, () => {
+        audioBus.speak(`Try again! The answer is ${correctEmoji} ${correctTerm}.`, { pitch: 1.0, rate: 0.92 });
       });
       this.juice.shake('medium');
       this.juice.burst(btn.x, btn.y, 'incorrect');
@@ -496,8 +504,8 @@ export default class QuizScene extends BaseEngine {
       this._mascotGentleNod();
     }
 
-    // Slide out transition (page-turn: slide LEFT with -8° rotation)
-    this.time.delayedCall(900, () => {
+    // Slide out transition — delayed 1500ms so verbal verification finishes first.
+    this.time.delayedCall(1500, () => {
       // AAAA Living Storybook — page-turn the prompt banner + text too.
       this.tweens.add({
         targets: [this.promptBg, this.promptText],
