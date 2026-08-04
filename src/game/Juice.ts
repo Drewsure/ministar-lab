@@ -1275,7 +1275,7 @@ export class Hud {
     private scene: Phaser.Scene,
     private theme: ThemeManifest,
     private onUpdate: (state: { score: number; streak: number; remainingMs: number }) => void,
-    private initialTimeMs = 300_000, // 5 minutes — kid-friendly, no pressure
+    private initialTimeMs = 150_000, // AAAA: 2.5 minutes — child's hyper-focus window (90-150s)
   ) {
     const t = theme;
     const textHex = '#' + t.text.toString(16).padStart(6, '0');

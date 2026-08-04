@@ -67,7 +67,7 @@ export default class SpaceExplorerScene extends BaseEngine {
   private selectedPlanet: Planet | null = null;
   private scanCircles: Phaser.GameObjects.Arc[] = [];
 
-  protected maxQuestions() { return Math.min(this.terms.length, 15); }
+  protected maxQuestions() { return Math.min(this.terms.length, 6); }
 
   protected buildWorld() {
     this.add.text(this.scale.width / 2, 30, '🚀 Space Explorer', {

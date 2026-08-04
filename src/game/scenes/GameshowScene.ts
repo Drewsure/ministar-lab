@@ -41,7 +41,7 @@ export default class GameshowScene extends BaseEngine {
   private hostBaseY = 0;
   private neonBorders: Phaser.GameObjects.Rectangle[] = [];
 
-  protected maxQuestions() { return Math.min(this.terms.length, 12); }
+  protected maxQuestions() { return Math.min(this.terms.length, 5); }
 
   protected buildWorld() {
     // Build rounds

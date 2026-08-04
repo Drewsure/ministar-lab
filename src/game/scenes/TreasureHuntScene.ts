@@ -41,7 +41,7 @@ export default class TreasureHuntScene extends BaseEngine {
   private currentDigPlot: Plot | null = null;
   private canAct = true;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 12); }
+  protected maxQuestions() { return Math.min(this.terms.length, 5); }
 
   protected buildWorld() {
     this.add.text(this.scale.width / 2, 30, '🗺️ Treasure Hunt', {

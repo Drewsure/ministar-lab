@@ -75,7 +75,7 @@ export default class MazeChaseScene extends BaseEngine {
   private pathIdx = 0;
   private speedBoostUntil = 0;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 10); }
+  protected maxQuestions() { return Math.min(this.terms.length, 6); }
 
   // ===========================================================================
   // BUILD WORLD

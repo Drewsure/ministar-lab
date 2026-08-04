@@ -60,7 +60,7 @@ export default class RhythmTapScene extends BaseEngine {
   private beatPulse = 0;
   private canTap = true;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 18); }
+  protected maxQuestions() { return Math.min(this.terms.length, 8); }
 
   protected buildWorld() {
     this.add.text(this.scale.width / 2, 35, '🎵 Rhythm Tap', {

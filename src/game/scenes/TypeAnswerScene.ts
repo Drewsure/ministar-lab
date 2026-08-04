@@ -28,7 +28,7 @@ export default class TypeAnswerScene extends BaseEngine {
   private hintUsed = false;
   private canSubmit = true;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 15); }
+  protected maxQuestions() { return Math.min(this.terms.length, 5); }
 
   protected buildWorld() {
     // ---- Title ----

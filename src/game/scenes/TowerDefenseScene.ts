@@ -59,7 +59,7 @@ export default class TowerDefenseScene extends BaseEngine {
   private canAct = true;
   private feedbackText!: Phaser.GameObjects.Text;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 15); }
+  protected maxQuestions() { return Math.min(this.terms.length, 8); }
 
   protected buildWorld() {
     this.add.text(this.scale.width / 2, 30, '🏰 Tower Defense', {

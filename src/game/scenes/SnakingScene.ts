@@ -73,7 +73,7 @@ export default class SnakingScene extends BaseEngine {
   private minWordLength = 3;
   private maxWordLength = 5;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 15); }
+  protected maxQuestions() { return Math.min(this.terms.length, 4); }
 
   protected buildWorld() {
     // AAAA: Filter terms to age-appropriate word lengths.

@@ -27,7 +27,7 @@ export default class EndlessRunnerScene extends BaseEngine {
   private instructionsText!: Phaser.GameObjects.Text;
   private canSwitch = true;
 
-  protected maxQuestions() { return 20; }
+  protected maxQuestions() { return 8; }
 
   protected buildWorld() {
     this.add.text(this.scale.width / 2, 55, '🏃 Endless Runner', {

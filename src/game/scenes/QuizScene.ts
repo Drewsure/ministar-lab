@@ -49,7 +49,7 @@ export default class QuizScene extends BaseEngine {
   private storyMascotBaseY = 0;
   private _bouncyDecos: Phaser.GameObjects.Text[] = [];
 
-  protected maxQuestions() { return Math.min(this.terms.length, 10); }
+  protected maxQuestions() { return Math.min(this.terms.length, 5); }
 
   protected buildWorld() {
     // AAAA Living Storybook — opt out of the generic auto-mascot &

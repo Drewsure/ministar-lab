@@ -242,39 +242,48 @@
 | Player 120px/s | `baseSpeed = this.lod.isMobile ? 100 : 120` | YES |
 | Ghost 80px/s | `chaseSpeed = (this.lod.isMobile ? 60 : 80)` | YES |
 
-### maxQuestions — ALL 29 Games Bumped
+### maxQuestions — Hyper-Focus Window (90-150 seconds)
 
-| Game | Expected Cap |
-|------|-------------|
-| Airplane | 12 |
-| Anagram | 10 |
-| BalloonPop | 15 |
-| BridgeBuilder | 8 |
-| Crossword | 12 |
-| EndlessRunner | 20 |
-| FarmLife | 15 |
-| FlashCards | 20 |
-| Gameshow | 12 |
-| GroupSort | 16 |
-| LabelIt | 12 |
-| MatchUp | 10 |
-| MazeChase | 10 |
-| MemoryMatch | 10 |
-| PhysicsPuzzler | 15 |
-| Quiz | 8 |
-| RhythmTap | 18 |
-| Snaking | 15 |
-| SpaceExplorer | 15 |
-| SpeakIt | 12 |
-| SpinWheel | 12 |
-| SpotIt | 12 |
-| StarFarm | 15 |
-| TowerDefense | 15 |
-| TrainingAcademy | 15 |
-| TreasureHunt | 12 |
-| TypeAnswer | 15 |
-| WhackAMole | 12 |
-| Wordsearch | 10 |
+**NEW GUIDELINE:** All games MUST fit within a child's hyper-focus window of 90-150 seconds.
+The HUD timer defaults to 150,000ms (2.5 minutes). maxQuestions caps are calibrated so
+games finish within this window based on estimated time per question/round.
+
+| Game | Expected Cap | Est. Time/Q | Total Est. |
+|------|-------------|-------------|-----------|
+| Airplane | 8 | ~10s | 80s |
+| Anagram | 5 | ~20s | 100s |
+| BalloonPop | 8 | ~10s | 80s |
+| BridgeBuilder | 4 | ~20s | 80s |
+| Crossword | 5 | ~20s | 100s |
+| EndlessRunner | 8 | ~10s | 80s |
+| FarmLife | 8 | ~10s | 80s |
+| FlashCards | 8 | ~10s | 80s |
+| Gameshow | 5 | ~20s | 100s |
+| GroupSort | 6 | ~15s | 90s |
+| LabelIt | 5 | ~15s | 75s |
+| MatchUp | 5 | ~15s | 75s |
+| MazeChase | 6 | ~15s | 90s |
+| MemoryMatch | 5 | ~20s | 100s |
+| MonsterFighter | MONSTERS.length | structural | — |
+| PhysicsPuzzler | 5 | ~20s | 100s |
+| Quiz | 5 | ~20s | 100s |
+| RescueQuest | min(6, OBSTACLE_TYPES) | structural | — |
+| RhythmTap | 8 | ~10s | 80s |
+| Snaking | 4 | ~25s/word | 100s |
+| SpaceExplorer | 6 | ~15s | 90s |
+| SpeakIt | 5 | ~15s | 75s |
+| SpinWheel | 5 | ~20s | 100s |
+| SpotIt | 8 | ~8s | 64s |
+| StarFarm | 6 | ~15s | 90s |
+| StoryAdventure | CHAPTERS (structural) | — | — |
+| TowerDefense | 8 | ~15s | 120s |
+| TrainingAcademy | 6 | ~15s | 90s |
+| TreasureHunt | 5 | ~20s | 100s |
+| TypeAnswer | 5 | ~20s | 100s |
+| WhackAMole | 8 | ~8s | 64s |
+| Wordsearch | 4 | ~25s | 100s |
+
+**HUD Timer:** `src/game/Juice.ts` — `initialTimeMs = 150_000` (2.5 minutes max).
 
 ---
 

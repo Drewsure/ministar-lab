@@ -33,7 +33,7 @@ export default class FlashCardsScene extends BaseEngine {
   private isFlipping = false;
   private knownCount = 0;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 20); }
+  protected maxQuestions() { return Math.min(this.terms.length, 8); }
 
   protected buildWorld() {
     // ---- Title ----
