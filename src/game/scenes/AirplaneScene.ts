@@ -366,12 +366,12 @@ export default class AirplaneScene extends BaseEngine {
   private _spawnSingleBanner(entry: { term: TermItem; isCorrect: boolean }, x: number, bannerW: number, bannerH: number, idx: number) {
     const y = -bannerH;
 
-    // VISUAL FIX (user feedback "change wall cubes to clouds"): Banner looks
-    // like a cloud — rounded white shape with blue tint, not a brick rectangle.
-    // Correct banner has a subtle green tint; wrong banners are neutral white.
-    const cloudColor = entry.isCorrect ? 0xe0f7fa : 0xffffff;
+    // VISUAL: Correct cloud has green tint, wrong clouds are white.
+    // AAAA: Check against current activePrompt at spawn time for initial color.
+    const isCurrentlyCorrect = this.activePrompt ? (entry.term.id === this.activePrompt.id) : false;
+    const cloudColor = isCurrentlyCorrect ? 0xe0f7fa : 0xffffff;
     const bg = this.add.ellipse(0, 0, bannerW, bannerH * 0.9, cloudColor, 0.95)
-      .setStrokeStyle(3, entry.isCorrect ? this.theme.success : this.theme.accent, 0.7);
+      .setStrokeStyle(3, isCurrentlyCorrect ? this.theme.success : this.theme.accent, 0.7);
     // Cloud puffs (3 small circles on top for a cloud shape)
     const puff1 = this.add.circle(-bannerW * 0.3, -bannerH * 0.3, 14, cloudColor, 0.95);
     const puff2 = this.add.circle(0, -bannerH * 0.4, 17, cloudColor, 0.95);
@@ -481,7 +481,13 @@ export default class AirplaneScene extends BaseEngine {
     if (!banner || banner.hit) return;
     banner.hit = true;
 
-    const isCorrect = banner.isCorrect;
+    // AAAA FIX: Check isCorrect at CATCH TIME, not spawn time.
+    // A cloud is "correct" if its term matches the CURRENT activePrompt.
+    // This fixes the bug where a cloud spawned as "correct" for an old
+    // target word was still marked correct after the goal changed.
+    // Also fixes: a cloud spawned as "decoy" but whose term happens to
+    // match the current target (rare but possible) is correctly marked.
+    const isCorrect = this.activePrompt ? (banner.term.id === this.activePrompt.id) : false;
     const coord = { x: container.x, y: container.y, t: this.time.now };
 
     this.recordAnswer({
@@ -561,10 +567,13 @@ export default class AirplaneScene extends BaseEngine {
     }
   }
 
-  // AAAA: Manual distance-based catch detection.
-  // Only triggers when the rocket CENTER is within 35px of a cloud CENTER.
-  // This is much more precise than physics overlap (which used body bounds
-  // and triggered on any edge contact).
+  // AAAA: Manual hit detection — uses box overlap (horizontal AND vertical
+  // alignment), not distance. This means the rocket catches a cloud if:
+  //   • Rocket X is within 55px of cloud X (horizontally aligned)
+  //   • Rocket Y is within 30px of cloud Y (vertically overlapping)
+  // This is generous enough that hitting a cloud "from the side" registers
+  // (the rocket slides into the cloud horizontally), but not SO large that
+  // passing nearby triggers a catch.
   private _checkCloudCatches() {
     if (!this.plane) return;
     const px = this.plane.x;
@@ -573,9 +582,12 @@ export default class AirplaneScene extends BaseEngine {
     // Check banners.
     for (const banner of [...this.banners]) {
       if (banner.hit) continue;
-      const dist = Phaser.Math.Distance.Between(px, py, banner.container.x, banner.container.y);
-      // 35px = tight catch radius. Rocket must be nearly centered on the cloud.
-      if (dist < 35) {
+      const cx = banner.container.x;
+      const cy = banner.container.y;
+      // Box overlap: |dx| < 55 AND |dy| < 30.
+      const dx = Math.abs(px - cx);
+      const dy = Math.abs(py - cy);
+      if (dx < 55 && dy < 30) {
         this.handleOverlap(this.plane, banner.container);
       }
     }
@@ -583,8 +595,11 @@ export default class AirplaneScene extends BaseEngine {
     // Check storm clouds.
     for (const storm of [...this.stormClouds]) {
       if (storm.hit) continue;
-      const dist = Phaser.Math.Distance.Between(px, py, storm.container.x, storm.container.y);
-      if (dist < 40) {
+      const cx = storm.container.x;
+      const cy = storm.container.y;
+      const dx = Math.abs(px - cx);
+      const dy = Math.abs(py - cy);
+      if (dx < 60 && dy < 35) {
         this._handleStormHit(storm);
       }
     }
