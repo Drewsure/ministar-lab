@@ -150,9 +150,11 @@ export default class AirplaneScene extends BaseEngine {
       }).setDepth(29);
     }
 
-    // ---- Banner group + overlap detection ----
+    // ---- Banner group (for visual tracking only — NO physics overlap) ----
+    // AAAA: Removed physics.add.overlap — was triggering on any body overlap,
+    // including when the rocket just brushed past a wrong cloud. Now using
+    // manual distance-based hit detection in update() for precise control.
     this.bannerGroup = this.physics.add.group();
-    this.physics.add.overlap(this.plane, this.bannerGroup, this.handleOverlap, undefined, this);
 
     // ---- First prompt ----
     if (this.terms.length === 0) {
@@ -543,15 +545,48 @@ export default class AirplaneScene extends BaseEngine {
   update() {
     if (this.isFinished || this._isPaused || !this.plane) return;
     try {
-      // AAAA: Reset velocity if we just unpaused (prevents queued velocity from button taps during pause).
+      // AAAA: Reset velocity if we just unpaused.
       if (this._justUnpaused) {
         this._justUnpaused = false;
         this.plane.setVelocityX(0);
         this.plane.setVelocityY(0);
       }
       this.updateAirplane();
+      // AAAA: Manual hit detection — check distance between rocket center
+      // and each cloud center. Only triggers when rocket is WITHIN the cloud
+      // (tight radius), not just brushing past.
+      this._checkCloudCatches();
     } catch (e) {
       console.error('[MiniStar] Rocket update error:', e);
+    }
+  }
+
+  // AAAA: Manual distance-based catch detection.
+  // Only triggers when the rocket CENTER is within 35px of a cloud CENTER.
+  // This is much more precise than physics overlap (which used body bounds
+  // and triggered on any edge contact).
+  private _checkCloudCatches() {
+    if (!this.plane) return;
+    const px = this.plane.x;
+    const py = this.plane.y;
+
+    // Check banners.
+    for (const banner of [...this.banners]) {
+      if (banner.hit) continue;
+      const dist = Phaser.Math.Distance.Between(px, py, banner.container.x, banner.container.y);
+      // 35px = tight catch radius. Rocket must be nearly centered on the cloud.
+      if (dist < 35) {
+        this.handleOverlap(this.plane, banner.container);
+      }
+    }
+
+    // Check storm clouds.
+    for (const storm of [...this.stormClouds]) {
+      if (storm.hit) continue;
+      const dist = Phaser.Math.Distance.Between(px, py, storm.container.x, storm.container.y);
+      if (dist < 40) {
+        this._handleStormHit(storm);
+      }
     }
   }
 
