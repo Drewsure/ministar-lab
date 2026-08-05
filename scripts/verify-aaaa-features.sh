@@ -1,22 +1,22 @@
 #!/bin/bash
-# verify-aaaa-features.sh  EPre-Deployment Verification
+# verify-aaaa-features.sh — Pre-Deployment Verification
 # Exit 0 = safe to deploy, 1 = BLOCKED
 set -e
-cd /c/Users/User/ministar-lab
+cd /home/z/my-project
 
 PASS=0; FAIL=0; FAILURES=""
 
 check() {
   local name="$1" pattern="$2" file="$3" min="$4" count
   if [ ! -f "$file" ]; then
-    echo "❁EFAIL: $name  Efile missing: $file"; FAIL=$((FAIL+1)); FAILURES="$FAILURES\n  - $name (file missing)"; return
+    echo "❌ FAIL: $name — file missing: $file"; FAIL=$((FAIL+1)); FAILURES="$FAILURES\n  - $name (file missing)"; return
   fi
   count=$(grep -cE "$pattern" "$file" 2>/dev/null || true)
   [ -z "$count" ] && count=0
   if [ "$count" -ge "$min" ]; then
-    echo "✁EPASS: $name ($count in $(basename $file))"; PASS=$((PASS+1))
+    echo "✅ PASS: $name ($count in $(basename $file))"; PASS=$((PASS+1))
   else
-    echo "❁EFAIL: $name  Eexpected $min+, got $count"; FAIL=$((FAIL+1)); FAILURES="$FAILURES\n  - $name (expected $min+, got $count in $file)"
+    echo "❌ FAIL: $name — expected $min+, got $count"; FAIL=$((FAIL+1)); FAILURES="$FAILURES\n  - $name (expected $min+, got $count in $file)"
   fi
 }
 
@@ -25,9 +25,9 @@ check_absent() {
   count=$(grep -cE "$pattern" "$file" 2>/dev/null || true)
   [ -z "$count" ] && count=0
   if [ "$count" -eq 0 ]; then
-    echo "✁EPASS: $name (absent as expected)"; PASS=$((PASS+1))
+    echo "✅ PASS: $name (absent as expected)"; PASS=$((PASS+1))
   else
-    echo "❁EFAIL: $name  Eshould NOT exist, found $count"; FAIL=$((FAIL+1)); FAILURES="$FAILURES\n  - $name (found $count, should be 0)"
+    echo "❌ FAIL: $name — should NOT exist, found $count"; FAIL=$((FAIL+1)); FAILURES="$FAILURES\n  - $name (found $count, should be 0)"
   fi
 }
 
@@ -81,7 +81,7 @@ echo "--- page.tsx ---"
 check "slowMode" "slowMode" "src/app/page.tsx" 2
 check "extendedTime" "extendedTime" "src/app/page.tsx" 2
 check "🐢 Slow" "🐢 Slow" "src/app/page.tsx" 1
-check "⏱�E�ETime" "⏱�E�ETime" "src/app/page.tsx" 1
+check "⏱️ Time" "⏱️ Time" "src/app/page.tsx" 1
 
 echo "--- All 32 Games ---"
 HG=0; SG=0; TG=0
@@ -91,8 +91,8 @@ for f in src/game/scenes/*.ts; do
   grep -q "makeHoverSpeakable" "$f" 2>/dev/null && HG=$((HG+1))
 done
 echo "speakPromptWithHighlight: $SG/$TG  makeHoverSpeakable: $HG/$TG"
-if [ "$SG" -lt 32 ]; then echo "❁EFAIL: speakPromptWithHighlight $SG/32"; FAIL=$((FAIL+1)); else echo "✁EPASS: speakPromptWithHighlight $SG/32"; PASS=$((PASS+1)); fi
-if [ "$HG" -lt 32 ]; then echo "❁EFAIL: makeHoverSpeakable $HG/32"; FAIL=$((FAIL+1)); else echo "✁EPASS: makeHoverSpeakable $HG/32"; PASS=$((PASS+1)); fi
+if [ "$SG" -lt 32 ]; then echo "❌ FAIL: speakPromptWithHighlight $SG/32"; FAIL=$((FAIL+1)); else echo "✅ PASS: speakPromptWithHighlight $SG/32"; PASS=$((PASS+1)); fi
+if [ "$HG" -lt 32 ]; then echo "❌ FAIL: makeHoverSpeakable $HG/32"; FAIL=$((FAIL+1)); else echo "✅ PASS: makeHoverSpeakable $HG/32"; PASS=$((PASS+1)); fi
 
 echo "--- Quiz AAAA ---"
 check "Storybook mascot" "_createStoryMascot|storyMascot" "src/game/scenes/QuizScene.ts" 2
@@ -159,10 +159,10 @@ done
 echo "=========================================="
 echo "SUMMARY: Passed=$PASS Failed=$FAIL"
 if [ "$FAIL" -gt 0 ]; then
-  echo "❁EDEPLOYMENT BLOCKED  E$FAIL feature(s) missing:"
+  echo "❌ DEPLOYMENT BLOCKED — $FAIL feature(s) missing:"
   echo -e "$FAILURES"
   exit 1
 else
-  echo "✁EALL CHECKS PASSED  Esafe to deploy."
+  echo "✅ ALL CHECKS PASSED — safe to deploy."
   exit 0
 fi
