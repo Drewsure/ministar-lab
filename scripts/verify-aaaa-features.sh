@@ -3,6 +3,8 @@
 # Exit 0 = safe to deploy, 1 = BLOCKED
 set -e
 cd /c/Users/User/ministar-lab
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR/.."
 
 PASS=0; FAIL=0; FAILURES=""
 
@@ -80,8 +82,8 @@ check "onEnd" "onEnd" "src/lib/audio.ts" 3
 echo "--- page.tsx ---"
 check "slowMode" "slowMode" "src/app/page.tsx" 2
 check "extendedTime" "extendedTime" "src/app/page.tsx" 2
-check "世 Slow" "世 Slow" "src/app/page.tsx" 1
-check "竢ｱ・・Time" "竢ｱ・・Time" "src/app/page.tsx" 1
+check "世 Slow" "Slow" "src/app/page.tsx" 1
+check "竢ｱ・・Time" "Time" "src/app/page.tsx" 1
 
 echo "--- All 32 Games ---"
 HG=0; SG=0; TG=0
