@@ -53,6 +53,7 @@ export default class AirplaneScene extends BaseEngine {
   // AAAA KIDS MODE — Storm cloud hazard
   private stormClouds: StormCloud[] = [];
   private slowedUntil = 0;
+  private _spawnCount = 0; // AAAA: alternates correct/decoy clouds
 
   protected maxQuestions() { return Math.min(this.terms.length, 15); }
 
@@ -153,13 +154,13 @@ export default class AirplaneScene extends BaseEngine {
     this.updatePromptText();
 
     // ---- Spawn loop ----
-    // PACING FIX (user feedback "way too excessive and slow"):
-    // Spawn interval 1.8s (was 2.5s — too slow). First spawn after 1.2s.
-    this.time.delayedCall(1200, () => {
+    // AAAA: Slower spawn (2.5s, was 1.8s) so kids have time to read + steer.
+    // First spawn after 2s (was 1.2s) so the initial prompt is read first.
+    this.time.delayedCall(2000, () => {
       if (this.isFinished) return;
       this.spawnBannerRow();
       this.spawnTimer = this.time.addEvent({
-        delay: 1800, loop: true,
+        delay: 2500, loop: true,
         callback: this.spawnBannerRow,
         callbackScope: this,
       });
@@ -171,7 +172,8 @@ export default class AirplaneScene extends BaseEngine {
       this.wasd = this.input.keyboard.addKeys('A,D') as Record<string, Phaser.Input.Keyboard.Key>;
     }
 
-    // DRAMA: On-screen LEFT/RIGHT buttons for mobile — BIG tap targets
+    // DRAMA: On-screen LEFT/RIGHT buttons for mobile — BIG tap targets.
+    // AAAA: Check _isPaused before moving plane.
     const leftBtn = this.add.text(60, this.scale.height - 50, '◀', {
       fontFamily: 'Inter, sans-serif', fontSize: '40px', color: '#ffffff',
       backgroundColor: '#' + this.theme.accent.toString(16).padStart(6, '0'),
@@ -179,6 +181,7 @@ export default class AirplaneScene extends BaseEngine {
       fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(400).setInteractive({ useHandCursor: true });
     leftBtn.on('pointerdown', () => {
+      if (this._isPaused || this.isFinished) return;
       this.plane.setVelocityX(-200 * this.speedMultiplier);
     });
 
@@ -189,6 +192,7 @@ export default class AirplaneScene extends BaseEngine {
       fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(400).setInteractive({ useHandCursor: true });
     rightBtn.on('pointerdown', () => {
+      if (this._isPaused || this.isFinished) return;
       this.plane.setVelocityX(200 * this.speedMultiplier);
     });
   }
@@ -244,11 +248,14 @@ export default class AirplaneScene extends BaseEngine {
       return;
     }
 
-    // USER REQUEST: "one cloud dropping per row - not 3 at the same time"
-    // Spawn ONE cloud per row. Alternate between correct and wrong words
-    // so the player has to read each one and decide.
+    // AAAA: GUARANTEE the correct cloud appears at least every other spawn.
+    // Alternate: odd spawn = correct cloud, even spawn = decoy.
+    // This ensures the target word always comes down within 5 seconds.
+    // Was: 50% random chance — sometimes the correct word never appeared.
+    this._spawnCount = (this._spawnCount || 0) + 1;
+    const isCorrect = (this._spawnCount % 2 === 1); // odd = correct, even = decoy
+
     const decoys = this.terms.filter(t => t.id !== this.activePrompt!.id);
-    const isCorrect = Math.random() < 0.5; // 50% chance correct
     const term = isCorrect ? this.activePrompt : (Phaser.Utils.Array.GetRandom(decoys) ?? this.activePrompt);
 
     // Random x position across the screen
@@ -393,7 +400,8 @@ export default class AirplaneScene extends BaseEngine {
     // so they don't fall as a connected wall. Each banner falls at a different
     // speed, creating visual separation.
     // AAAA SLOW MODE: multiply by timeMultiplier() (0.7 = 30% slower fall).
-    const baseFallSpeed = (this.lod.isMobile ? 60 : 80) * this.speedMultiplier * this.timeMultiplier();
+    // AAAA: Slower fall speed (was 60/80, now 40/50) so kids can reach clouds.
+    const baseFallSpeed = (this.lod.isMobile ? 40 : 50) * this.speedMultiplier * this.timeMultiplier();
     const speedVariation = [0.9, 1.0, 1.1][idx % 3]; // minimal variation (was 0.8/1.0/1.2 — too extreme)
     const fallSpeed = baseFallSpeed * speedVariation;
     const fallDuration = ((this.scale.height + bannerH + 100) / fallSpeed) * 1000;
@@ -435,6 +443,8 @@ export default class AirplaneScene extends BaseEngine {
     }
     const comboTxt = this.catches >= 3 ? `  (x${this.speedMultiplier.toFixed(1)} speed!)` : '';
     this.promptText.setText(`Catch: ${this.activePrompt.emoji ?? ''} ${this.activePrompt.term}${comboTxt}`);
+    // AAAA: Update speakText data so hover reads the current prompt.
+    this.promptText.setData('speakText', `Catch: ${this.activePrompt.term}`);
     // AAAA KIDS MODE — Speak the prompt with karaoke highlight.
     this.speakPromptWithHighlight(this.promptText, `Catch: ${this.activePrompt.term}`, { isQuestion: true });
   }
@@ -519,7 +529,7 @@ export default class AirplaneScene extends BaseEngine {
   // PER-FRAME UPDATE
   // ===========================================================================
   update() {
-    if (this.isFinished || !this.plane) return;
+    if (this.isFinished || this._isPaused || !this.plane) return;
     try {
       this.updateAirplane();
     } catch (e) {
