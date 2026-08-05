@@ -54,7 +54,7 @@ export default class CrosswordScene extends BaseEngine {
   private keyboardKeys: Phaser.GameObjects.Container[] = [];
   private solvedCount = 0;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 12); }
+  protected maxQuestions() { return Math.min(this.terms.length, 7); }
 
   protected buildWorld() {
     this.add.text(
@@ -79,6 +79,7 @@ export default class CrosswordScene extends BaseEngine {
         wordWrap: { width: 700 },
       }
     ).setOrigin(0.5).setDepth(50);
+    this.makeHoverSpeakable(this.clueText);
 
     // Build crossword
     this.generateLayout();

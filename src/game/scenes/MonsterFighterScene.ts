@@ -92,7 +92,7 @@ export default class MonsterFighterScene extends BaseEngine {
       fontFamily: 'Inter, sans-serif', fontSize: '13px',
       color: this.hex(this.theme.text), fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(49);
-    this.makeSpeakable(this.promptText);
+    this.makeHoverSpeakable(this.promptText);
 
     // Monster emoji (large, with idle bob)
     this.monsterEmoji = this.add.text(this.scale.width / 2, 165, '', { fontSize: '80px' })
@@ -101,7 +101,7 @@ export default class MonsterFighterScene extends BaseEngine {
       fontFamily: 'Inter, sans-serif', fontSize: '20px',
       color: '#ffffff', fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(30);
-    this.makeSpeakable(this.monsterNameText);
+    this.makeHoverSpeakable(this.monsterNameText);
 
     // Monster HP bar (background + fill)
     this.monsterHpBarBg = this.add.rectangle(this.scale.width / 2, 265, 220, 18, 0x000000, 0.6)
@@ -213,7 +213,7 @@ export default class MonsterFighterScene extends BaseEngine {
     this.monsterNameText.setText(this.currentMonster.name);
     this._updateHpBars();
     this.promptText.setText(`Battle ${this.monsterIdx + 1}/${MONSTERS.length} — Weakness: ${this.currentMonster.weakness}`);
-    this.makeSpeakable(this.promptText,
+    this.makeHoverSpeakable(this.promptText,
       `Battle ${this.monsterIdx + 1}. The ${this.currentMonster.name} is weak against ${this.currentMonster.weakness}!`);
     this.feedbackText.setText('');
     // AAAA KIDS MODE — Speak the prompt with karaoke highlight.

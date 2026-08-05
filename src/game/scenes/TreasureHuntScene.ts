@@ -41,7 +41,7 @@ export default class TreasureHuntScene extends BaseEngine {
   private currentDigPlot: Plot | null = null;
   private canAct = true;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 12); }
+  protected maxQuestions() { return Math.min(this.terms.length, 8); }
 
   protected buildWorld() {
     this.add.text(this.scale.width / 2, 30, '🗺️ Treasure Hunt', {
@@ -71,7 +71,7 @@ export default class TreasureHuntScene extends BaseEngine {
       { fontFamily: 'Inter, sans-serif', fontSize: '13px',
         color: this.hex(this.theme.text), fontStyle: 'bold' }
     ).setOrigin(0.5).setDepth(49);
-    this.makeSpeakable(this.promptText);
+    this.makeHoverSpeakable(this.promptText);
 
     this._buildGrid();
     this._updateStats();
@@ -239,7 +239,7 @@ export default class TreasureHuntScene extends BaseEngine {
         color: '#ffffff', fontStyle: 'bold',
       }).setOrigin(0.5);
       const container = this.add.container(x, y, [bg, txt]).setSize(240, 40).setDepth(40);
-      this.makeSpeakable(txt, t.term);
+      this.makeHoverSpeakable(txt, t.term);
       this.optionButtons.push(container);
     });
   }

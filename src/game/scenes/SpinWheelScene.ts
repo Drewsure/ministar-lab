@@ -32,7 +32,7 @@ export default class SpinWheelScene extends BaseEngine {
   private landedTerm?: TermItem;
   private optionsContainer!: Phaser.GameObjects.Container;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 12); }
+  protected maxQuestions() { return Math.min(this.terms.length, 8); }
 
   protected buildWorld() {
     // ---- Title ----
@@ -46,6 +46,7 @@ export default class SpinWheelScene extends BaseEngine {
         fontStyle: 'bold',
       }
     ).setOrigin(0.5).setDepth(50);
+    this.makeHoverSpeakable(this.promptText);
 
     // ---- Wheel (center-top) ----
     const wheelX = this.scale.width / 2;

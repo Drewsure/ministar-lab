@@ -43,7 +43,7 @@ export default class WhackAMoleScene extends BaseEngine {
   private lastWhackTime = 0;
   private comboText!: Phaser.GameObjects.Text;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 12); }
+  protected maxQuestions() { return Math.min(this.terms.length, 15); }
 
   protected buildWorld() {
     // ---- Prompt banner ----
@@ -60,6 +60,7 @@ export default class WhackAMoleScene extends BaseEngine {
         fontStyle: 'bold',
       }
     ).setOrigin(0.5).setDepth(49);
+    this.makeHoverSpeakable(this.promptText);
 
     // ---- Combo display ----
     this.comboText = this.add.text(

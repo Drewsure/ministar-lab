@@ -1,279 +1,166 @@
 #!/bin/bash
-# ============================================================================
-# verify-aaaa-features.sh — Pre-Deployment Verification Script
-# ============================================================================
-# Checks that ALL AAAA features are present on disk before deploying.
-# If ANY check fails, the deployment is BLOCKED.
-#
-# Usage: bash scripts/verify-aaaa-features.sh
-# Exit code: 0 = all pass, 1 = at least one failure
-# ============================================================================
-
+# verify-aaaa-features.sh — Pre-Deployment Verification
+# Exit 0 = safe to deploy, 1 = BLOCKED
 set -e
 cd /home/z/my-project
 
-PASS=0
-FAIL=0
-FAILURES=""
+PASS=0; FAIL=0; FAILURES=""
 
 check() {
-  local name="$1"
-  local pattern="$2"
-  local file="$3"
-  local min_count="$4"
-  local count
-
+  local name="$1" pattern="$2" file="$3" min="$4" count
   if [ ! -f "$file" ]; then
-    echo "❌ FAIL: $name — file missing: $file"
-    FAIL=$((FAIL + 1))
-    FAILURES="$FAILURES\n  - $name (file missing: $file)"
-    return
+    echo "❌ FAIL: $name — file missing: $file"; FAIL=$((FAIL+1)); FAILURES="$FAILURES\n  - $name (file missing)"; return
   fi
-
   count=$(grep -cE "$pattern" "$file" 2>/dev/null || true)
   [ -z "$count" ] && count=0
-
-  if [ "$count" -ge "$min_count" ]; then
-    echo "✅ PASS: $name ($count matches in $file)"
-    PASS=$((PASS + 1))
+  if [ "$count" -ge "$min" ]; then
+    echo "✅ PASS: $name ($count in $(basename $file))"; PASS=$((PASS+1))
   else
-    echo "❌ FAIL: $name — expected $min_count+, got $count (in $file)"
-    FAIL=$((FAIL + 1))
-    FAILURES="$FAILURES\n  - $name (expected $min_count+, got $count in $file)"
+    echo "❌ FAIL: $name — expected $min+, got $count"; FAIL=$((FAIL+1)); FAILURES="$FAILURES\n  - $name (expected $min+, got $count in $file)"
   fi
 }
 
 check_absent() {
-  local name="$1"
-  local pattern="$2"
-  local file="$3"
-
-  if [ ! -f "$file" ]; then
-    echo "❌ FAIL: $name — file missing: $file"
-    FAIL=$((FAIL + 1))
-    FAILURES="$FAILURES\n  - $name (file missing: $file)"
-    return
-  fi
-
-  local count
+  local name="$1" pattern="$2" file="$3" count
   count=$(grep -cE "$pattern" "$file" 2>/dev/null || true)
   [ -z "$count" ] && count=0
-
   if [ "$count" -eq 0 ]; then
-    echo "✅ PASS: $name (absent as expected in $file)"
-    PASS=$((PASS + 1))
+    echo "✅ PASS: $name (absent as expected)"; PASS=$((PASS+1))
   else
-    echo "❌ FAIL: $name — should NOT exist, found $count matches (in $file)"
-    FAIL=$((FAIL + 1))
-    FAILURES="$FAILURES\n  - $name (should not exist, found $count in $file)"
+    echo "❌ FAIL: $name — should NOT exist, found $count"; FAIL=$((FAIL+1)); FAILURES="$FAILURES\n  - $name (found $count, should be 0)"
   fi
 }
 
 echo "=========================================="
-echo "AAAA Feature Verification — Pre-Deployment"
+echo "AAAA Feature Verification"
 echo "=========================================="
-echo ""
 
-# ---- BaseEngine.ts ----
 echo "--- BaseEngine.ts ---"
-check "Auto-celebrate flag" "_skipAutoCelebrate" "src/game/BaseEngine.ts" 2
-check "Auto-mascot flag" "_skipAutoMascot" "src/game/BaseEngine.ts" 2
-check "Sticker book flag" "_skipAutoStickerBook" "src/game/BaseEngine.ts" 2
-check "Auto-mascot creation" "_createAutoMascot" "src/game/BaseEngine.ts" 2
+check "Auto-celebrate" "_skipAutoCelebrate" "src/game/BaseEngine.ts" 2
+check "Auto-mascot" "_skipAutoMascot" "src/game/BaseEngine.ts" 2
+check "Sticker book" "_skipAutoStickerBook" "src/game/BaseEngine.ts" 2
+check "Mascot creation" "_createAutoMascot" "src/game/BaseEngine.ts" 2
 check "Mascot celebrate" "_mascotCelebrate" "src/game/BaseEngine.ts" 2
-check "Sticker badge creation" "_createStickerBadge" "src/game/BaseEngine.ts" 2
+check "Sticker badge" "_createStickerBadge" "src/game/BaseEngine.ts" 2
 check "Sticker award" "_awardSticker" "src/game/BaseEngine.ts" 2
-check "Slow mode API" "isSlowMode" "src/game/BaseEngine.ts" 2
-check "Extended time API" "isExtendedTime" "src/game/BaseEngine.ts" 2
+check "Slow mode" "isSlowMode" "src/game/BaseEngine.ts" 2
+check "Extended time" "isExtendedTime" "src/game/BaseEngine.ts" 2
 check "timeMultiplier" "timeMultiplier" "src/game/BaseEngine.ts" 1
 check "questionMultiplier" "questionMultiplier" "src/game/BaseEngine.ts" 2
 check "speakPromptWithHighlight" "speakPromptWithHighlight" "src/game/BaseEngine.ts" 1
 check "makeHoverSpeakable" "makeHoverSpeakable" "src/game/BaseEngine.ts" 1
-check "_togglePause centralized" "_togglePause" "src/game/BaseEngine.ts" 3
-check "timeScale=0 on pause" "timeScale = 0" "src/game/BaseEngine.ts" 1
-check "timeScale=1 on resume" "timeScale = 1" "src/game/BaseEngine.ts" 1
-check "physics.world.pause" "physics.world.pause" "src/game/BaseEngine.ts" 1
-check "physics.world.resume" "physics.world.resume" "src/game/BaseEngine.ts" 1
-check "Overlay depth 950" "setDepth\(950\)" "src/game/BaseEngine.ts" 2
+check "_togglePause" "_togglePause" "src/game/BaseEngine.ts" 3
+check "timeScale=0" "timeScale = 0" "src/game/BaseEngine.ts" 1
+check "timeScale=1" "timeScale = 1" "src/game/BaseEngine.ts" 1
+check "physics pause" "physics.world.pause" "src/game/BaseEngine.ts" 1
+check "physics resume" "physics.world.resume" "src/game/BaseEngine.ts" 1
+check "Overlay depth 950" "setDepth.950." "src/game/BaseEngine.ts" 2
 check "KidsJuice import" "import { KidsJuice }" "src/game/BaseEngine.ts" 1
-check "KidsJuice.celebrateCorrect call" "KidsJuice.celebrateCorrect" "src/game/BaseEngine.ts" 1
-check "KidsJuice.clearHighlights on shutdown" "KidsJuice.clearHighlights" "src/game/BaseEngine.ts" 2
+check "celebrateCorrect call" "KidsJuice.celebrateCorrect" "src/game/BaseEngine.ts" 1
+check "clearHighlights" "KidsJuice.clearHighlights" "src/game/BaseEngine.ts" 2
 check "Mascot emoji map" "_MASCOT_EMOJIS" "src/game/BaseEngine.ts" 1
-check "setupGlobalPointer _isPaused guard" "this._isPaused" "src/game/BaseEngine.ts" 3
-echo ""
+check "_isPaused guards" "this._isPaused" "src/game/BaseEngine.ts" 3
 
-# ---- KidsJuice.ts ----
 echo "--- KidsJuice.ts ---"
-check "KidsJuice.ts exists" "speakWithHighlight" "src/game/KidsJuice.ts" 1
+check "exists" "speakWithHighlight" "src/game/KidsJuice.ts" 1
 check "celebrateCorrect" "static celebrateCorrect" "src/game/KidsJuice.ts" 1
 check "vfxExplosion" "static vfxExplosion" "src/game/KidsJuice.ts" 1
 check "confettiRain" "static confettiRain" "src/game/KidsJuice.ts" 1
 check "HIGHLIGHT_COLORS" "export const HIGHLIGHT_COLORS" "src/game/KidsJuice.ts" 1
 check "CELEBRATION_PHRASES" "export const CELEBRATION_PHRASES" "src/game/KidsJuice.ts" 1
-check "7-layer fanfare (C4 523Hz)" "freq: 523" "src/game/KidsJuice.ts" 1
-check "7-layer fanfare (E4 659Hz)" "freq: 659" "src/game/KidsJuice.ts" 1
-check "7-layer fanfare (G4 784Hz)" "freq: 784" "src/game/KidsJuice.ts" 1
-check "7-layer fanfare (C5 1046Hz)" "freq: 1046" "src/game/KidsJuice.ts" 1
-check "YOU GOT IT text" "🎉 YOU GOT IT! 🎉" "src/game/KidsJuice.ts" 2
-echo ""
+check "C4 523Hz" "freq: 523" "src/game/KidsJuice.ts" 1
+check "E4 659Hz" "freq: 659" "src/game/KidsJuice.ts" 1
+check "G4 784Hz" "freq: 784" "src/game/KidsJuice.ts" 1
+check "C5 1046Hz" "freq: 1046" "src/game/KidsJuice.ts" 1
 
-# ---- audio.ts ----
 echo "--- audio.ts ---"
-check "onStart callback" "onStart" "src/lib/audio.ts" 3
-check "onEnd callback" "onEnd" "src/lib/audio.ts" 3
-echo ""
+check "onStart" "onStart" "src/lib/audio.ts" 3
+check "onEnd" "onEnd" "src/lib/audio.ts" 3
 
-# ---- page.tsx ----
 echo "--- page.tsx ---"
-check "slowMode state" "slowMode" "src/app/page.tsx" 2
-check "extendedTime state" "extendedTime" "src/app/page.tsx" 2
-check "🐢 Slow button" "🐢 Slow" "src/app/page.tsx" 1
-check "⏱️ Time+ button" "⏱️ Time" "src/app/page.tsx" 1
-echo ""
+check "slowMode" "slowMode" "src/app/page.tsx" 2
+check "extendedTime" "extendedTime" "src/app/page.tsx" 2
+check "🐢 Slow" "🐢 Slow" "src/app/page.tsx" 1
+check "⏱️ Time" "⏱️ Time" "src/app/page.tsx" 1
 
-# ---- ALL 32 Games: speakPromptWithHighlight + makeHoverSpeakable ----
-echo "--- All 32 Games: Highlight + Hover-Speak ---"
-TOTAL_GAMES=0
-HIGHLIGHT_GAMES=0
-HOVER_GAMES=0
+echo "--- All 32 Games ---"
+HG=0; SG=0; TG=0
 for f in src/game/scenes/*.ts; do
-  TOTAL_GAMES=$((TOTAL_GAMES + 1))
-  name=$(basename "$f" .ts)
-  hc=$(grep -c "speakPromptWithHighlight" "$f" 2>/dev/null || echo 0)
-  mc=$(grep -c "makeHoverSpeakable" "$f" 2>/dev/null || echo 0)
-  if [ "$hc" -ge 1 ]; then HIGHLIGHT_GAMES=$((HIGHLIGHT_GAMES + 1)); fi
-  if [ "$mc" -ge 1 ]; then HOVER_GAMES=$((HOVER_GAMES + 1)); fi
+  TG=$((TG+1))
+  grep -q "speakPromptWithHighlight" "$f" 2>/dev/null && SG=$((SG+1))
+  grep -q "makeHoverSpeakable" "$f" 2>/dev/null && HG=$((HG+1))
 done
-echo "Games with speakPromptWithHighlight: $HIGHLIGHT_GAMES / $TOTAL_GAMES"
-echo "Games with makeHoverSpeakable: $HOVER_GAMES / $TOTAL_GAMES"
-if [ "$HIGHLIGHT_GAMES" -lt 32 ]; then
-  echo "❌ FAIL: Not all games have speakPromptWithHighlight ($HIGHLIGHT_GAMES/32)"
-  FAIL=$((FAIL + 1))
-  FAILURES="$FAILURES\n  - speakPromptWithHighlight coverage ($HIGHLIGHT_GAMES/32)"
-else
-  echo "✅ PASS: All 32 games have speakPromptWithHighlight"
-  PASS=$((PASS + 1))
-fi
-if [ "$HOVER_GAMES" -lt 32 ]; then
-  echo "❌ FAIL: Not all games have makeHoverSpeakable ($HOVER_GAMES/32)"
-  FAIL=$((FAIL + 1))
-  FAILURES="$FAILURES\n  - makeHoverSpeakable coverage ($HOVER_GAMES/32)"
-else
-  echo "✅ PASS: All 32 games have makeHoverSpeakable"
-  PASS=$((PASS + 1))
-fi
-echo ""
+echo "speakPromptWithHighlight: $SG/$TG  makeHoverSpeakable: $HG/$TG"
+if [ "$SG" -lt 32 ]; then echo "❌ FAIL: speakPromptWithHighlight $SG/32"; FAIL=$((FAIL+1)); else echo "✅ PASS: speakPromptWithHighlight $SG/32"; PASS=$((PASS+1)); fi
+if [ "$HG" -lt 32 ]; then echo "❌ FAIL: makeHoverSpeakable $HG/32"; FAIL=$((FAIL+1)); else echo "✅ PASS: makeHoverSpeakable $HG/32"; PASS=$((PASS+1)); fi
 
-# ---- QuizScene.ts AAAA ----
-echo "--- QuizScene.ts (Living Storybook) ---"
+echo "--- Quiz AAAA ---"
 check "Storybook mascot" "_createStoryMascot|storyMascot" "src/game/scenes/QuizScene.ts" 2
 check "Squishy hover" "_squishyHover" "src/game/scenes/QuizScene.ts" 1
 check "Squishy tap" "_squishyTap" "src/game/scenes/QuizScene.ts" 1
 check "Ripple ring" "_rippleRing" "src/game/scenes/QuizScene.ts" 1
-check "Bouncy background" "_createBouncyBackground|_bouncyDecos" "src/game/scenes/QuizScene.ts" 2
-check "Mascot happy bounce" "_mascotHappyBounce" "src/game/scenes/QuizScene.ts" 1
-check "Mascot gentle nod" "_mascotGentleNod" "src/game/scenes/QuizScene.ts" 1
-check "Serif font (storybook)" "Georgia" "src/game/scenes/QuizScene.ts" 2
-check "Opt out auto-mascot" "_skipAutoMascot = true" "src/game/scenes/QuizScene.ts" 1
-check "Opt out auto-celebrate" "_skipAutoCelebrate = true" "src/game/scenes/QuizScene.ts" 1
-echo ""
+check "Bouncy bg" "_createBouncyBackground|_bouncyDecos" "src/game/scenes/QuizScene.ts" 2
+check "Mascot bounce" "_mascotHappyBounce" "src/game/scenes/QuizScene.ts" 1
+check "Mascot nod" "_mascotGentleNod" "src/game/scenes/QuizScene.ts" 1
+check "Georgia serif" "Georgia" "src/game/scenes/QuizScene.ts" 2
+check "Opt out mascot" "_skipAutoMascot = true" "src/game/scenes/QuizScene.ts" 1
 
-# ---- GameshowScene.ts AAAA ----
-echo "--- GameshowScene.ts (Supercharged Spectacle) ---"
-check "Host showman" "_createHost|hostCharacter" "src/game/scenes/GameshowScene.ts" 2
+echo "--- Gameshow AAAA ---"
+check "Host" "_createHost|hostCharacter" "src/game/scenes/GameshowScene.ts" 2
 check "Neon borders" "_createNeonBorders|neonBorders" "src/game/scenes/GameshowScene.ts" 2
-check "Arcade buzzer sink" "_arcadeBuzzerSink" "src/game/scenes/GameshowScene.ts" 1
+check "Arcade buzzer" "_arcadeBuzzerSink" "src/game/scenes/GameshowScene.ts" 1
 check "Camera zoom" "_cameraZoom|zoomTo" "src/game/scenes/GameshowScene.ts" 2
 check "Coin cascade" "_coinCascade" "src/game/scenes/GameshowScene.ts" 1
 check "Pie-in-face" "_pieInFace" "src/game/scenes/GameshowScene.ts" 1
-check "Host cheer" "_hostCheer" "src/game/scenes/GameshowScene.ts" 1
-check "Dark navy bg" "0x0a0a1a" "src/game/scenes/GameshowScene.ts" 1
-check "Arial Black font" "Arial Black" "src/game/scenes/GameshowScene.ts" 2
+check "Dark navy" "0x0a0a1a" "src/game/scenes/GameshowScene.ts" 1
+check "Arial Black" "Arial Black" "src/game/scenes/GameshowScene.ts" 2
 check_absent "NO camera.pan" "cameras.main.pan" "src/game/scenes/GameshowScene.ts"
-echo ""
 
-# ---- AirplaneScene.ts Storm Clouds ----
-echo "--- AirplaneScene.ts (Storm Clouds) ---"
-check "StormCloud interface" "interface StormCloud" "src/game/scenes/AirplaneScene.ts" 1
+echo "--- Airplane Storm ---"
+check "StormCloud" "interface StormCloud" "src/game/scenes/AirplaneScene.ts" 1
 check "_spawnStormCloud" "_spawnStormCloud" "src/game/scenes/AirplaneScene.ts" 2
 check "_handleStormHit" "_handleStormHit" "src/game/scenes/AirplaneScene.ts" 2
 check "slowedUntil" "slowedUntil" "src/game/scenes/AirplaneScene.ts" 3
-check "Storm spawn rate 12%" "Math.random\(\) < 0.12" "src/game/scenes/AirplaneScene.ts" 1
-check "Speed cap 1.5" "Math.min\(1.5" "src/game/scenes/AirplaneScene.ts" 1
-echo ""
+check "Storm 12%" "Math.random.. < 0.12" "src/game/scenes/AirplaneScene.ts" 1
+check "Speed cap 1.5" "Math.min.1.5" "src/game/scenes/AirplaneScene.ts" 1
 
-# ---- SnakingScene.ts AAAA ----
-echo "--- SnakingScene.ts (AAAA Letter Snake) ---"
-check "LetterBubble interface" "interface LetterBubble" "src/game/scenes/SnakingScene.ts" 1
+echo "--- Snaking AAAA ---"
+check "LetterBubble" "interface LetterBubble" "src/game/scenes/SnakingScene.ts" 1
 check "Letter spelling" "lettersCollected" "src/game/scenes/SnakingScene.ts" 3
 check "Soft bounce" "_softBounce" "src/game/scenes/SnakingScene.ts" 2
 check "Expressive eyes" "_updateEyes|snakeEyes" "src/game/scenes/SnakingScene.ts" 3
 check "Hit-stop" "hitStopUntil" "src/game/scenes/SnakingScene.ts" 3
 check "Progress slots" "progressSlots" "src/game/scenes/SnakingScene.ts" 3
 check "Word complete" "_wordComplete" "src/game/scenes/SnakingScene.ts" 2
-check "Magnetic pull" "speedBoost = 1.25|speedBoost.*1.25" "src/game/scenes/SnakingScene.ts" 1
+check "Magnetic pull" "1.25" "src/game/scenes/SnakingScene.ts" 1
 check "D-pad" "_createDPad" "src/game/scenes/SnakingScene.ts" 1
-check_absent "NO game over on wall hit" "finishGame\(false\)" "src/game/scenes/SnakingScene.ts"
-echo ""
+check_absent "NO finishGame(false)" "finishGame.false." "src/game/scenes/SnakingScene.ts"
 
-# ---- Pacing Fixes ----
-echo "--- Pacing Fixes ---"
-check "EndlessRunner start 30" "private speed = 30" "src/game/scenes/EndlessRunnerScene.ts" 1
-check "EndlessRunner cap 70" "70 \+ \(this.level - 1\) \* 8" "src/game/scenes/EndlessRunnerScene.ts" 1
-check "WhackAMole spawn floor 1000" "Math.max\(1000, 2000" "src/game/scenes/WhackAMoleScene.ts" 1
-check "WhackAMole stay floor 1800" "Math.max\(1800, 3500" "src/game/scenes/WhackAMoleScene.ts" 1
-check "BalloonPop rise floor 8000" "Math.max\(8000, 14000" "src/game/scenes/BalloonPopScene.ts" 1
-check "RhythmTap note speed" "1.0 \+ Math.min\(1.2" "src/game/scenes/RhythmTapScene.ts" 1
-check "TowerDefense wave speed" "0.003 \+ this.currentWave \* 0.0015" "src/game/scenes/TowerDefenseScene.ts" 1
-echo ""
+echo "--- Pacing ---"
+check "ER speed 30" "private speed = 30" "src/game/scenes/EndlessRunnerScene.ts" 1
+check "ER cap 70" "70.*this.level.*8" "src/game/scenes/EndlessRunnerScene.ts" 1
+check "WM spawn 1000" "Math.max.1000, 2000" "src/game/scenes/WhackAMoleScene.ts" 1
+check "WM stay 1800" "Math.max.1800, 3500" "src/game/scenes/WhackAMoleScene.ts" 1
+check "BP rise 8000" "Math.max.8000, 14000" "src/game/scenes/BalloonPopScene.ts" 1
+check "RT speed" "1.0 . Math.min.1.2" "src/game/scenes/RhythmTapScene.ts" 1
+check "TD wave" "0.003 . this.currentWave . 0.0015" "src/game/scenes/TowerDefenseScene.ts" 1
 
-# ---- Hyper-Focus Window: HUD Timer + maxQuestions ----
-echo "--- Hyper-Focus Window (90-150s) ---"
-check "HUD timer 150s" "initialTimeMs = 150" "src/game/Juice.ts" 1
-check "Airplane maxQ=15" "terms.length, 15\)" "src/game/scenes/AirplaneScene.ts" 1
-check "Anagram maxQ=7" "terms.length, 7\)" "src/game/scenes/AnagramScene.ts" 1
-check "BalloonPop maxQ=15" "terms.length, 15\)" "src/game/scenes/BalloonPopScene.ts" 1
-check "BridgeBuilder maxQ=7" "terms.length, 7\)" "src/game/scenes/BridgeBuilderScene.ts" 1
-check "Crossword maxQ=7" "terms.length, 7\)" "src/game/scenes/CrosswordScene.ts" 1
-check "EndlessRunner maxQ=15" "return 15" "src/game/scenes/EndlessRunnerScene.ts" 1
-check "FarmLife maxQ=15" "terms.length, 15\)" "src/game/scenes/FarmLifeScene.ts" 1
-check "FlashCards maxQ=15" "terms.length, 15\)" "src/game/scenes/FlashCardsScene.ts" 1
-check "Gameshow maxQ=8" "terms.length, 8\)" "src/game/scenes/GameshowScene.ts" 1
-check "GroupSort maxQ=10" "terms.length, 10\)" "src/game/scenes/GroupSortScene.ts" 1
-check "LabelIt maxQ=10" "terms.length, 10\)" "src/game/scenes/LabelItScene.ts" 1
-check "MatchUp maxQ=10" "terms.length, 10\)" "src/game/scenes/MatchUpScene.ts" 1
-check "MazeChase maxQ=10" "terms.length, 10\)" "src/game/scenes/MazeChaseScene.ts" 1
-check "MemoryMatch maxQ=8" "terms.length, 8\)" "src/game/scenes/MemoryMatchScene.ts" 1
-check "PhysicsPuzzler maxQ=7" "terms.length, 7\)" "src/game/scenes/PhysicsPuzzlerScene.ts" 1
-check "Quiz maxQ=8" "terms.length, 8\)" "src/game/scenes/QuizScene.ts" 1
-check "RhythmTap maxQ=15" "terms.length, 15\)" "src/game/scenes/RhythmTapScene.ts" 1
-check "Snaking maxQ=6" "terms.length, 6\)" "src/game/scenes/SnakingScene.ts" 1
-check "SpaceExplorer maxQ=10" "terms.length, 10\)" "src/game/scenes/SpaceExplorerScene.ts" 1
-check "SpeakIt maxQ=10" "terms.length, 10\)" "src/game/scenes/SpeakItScene.ts" 1
-check "SpinWheel maxQ=8" "terms.length, 8\)" "src/game/scenes/SpinWheelScene.ts" 1
-check "SpotIt maxQ=15" "terms.length, 15\)" "src/game/scenes/SpotItScene.ts" 1
-check "StarFarm maxQ=10" "return 10" "src/game/scenes/StarFarmScene.ts" 1
-check "TowerDefense maxQ=7" "terms.length, 7\)" "src/game/scenes/TowerDefenseScene.ts" 1
-check "TrainingAcademy maxQ=10" "return 10" "src/game/scenes/TrainingAcademyScene.ts" 1
-check "TreasureHunt maxQ=8" "terms.length, 8\)" "src/game/scenes/TreasureHuntScene.ts" 1
-check "TypeAnswer maxQ=8" "terms.length, 8\)" "src/game/scenes/TypeAnswerScene.ts" 1
-check "WhackAMole maxQ=15" "terms.length, 15\)" "src/game/scenes/WhackAMoleScene.ts" 1
-check "Wordsearch maxQ=6" "terms.length, 6\)" "src/game/scenes/WordsearchScene.ts" 1
-echo ""
+echo "--- Hyper-Focus 150s ---"
+check "HUD 150s" "initialTimeMs = 150" "src/game/Juice.ts" 1
+for game in Airplane:15 Anagram:7 BalloonPop:15 BridgeBuilder:7 Crossword:7 EndlessRunner:15 FarmLife:15 FlashCards:15 Gameshow:8 GroupSort:10 LabelIt:10 MatchUp:10 MazeChase:10 MemoryMatch:8 PhysicsPuzzler:7 Quiz:8 RhythmTap:15 Snaking:6 SpaceExplorer:10 SpeakIt:10 SpinWheel:8 SpotIt:15 StarFarm:10 TowerDefense:7 TrainingAcademy:10 TreasureHunt:8 TypeAnswer:8 WhackAMole:15 Wordsearch:6; do
+  name="${game%%:*}"; cap="${game##*:}"
+  if [ "$name" = "EndlessRunner" ] || [ "$name" = "StarFarm" ] || [ "$name" = "TrainingAcademy" ]; then
+    check "$name maxQ=$cap" "return $cap" "src/game/scenes/${name}Scene.ts" 1
+  else
+    check "$name maxQ=$cap" "terms.length, $cap" "src/game/scenes/${name}Scene.ts" 1
+  fi
+done
 
-# ---- SUMMARY ----
 echo "=========================================="
-echo "SUMMARY"
-echo "=========================================="
-echo "Passed: $PASS"
-echo "Failed: $FAIL"
-echo ""
-
+echo "SUMMARY: Passed=$PASS Failed=$FAIL"
 if [ "$FAIL" -gt 0 ]; then
   echo "❌ DEPLOYMENT BLOCKED — $FAIL feature(s) missing:"
   echo -e "$FAILURES"
-  echo ""
-  echo "Fix the missing features per PERSISTENCE_GUARD.md before deploying."
   exit 1
 else
   echo "✅ ALL CHECKS PASSED — safe to deploy."

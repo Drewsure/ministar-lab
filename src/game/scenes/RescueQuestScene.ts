@@ -44,6 +44,7 @@ export default class RescueQuestScene extends BaseEngine {
     this.statusText = this.add.text(this.scale.width / 2, this.scale.height - 140, '', {
       fontFamily: 'Inter, sans-serif', fontSize: '18px', color: this.hex(this.theme.warning), fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(50);
+    this.makeHoverSpeakable(this.statusText);
     this.heardText = this.add.text(this.scale.width / 2, this.scale.height - 105, '', {
       fontFamily: 'Inter, sans-serif', fontSize: '14px', color: this.hex(this.theme.textMuted), fontStyle: 'italic',
     }).setOrigin(0.5).setDepth(50);

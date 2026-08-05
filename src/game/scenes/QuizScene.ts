@@ -4,23 +4,35 @@ import type { TermItem } from '../../lib/types';
 import { audioBus } from '../../lib/audio';
 
 // ============================================================================
-// QUIZ — Selection Engine  (AAA 2029 edition)
+// QUIZ STORYBOOK — Living Storybook  (AAAA 2029 edition)
 // ============================================================================
-// Premium multiple-choice quiz with:
+// Premium multiple-choice quiz rendered as a warm storybook:
+//   • Storybook mascot 🦊 that nods gently on wrong, bounces + spins on correct
+//   • Squishy hover (squash to scaleX 1.08 / scaleY 0.92) + squishy tap pop
+//   • Ripple ring (4 colorful expanding circles) on correct answers
+//   • Bouncy background emojis (6 corner deco emojis that bounce on tap)
+//   • Georgia serif title + cream paper background + warm gold borders
+//   • Page-turn transition: option buttons slide LEFT with -8° tilt,
+//     promptBg + promptText also page-turn
 //   • Per-question timer (10s) with visual countdown ring
-//   • 50/50 lifeline (removes 2 wrong answers, 1 use per game)
-//   • Skip lifeline (1 use per game)
-//   • Letter-labeled buttons (A, B, C, D) with hover glow
+//   • 50/50 lifeline + Skip lifeline
+//   • Letter-labeled buttons (A, B, C, D)
 //   • Streak multiplier (x2 at 3 streak, x3 at 5)
-//   • Smooth question transitions (slide out + slide in)
-//   • Correct/wrong reveal with particle bursts
-//   • ESL TTS on every prompt + tap-to-hear on options
+//   • Spaced repetition: wrong answers resurface later
+//   • ESL TTS via makeHoverSpeakable — hover or tap prompt to hear it
 // ============================================================================
 
 interface QuizRound {
   prompt: TermItem;
   options: TermItem[];
   correctIndex: number;
+}
+
+// AAAA KIDS MODE — Bouncy background deco emoji
+interface BouncyDeco {
+  text: Phaser.GameObjects.Text;
+  baseX: number;
+  baseY: number;
 }
 
 export default class QuizScene extends BaseEngine {
@@ -42,9 +54,22 @@ export default class QuizScene extends BaseEngine {
   private fiftyFiftyBtn!: Phaser.GameObjects.Container;
   private skipBtn!: Phaser.GameObjects.Container;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 10); }
+  // AAAA KIDS MODE — Living Storybook additions
+  private storyMascot?: Phaser.GameObjects.Text;
+  private storyMascotBaseX = 80;
+  private storyMascotBaseY = 250;
+  private _bouncyDecos: BouncyDeco[] = [];
+  private _storybookMascotState: 'idle' | 'happy' | 'nod' = 'idle';
+  private _storybookMascotBobTween?: Phaser.Tweens.Tween;
+
+  protected maxQuestions() { return Math.min(this.terms.length, 8); }
 
   protected buildWorld() {
+    // AAAA KIDS MODE — Opt out of auto-mascot (we have our own storybook 🦊)
+    // and auto-celebrate (we do our own ripple + mascot bounce).
+    this._skipAutoMascot = true;
+    this._skipAutoCelebrate = true;
+
     // Build rounds
     const pool = [...this.terms];
     Phaser.Utils.Array.Shuffle(pool);
@@ -62,15 +87,17 @@ export default class QuizScene extends BaseEngine {
       });
     }
 
-    // ---- Title ----
+    // ---- Storybook title (Georgia serif + warm gold) ----
     this.add.text(
       this.scale.width / 2, 105,
-      'Quiz Time',
+      '📖 Quiz Storybook',
       {
-        fontFamily: 'Inter, sans-serif',
+        fontFamily: 'Georgia, "Times New Roman", serif',
         fontSize: '30px',
-        color: this.hex(this.theme.accent),
+        color: '#d4a574',
         fontStyle: 'bold',
+        stroke: '#3d2914',
+        strokeThickness: 3,
       }
     ).setOrigin(0.5).setDepth(50);
 
@@ -78,8 +105,8 @@ export default class QuizScene extends BaseEngine {
     const barY = 140;
     const barW = 500;
     const barX = (this.scale.width - barW) / 2;
-    this.add.rectangle(this.scale.width / 2, barY, barW + 8, 12, 0x000000, 0.4).setDepth(40);
-    this.progressBar = this.add.rectangle(barX, barY, 0, 8, this.theme.accent).setOrigin(0, 0.5).setDepth(41);
+    this.add.rectangle(this.scale.width / 2, barY, barW + 8, 12, 0x3d2914, 0.4).setDepth(40);
+    this.progressBar = this.add.rectangle(barX, barY, 0, 8, 0xd4a574).setOrigin(0, 0.5).setDepth(41);
 
     // ---- Timer ring (right side) ----
     this.timerRing = this.add.arc(
@@ -89,7 +116,7 @@ export default class QuizScene extends BaseEngine {
     this.timerText = this.add.text(
       this.scale.width - 60, 200, '10',
       {
-        fontFamily: 'Inter, sans-serif',
+        fontFamily: 'Georgia, "Times New Roman", serif',
         fontSize: '24px',
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
@@ -100,38 +127,49 @@ export default class QuizScene extends BaseEngine {
     this.streakMultText = this.add.text(
       60, 200, '',
       {
-        fontFamily: 'Inter, sans-serif',
+        fontFamily: 'Georgia, "Times New Roman", serif',
         fontSize: '18px',
         color: this.hex(this.theme.warning),
         fontStyle: 'bold',
       }
     ).setOrigin(0.5).setDepth(45);
 
-    // ---- Prompt banner ----
+    // ---- Storybook mascot 🦊 (left side, NOT tappable) ----
+    this._createStoryMascot();
+
+    // ---- Bouncy background deco emojis (6 corners) ----
+    this._createBouncyBackground();
+
+    // ---- Prompt banner (cream paper + warm gold border) ----
     this.promptBg = this.add.rectangle(
-      this.scale.width / 2, 215, 640, 70, this.theme.card, 0.85
-    ).setStrokeStyle(2, this.theme.accent, 0.6).setDepth(48);
+      this.scale.width / 2, 215, 640, 70, 0xfdf6e3, 0.95
+    ).setStrokeStyle(3, 0xd4a574, 0.9).setDepth(48);
+
+    // Corner deco emojis on prompt banner
+    this.add.text(this.scale.width / 2 - 320 + 12, 215 - 35 + 5, '📖',
+      { fontSize: '20px' }).setOrigin(0.5).setDepth(49);
+    this.add.text(this.scale.width / 2 + 320 - 12, 215 - 35 + 5, '✨',
+      { fontSize: '20px' }).setOrigin(0.5).setDepth(49);
+    this.add.text(this.scale.width / 2 - 320 + 12, 215 + 35 - 5, '✨',
+      { fontSize: '20px' }).setOrigin(0.5).setDepth(49);
+    this.add.text(this.scale.width / 2 + 320 - 12, 215 + 35 - 5, '📖',
+      { fontSize: '20px' }).setOrigin(0.5).setDepth(49);
 
     this.promptText = this.add.text(
       this.scale.width / 2, 215, '',
       {
-        fontFamily: 'Inter, sans-serif',
+        fontFamily: 'Georgia, "Times New Roman", serif',
         fontSize: '20px',
-        color: this.hex(this.theme.text),
+        color: '#3d2914',
         fontStyle: 'bold',
         align: 'center',
         wordWrap: { width: 580 },
       }
     ).setOrigin(0.5).setDepth(49);
 
-    // AAAA KIDS MODE — Make prompt tappable to re-hear it with karaoke highlight.
-    this.promptText.setInteractive({ useHandCursor: true });
-    this.promptText.on('pointerdown', () => {
-      const r = this.rounds[this.round];
-      if (!r) return;
-      const speech = r.prompt.definition ?? r.prompt.term;
-      this.speakPromptWithHighlight(this.promptText, speech, { isQuestion: true });
-    });
+    // AAAA KIDS MODE — Replace manual pointerdown with makeHoverSpeakable so the
+    // prompt is heard on hover (desktop) AND tap, with karaoke highlight.
+    this.makeHoverSpeakable(this.promptText);
 
     // ---- Lifeline buttons (bottom) ----
     this.createLifelineButtons();
@@ -141,7 +179,7 @@ export default class QuizScene extends BaseEngine {
 
     this.renderRound();
 
-      // Global pointer handler for reliable button clicks
+    // Global pointer handler for reliable button clicks
     this.setupGlobalPointer((x, y) => {
       if (!this.canAnswer) return;
       const r = this.rounds[this.round];
@@ -169,17 +207,250 @@ export default class QuizScene extends BaseEngine {
           this.useSkip();
         }
       }
+      // AAAA — Bouncy background: any tap triggers a deco bounce on the closest deco.
+      this._bounceClosestDeco(x, y);
     });
   }
 
   protected onTick(_remainingMs: number) { /* HUD-only */ }
+
+  // ===========================================================================
+  // AAAA — Storybook Mascot 🦊
+  // Lives on the left margin and provides emotional feedback.
+  // NOT tappable (the global pointer handler routes taps elsewhere).
+  // ===========================================================================
+  private _createStoryMascot() {
+    this.storyMascot = this.add.text(
+      this.storyMascotBaseX, this.storyMascotBaseY, '🦊',
+      {
+        fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, Inter, sans-serif',
+        fontSize: '64px',
+      }
+    ).setOrigin(0.5).setDepth(60);
+
+    // Gentle idle bob.
+    this._storybookMascotBobTween = this.tweens.add({
+      targets: this.storyMascot,
+      y: this.storyMascotBaseY - 6,
+      duration: 1100, yoyo: true, repeat: 999, ease: 'Sine.inOut',
+    });
+
+    // Occasional chin-tap (idle gesture — same as auto-mascot).
+    this.time.addEvent({
+      delay: 4500, repeat: 999,
+      callback: () => {
+        if (this._storybookMascotState !== 'idle' || !this.storyMascot) return;
+        try {
+          this.tweens.add({
+            targets: this.storyMascot,
+            angle: { from: 0, to: -8 },
+            duration: 220, yoyo: true, repeat: 1, ease: 'Sine.inOut',
+          });
+        } catch {}
+      },
+    });
+  }
+
+  // Mascot jumps up + 360° spin on correct answer.
+  private _mascotHappyBounce() {
+    if (!this.storyMascot) return;
+    try {
+      this._storybookMascotState = 'happy';
+      try { this.tweens.killTweensOf(this.storyMascot); } catch {}
+      this.storyMascot.setAngle(0);
+      const startX = this.storyMascot.x;
+      const startY = this.storyMascot.y;
+
+      // Jump up.
+      this.tweens.add({
+        targets: this.storyMascot,
+        y: this.storyMascotBaseY - 50,
+        duration: 220, yoyo: true, repeat: 1, ease: 'Quad.out',
+      });
+      // 360° spin.
+      this.tweens.add({
+        targets: this.storyMascot,
+        x: startX, // no-op to keep target stable
+        angle: 360,
+        duration: 600, ease: 'Cubic.out',
+        onComplete: () => {
+          if (!this.storyMascot) return;
+          this.storyMascot.setAngle(0);
+          this.storyMascot.y = startY;
+          this._storybookMascotState = 'idle';
+          this._storybookMascotBobTween = this.tweens.add({
+            targets: this.storyMascot,
+            y: this.storyMascotBaseY - 6,
+            duration: 1100, yoyo: true, repeat: 999, ease: 'Sine.inOut',
+          });
+        },
+      });
+    } catch (e) {
+      console.error('[QuizScene] _mascotHappyBounce error:', e);
+    }
+  }
+
+  // Mascot gentle head tilt on wrong answer.
+  private _mascotGentleNod() {
+    if (!this.storyMascot) return;
+    try {
+      this._storybookMascotState = 'nod';
+      try { this.tweens.killTweensOf(this.storyMascot); } catch {}
+      this.tweens.add({
+        targets: this.storyMascot,
+        angle: { from: 0, to: -12 },
+        duration: 280, yoyo: true, repeat: 1, ease: 'Sine.inOut',
+        onComplete: () => {
+          if (!this.storyMascot) return;
+          this.storyMascot.setAngle(0);
+          this._storybookMascotState = 'idle';
+          this._storybookMascotBobTween = this.tweens.add({
+            targets: this.storyMascot,
+            y: this.storyMascotBaseY - 6,
+            duration: 1100, yoyo: true, repeat: 999, ease: 'Sine.inOut',
+          });
+        },
+      });
+    } catch (e) {
+      console.error('[QuizScene] _mascotGentleNod error:', e);
+    }
+  }
+
+  // ===========================================================================
+  // AAAA — Bouncy Background (6 emoji scattered in corners, bounce on tap)
+  // ===========================================================================
+  private _createBouncyBackground() {
+    const decoEmojis = ['🌟', '📚', '✏️', '🎈', '🍁', '🌼'];
+    // Place emojis in the four corners + two mid-edges, avoiding the center
+    // where the question card sits.
+    const positions: Array<[number, number]> = [
+      [40, this.scale.height - 60],               // bottom-left
+      [this.scale.width - 40, this.scale.height - 60], // bottom-right
+      [40, 320],                                  // mid-left
+      [this.scale.width - 40, 320],               // mid-right
+      [this.scale.width / 2 - 200, this.scale.height - 30], // bottom-center-left
+      [this.scale.width / 2 + 200, this.scale.height - 30], // bottom-center-right
+    ];
+
+    positions.forEach((pos, i) => {
+      const txt = this.add.text(pos[0], pos[1], decoEmojis[i % decoEmojis.length], {
+        fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, Inter, sans-serif',
+        fontSize: '28px',
+      }).setOrigin(0.5).setDepth(20).setAlpha(0.85);
+
+      // Perpetual gentle bob (each deco offset).
+      this.tweens.add({
+        targets: txt,
+        y: pos[1] - 4,
+        duration: 1400 + i * 220, yoyo: true, repeat: 999, ease: 'Sine.inOut',
+      });
+
+      this._bouncyDecos.push({ text: txt, baseX: pos[0], baseY: pos[1] });
+    });
+  }
+
+  // Trigger a big bounce on the closest deco to the tap point.
+  private _bounceClosestDeco(x: number, y: number) {
+    let closest: BouncyDeco | null = null;
+    let closestDist = Infinity;
+    for (const deco of this._bouncyDecos) {
+      const dx = x - deco.text.x;
+      const dy = y - deco.text.y;
+      const dist = dx * dx + dy * dy;
+      if (dist < closestDist) {
+        closestDist = dist;
+        closest = deco;
+      }
+    }
+    if (!closest) return;
+    try {
+      try { this.tweens.killTweensOf(closest.text); } catch {}
+      this.tweens.add({
+        targets: closest.text,
+        scale: { from: 1.4, to: 1 },
+        y: { from: closest.baseY - 16, to: closest.baseY },
+        angle: { from: -10, to: 0 },
+        duration: 350, ease: 'Back.out',
+        onComplete: () => {
+          if (!closest) return;
+          // Resume gentle bob.
+          this.tweens.add({
+            targets: closest.text,
+            y: closest.baseY - 4,
+            duration: 1400, yoyo: true, repeat: 999, ease: 'Sine.inOut',
+          });
+        },
+      });
+    } catch {}
+  }
+
+  // ===========================================================================
+  // AAAA — Squishy hover + tap
+  // ===========================================================================
+  private _squishyHover(container: Phaser.GameObjects.Container, _bg: Phaser.GameObjects.Rectangle) {
+    container.on('pointerover', () => {
+      if (!this.canAnswer) return;
+      try {
+        this.tweens.add({
+          targets: container,
+          scaleX: 1.08, scaleY: 0.92,
+          duration: 120, ease: 'Quad.out',
+        });
+      } catch {}
+    });
+    container.on('pointerout', () => {
+      try {
+        this.tweens.add({
+          targets: container,
+          scaleX: 1, scaleY: 1,
+          duration: 180, ease: 'Back.out',
+        });
+      } catch {}
+    });
+  }
+
+  private _squishyTap(container: Phaser.GameObjects.Container) {
+    try {
+      this.tweens.add({
+        targets: container,
+        scaleX: 1.2, scaleY: 0.8,
+        duration: 90, ease: 'Quad.out',
+        onComplete: () => {
+          this.tweens.add({
+            targets: container,
+            scaleX: 1, scaleY: 1,
+            duration: 320, ease: 'Back.out',
+          });
+        },
+      });
+    } catch {}
+  }
+
+  // ===========================================================================
+  // AAAA — Ripple ring (4 colorful expanding circles on correct answer)
+  // ===========================================================================
+  private _rippleRing(x: number, y: number) {
+    const colors = [0xffd166, 0xef476f, 0x06d6a0, 0x118ab2];
+    for (let i = 0; i < 4; i++) {
+      const ring = this.add.circle(x, y, 10, colors[i], 0)
+        .setStrokeStyle(4, colors[i], 0.9)
+        .setDepth(70);
+      this.tweens.add({
+        targets: ring,
+        radius: 70 + i * 12,
+        alpha: { from: 0.9, to: 0 },
+        duration: 600 + i * 90, delay: i * 70, ease: 'Cubic.out',
+        onComplete: () => { try { ring.destroy(); } catch {} },
+      });
+    }
+  }
 
   private createLifelineButtons() {
     // 50/50 button
     const fiftyBg = this.add.rectangle(0, 0, 100, 36, this.theme.warning, 0.6)
       .setStrokeStyle(2, this.theme.warning, 0.8);
     const fiftyTxt = this.add.text(0, 0, '50:50', {
-      fontFamily: 'Inter, sans-serif', fontSize: '16px', color: '#ffffff', fontStyle: 'bold',
+      fontFamily: 'Georgia, "Times New Roman", serif', fontSize: '16px', color: '#ffffff', fontStyle: 'bold',
     }).setOrigin(0.5);
     this.fiftyFiftyBtn = this.add.container(this.scale.width / 2 - 60, 560, [fiftyBg, fiftyTxt])
       .setSize(100, 36).setInteractive({ useHandCursor: true }).setDepth(50);
@@ -191,7 +462,7 @@ export default class QuizScene extends BaseEngine {
     const skipBg = this.add.rectangle(0, 0, 100, 36, this.theme.cardAlt, 0.6)
       .setStrokeStyle(2, this.theme.accent, 0.8);
     const skipTxt = this.add.text(0, 0, 'Skip', {
-      fontFamily: 'Inter, sans-serif', fontSize: '16px', color: '#ffffff', fontStyle: 'bold',
+      fontFamily: 'Georgia, "Times New Roman", serif', fontSize: '16px', color: '#ffffff', fontStyle: 'bold',
     }).setOrigin(0.5);
     this.skipBtn = this.add.container(this.scale.width / 2 + 60, 560, [skipBg, skipTxt])
       .setSize(100, 36).setInteractive({ useHandCursor: true }).setDepth(50);
@@ -213,7 +484,11 @@ export default class QuizScene extends BaseEngine {
     }
     this.canAnswer = true;
     const r = this.rounds[this.round];
-    this.promptText.setText(`Which word matches: "${r.prompt.definition ?? r.prompt.emoji ?? r.prompt.term}"?`);
+    const promptText = `Which word matches: "${r.prompt.definition ?? r.prompt.emoji ?? r.prompt.term}"?`;
+    this.promptText.setText(promptText);
+    // AAAA KIDS MODE — Update speakable text so hover/tap speaks the current prompt.
+    this.promptText.setData('speakText', promptText);
+
     // AAAA KIDS MODE — Speak the prompt aloud with karaoke highlight.
     // Delayed 500ms so the question card entrance animation settles first.
     const promptSpeech = r.prompt.definition ?? r.prompt.term;
@@ -222,8 +497,6 @@ export default class QuizScene extends BaseEngine {
         this.speakPromptWithHighlight(this.promptText, promptSpeech, { isQuestion: true });
       }
     });
-
-
 
     // Update progress bar
     const pct = this.round / this.rounds.length;
@@ -256,22 +529,22 @@ export default class QuizScene extends BaseEngine {
       const cx = startX + (i % cols) * (btnW + gapX);
       const cy = startY + Math.floor(i / cols) * (btnH + gapY);
 
-      // Button background with gradient effect (two layers)
-      const bg = this.add.rectangle(0, 0, btnW, btnH, this.theme.card, 0.92)
-        .setStrokeStyle(2, this.theme.accent, 0.5);
-      // Letter badge (left side)
-      const letterBg = this.add.circle(-btnW / 2 + 25, 0, 20, this.theme.accent, 0.8);
+      // Button background — cream paper style with brown border
+      const bg = this.add.rectangle(0, 0, btnW, btnH, 0xfdf6e3, 0.95)
+        .setStrokeStyle(2, 0xd4a574, 0.7);
+      // Letter badge (left side) — warm gold
+      const letterBg = this.add.circle(-btnW / 2 + 25, 0, 20, 0xd4a574, 0.9);
       const letterTxt = this.add.text(-btnW / 2 + 25, 0, letters[i], {
-        fontFamily: 'Inter, sans-serif',
+        fontFamily: 'Georgia, "Times New Roman", serif',
         fontSize: '20px',
         color: '#ffffff',
         fontStyle: 'bold',
       }).setOrigin(0.5);
-      // Option text
+      // Option text — Georgia serif + dark brown
       const txt = this.add.text(20, 0, `${opt.emoji ?? ''} ${opt.term}`.trim(), {
-        fontFamily: 'Inter, sans-serif',
+        fontFamily: 'Georgia, "Times New Roman", serif',
         fontSize: '20px',
-        color: this.hex(this.theme.text),
+        color: '#3d2914',
         fontStyle: 'bold',
       }).setOrigin(0.5);
 
@@ -282,16 +555,19 @@ export default class QuizScene extends BaseEngine {
       container.setData('bg', bg);
       container.setData('txt', txt); // AAAA: for karaoke highlight on tap
 
+      // AAAA — Squishy hover on every option (replaces generic pointerover).
+      this._squishyHover(container, bg);
+      // Keep subtle color shift on hover too (in addition to squish).
       container.on('pointerover', () => {
         if (this.canAnswer) {
-          bg.setFillStyle(this.theme.cardAlt, 1);
-          bg.setStrokeStyle(3, this.theme.accent, 1);
+          bg.setFillStyle(0xfff3d6, 1);
+          bg.setStrokeStyle(3, 0xd4a574, 1);
           audioBus.play('hover');
         }
       });
       container.on('pointerout', () => {
-        bg.setFillStyle(this.theme.card, 0.92);
-        bg.setStrokeStyle(2, this.theme.accent, 0.5);
+        bg.setFillStyle(0xfdf6e3, 0.95);
+        bg.setStrokeStyle(2, 0xd4a574, 0.7);
       });
       // NOTE: per-container pointerdown removed — global handler handles answer taps.
 
@@ -356,9 +632,10 @@ export default class QuizScene extends BaseEngine {
       coordinate: { x: this.scale.width / 2, y: 300, t: this.time.now },
     });
     this.juice.shake('medium');
+    // AAAA — Mascot gentle nod on timeout (treats as wrong).
+    this._mascotGentleNod();
     this.time.delayedCall(1200, () => {
-      this.round++;
-      this.renderRound();
+      this._pageTurnAdvance();
     });
   }
 
@@ -397,8 +674,7 @@ export default class QuizScene extends BaseEngine {
     if (this.questionTimerEvent) this.questionTimerEvent.remove();
     this.canAnswer = false;
     this.time.delayedCall(400, () => {
-      this.round++;
-      this.renderRound();
+      this._pageTurnAdvance();
     });
   }
 
@@ -429,6 +705,10 @@ export default class QuizScene extends BaseEngine {
     if (isCorrect) {
       bg.setFillStyle(this.theme.success, 1);
       bg.setStrokeStyle(4, this.theme.success, 1);
+      // AAAA — squishy tap pop + ripple ring + mascot happy bounce.
+      this._squishyTap(btn);
+      this._rippleRing(btn.x, btn.y);
+      this._mascotHappyBounce();
       this.juice.squash(btn, 1.15);
       this.juice.burst(btn.x, btn.y, 'correct');
       // Streak bonus particles
@@ -438,6 +718,9 @@ export default class QuizScene extends BaseEngine {
     } else {
       bg.setFillStyle(this.theme.danger, 1);
       bg.setStrokeStyle(4, this.theme.danger, 1);
+      // AAAA — squishy tap pop + mascot gentle nod.
+      this._squishyTap(btn);
+      this._mascotGentleNod();
       // Highlight the correct answer with pulsing green flash
       const correctBtn = this.optionButtons[correctIndex];
       const cBg = correctBtn.getData('bg') as Phaser.GameObjects.Rectangle;
@@ -459,19 +742,46 @@ export default class QuizScene extends BaseEngine {
       this.juice.burst(btn.x, btn.y, 'incorrect');
     }
 
-    // Slide out transition
+    // Page-turn transition: slide option buttons LEFT with -8° tilt
     this.time.delayedCall(900, () => {
-      this.optionButtons.forEach((b, i) => {
-        this.tweens.add({
-          targets: b,
-          alpha: 0, y: b.y - 30,
-          duration: 200, delay: i * 30, ease: 'Cubic.in',
-        });
+      this._pageTurnAdvance();
+    });
+  }
+
+  // ===========================================================================
+  // AAAA — Page-turn transition
+  // Buttons slide LEFT with -8° tilt; promptBg + promptText also page-turn
+  // (slide left + tilt) to give the round change a "flip the page" feel.
+  // ===========================================================================
+  private _pageTurnAdvance() {
+    // Slide option buttons LEFT with angle -8.
+    this.optionButtons.forEach((b, i) => {
+      this.tweens.add({
+        targets: b,
+        x: b.x - 400,
+        alpha: 0,
+        angle: -8,
+        duration: 280, delay: i * 30, ease: 'Cubic.in',
       });
-      this.time.delayedCall(300, () => {
-        this.round++;
-        this.renderRound();
+    });
+    // Page-turn the prompt banner + text too.
+    if (this.promptBg && this.promptText) {
+      this.tweens.add({
+        targets: [this.promptBg, this.promptText],
+        x: '-=400',
+        alpha: { from: 1, to: 0 },
+        angle: -8,
+        duration: 280, ease: 'Cubic.in',
+        onComplete: () => {
+          // Reset position + angle for next round.
+          try { this.promptBg.x = this.scale.width / 2; this.promptBg.setAngle(0).setAlpha(1); } catch {}
+          try { this.promptText.x = this.scale.width / 2; this.promptText.setAngle(0).setAlpha(1); } catch {}
+        },
       });
+    }
+    this.time.delayedCall(320, () => {
+      this.round++;
+      this.renderRound();
     });
   }
 }

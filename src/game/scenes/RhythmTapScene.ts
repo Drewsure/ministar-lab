@@ -60,7 +60,7 @@ export default class RhythmTapScene extends BaseEngine {
   private beatPulse = 0;
   private canTap = true;
 
-  protected maxQuestions() { return Math.min(this.terms.length, 18); }
+  protected maxQuestions() { return Math.min(this.terms.length, 15); }
 
   protected buildWorld() {
     this.add.text(this.scale.width / 2, 35, '🎵 Rhythm Tap', {
@@ -76,7 +76,7 @@ export default class RhythmTapScene extends BaseEngine {
       { fontFamily: 'Inter, sans-serif', fontSize: '12px',
         color: this.hex(this.theme.text), fontStyle: 'bold' }
     ).setOrigin(0.5).setDepth(49);
-    this.makeSpeakable(prompt, 'Tap the lane when the word crosses the line!');
+    this.makeHoverSpeakable(prompt, 'Tap the lane when the word crosses the line!');
 
     // Score + combo
     this.scoreText = this.add.text(20, 90, 'Score: 0', {

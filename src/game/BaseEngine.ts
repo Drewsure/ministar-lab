@@ -208,11 +208,10 @@ export abstract class BaseEngine extends Phaser.Scene {
     // Pause button
     this._createPauseButton();
 
-    // Pause key — use flag, not scene.pause()
+    // Pause key — centralized via _togglePause (sets timeScale + pauses physics)
     this.input.keyboard?.on('keydown-P', () => {
       if (this.isFinished) return;
-      if (this._isPaused) { this._isPaused = false; if (this.pauseOverlay) this.pauseOverlay.setVisible(false); }
-      else { this._isPaused = true; this._showPauseOverlay(); }
+      this._togglePause();
     });
 
     this.buildWorld();
@@ -786,7 +785,10 @@ export abstract class BaseEngine extends Phaser.Scene {
   }
 
   protected setupGlobalPointer(handler: (x: number, y: number) => void) {
-    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => { handler(p.x, p.y); });
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      if (this._isPaused || this.isFinished) return;
+      handler(p.x, p.y);
+    });
   }
 
   protected checkLevelUp() {
@@ -828,6 +830,24 @@ export abstract class BaseEngine extends Phaser.Scene {
       if (event) event.stopPropagation();
       const current = (text.getData('speakText') as string) ?? speak ?? text.text;
       audioBus.speak(current);
+    });
+  }
+
+  // AAAA KIDS MODE — Hover-speakable variant: speaks on hover (desktop) AND tap,
+  // using karaoke highlight via speakPromptWithHighlight. Skips while paused/finished.
+  protected makeHoverSpeakable(text: Phaser.GameObjects.Text, speechText?: string) {
+    if (speechText) text.setData('speakText', speechText);
+    text.setInteractive({ useHandCursor: true });
+    text.on('pointerover', () => {
+      if (this._isPaused || this.isFinished) return;
+      const current = (text.getData('speakText') as string) ?? speechText ?? text.text;
+      if (current) this.speakPromptWithHighlight(text, current);
+    });
+    text.on('pointerdown', (_p, _lx, _ly, event) => {
+      if (this._isPaused || this.isFinished) return;
+      if (event) event.stopPropagation();
+      const current = (text.getData('speakText') as string) ?? speechText ?? text.text;
+      if (current) this.speakPromptWithHighlight(text, current);
     });
   }
 
@@ -928,6 +948,27 @@ export abstract class BaseEngine extends Phaser.Scene {
     }, 1200);
   }
 
+  // AAAA KIDS MODE — Centralized pause/resume: sets _isPaused flag, shows/hides
+  // overlay, sets timeScale (0 on pause / 1 on resume), and pauses/resumes the
+  // physics world. All callers (pause button, keyboard 'P', overlay Resume btn)
+  // route through here so pause state stays consistent across systems.
+  private _togglePause() {
+    if (this.isFinished) return;
+    if (this._isPaused) {
+      // Resume
+      this._isPaused = false;
+      if (this.pauseOverlay) this.pauseOverlay.setVisible(false);
+      this.time.timeScale = 1;
+      try { this.physics.world.resume(); } catch {}
+    } else {
+      // Pause
+      this._isPaused = true;
+      this._showPauseOverlay();
+      this.time.timeScale = 0;
+      try { this.physics.world.pause(); } catch {}
+    }
+  }
+
   private _createPauseButton() {
     // BIGGER pause button — was 22px, now 32px with background
     const btnBg = this.add.rectangle(50, 110, 60, 40, this.theme.card, 0.9)
@@ -937,15 +978,13 @@ export abstract class BaseEngine extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(300).setInteractive({ useHandCursor: true });
     btn.on('pointerdown', () => {
       if (this.isFinished) return;
-      if (this._isPaused) { this._isPaused = false; if (this.pauseOverlay) this.pauseOverlay.setVisible(false); }
-      else { this._isPaused = true; this._showPauseOverlay(); }
+      this._togglePause();
     });
     // Make the bg clickable too
     btnBg.setInteractive({ useHandCursor: true });
     btnBg.on('pointerdown', () => {
       if (this.isFinished) return;
-      if (this._isPaused) { this._isPaused = false; if (this.pauseOverlay) this.pauseOverlay.setVisible(false); }
-      else { this._isPaused = true; this._showPauseOverlay(); }
+      this._togglePause();
     });
   }
 
@@ -953,28 +992,35 @@ export abstract class BaseEngine extends Phaser.Scene {
     if (this.pauseOverlay) { this.pauseOverlay.setVisible(true); return; }
     const cx = this.scale.width / 2;
     const cy = this.scale.height / 2;
-    const overlay = this.add.rectangle(cx, cy, this.scale.width, this.scale.height, 0x000000, 0.8).setDepth(450);
+    // Overlay MUST be interactive so input does NOT pass through to the game
+    // underneath while paused. Depth 950 places it above gameplay (<=450) and
+    // HUD/level badge (~250-300) but below the finish overlay (500+ here used
+    // for a higher visual stacking on pause).
+    const overlay = this.add.rectangle(cx, cy, this.scale.width, this.scale.height, 0x000000, 0.8)
+      .setInteractive({ useHandCursor: 'default' })
+      .setDepth(950);
     const title = this.add.text(cx, cy - 80, '⏸ Paused', {
       fontFamily: 'Inter, sans-serif', fontSize: '40px', color: '#ffffff', fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(451);
+    }).setOrigin(0.5).setDepth(951);
 
-    // BIGGER buttons with backgrounds — not overlapping, easily readable
+    // BIGGER buttons with backgrounds — not overlapping, easily readable.
+    // Resume routes through _togglePause so physics world + timeScale are restored.
     const resumeBg = this.add.rectangle(cx, cy + 10, 240, 56, 0x22c55e, 0.95)
-      .setStrokeStyle(2, 0xffffff, 0.5).setDepth(451).setInteractive({ useHandCursor: true });
+      .setStrokeStyle(2, 0xffffff, 0.5).setDepth(951).setInteractive({ useHandCursor: true });
     const resumeBtn = this.add.text(cx, cy + 10, '▶ Resume', {
       fontFamily: 'Inter, sans-serif', fontSize: '24px', color: '#000000', fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(452).setInteractive({ useHandCursor: true });
-    resumeBtn.on('pointerdown', () => { this._isPaused = false; if (this.pauseOverlay) this.pauseOverlay.setVisible(false); });
-    resumeBg.on('pointerdown', () => { this._isPaused = false; if (this.pauseOverlay) this.pauseOverlay.setVisible(false); });
+    }).setOrigin(0.5).setDepth(952).setInteractive({ useHandCursor: true });
+    resumeBtn.on('pointerdown', () => { this._togglePause(); });
+    resumeBg.on('pointerdown', () => { this._togglePause(); });
 
     const quitBg = this.add.rectangle(cx, cy + 80, 240, 56, 0xef4444, 0.95)
-      .setStrokeStyle(2, 0xffffff, 0.5).setDepth(451).setInteractive({ useHandCursor: true });
+      .setStrokeStyle(2, 0xffffff, 0.5).setDepth(951).setInteractive({ useHandCursor: true });
     const quitBtn = this.add.text(cx, cy + 80, '✗ Quit to Library', {
       fontFamily: 'Inter, sans-serif', fontSize: '22px', color: '#ffffff', fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(452).setInteractive({ useHandCursor: true });
+    }).setOrigin(0.5).setDepth(952).setInteractive({ useHandCursor: true });
     quitBtn.on('pointerdown', () => { try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ministar-exit-game')); } catch {} try { this.game.destroy(true); } catch {} });
     quitBg.on('pointerdown', () => { try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ministar-exit-game')); } catch {} try { this.game.destroy(true); } catch {} });
 
-    this.pauseOverlay = this.add.container(0, 0, [overlay, title, resumeBg, resumeBtn, quitBg, quitBtn]).setDepth(450);
+    this.pauseOverlay = this.add.container(0, 0, [overlay, title, resumeBg, resumeBtn, quitBg, quitBtn]).setDepth(950);
   }
 }
