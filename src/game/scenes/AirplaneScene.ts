@@ -124,14 +124,14 @@ export default class AirplaneScene extends BaseEngine {
     this.plane.setCollideWorldBounds(true).setDepth(30);
     this.plane.setScale(1.4);
     this.plane.setRotation(0);
-    // AAAA: Fix overlap body — was setCircle(16) which is too small + misaligned.
-    // Use a proper body size matching the visual sprite (32×32 × 1.4 scale = ~45px).
-    // Center the body on the sprite.
+    // AAAA: GENEROUS hit body for kids (research: kids need larger hitboxes).
+    // Plane sprite is 32×32 at 1.4× scale = ~45px. Body = 40×40 (slightly larger
+    // than visual = forgiving catch zone). Centered on the sprite.
     const pBody = this.plane.body as Phaser.Physics.Arcade.Body;
-    pBody.setSize(30, 30);
+    pBody.setSize(40, 40);
     pBody.setOffset(
-      (this.plane.width - 30) / 2,
-      (this.plane.height - 30) / 2
+      (this.plane.width - 40) / 2,
+      (this.plane.height - 40) / 2
     );
 
     // ---- Exhaust particle trail ----
@@ -248,7 +248,7 @@ export default class AirplaneScene extends BaseEngine {
   private spawnBannerRow() {
     if (this.isFinished || !this.activePrompt) return;
 
-    const bannerW = 140, bannerH = 48;
+    const bannerW = 120, bannerH = 44;
 
     // AAAA: GUARANTEE the correct cloud appears at least every other spawn.
     // Alternate: odd spawn = correct cloud, even spawn = decoy.
@@ -295,9 +295,9 @@ export default class AirplaneScene extends BaseEngine {
     const container = this.add.container(x, y, [puff1, puff2, puff3, bg, lightning, label]).setSize(cloudW, cloudH);
     this.physics.add.existing(container);
     const body = container.body as Phaser.Physics.Arcade.Body;
-    // AAAA: Smaller hit body for storm clouds too (was full cloudW × cloudH).
-    body.setSize(90, 35);
-    body.setOffset(-45, -17);
+    // AAAA: GENEROUS hit body for storm cloud (matching visual, centered).
+    body.setSize(120, 50);
+    body.setOffset(-60, -25);
     body.setAllowGravity(false);
     body.setImmovable(false);
 
@@ -391,11 +391,11 @@ export default class AirplaneScene extends BaseEngine {
     const container = this.add.container(x, y, [puff1, puff2, puff3, bg, txt, label]).setSize(bannerW, bannerH);
     this.physics.add.existing(container);
     const body = container.body as Phaser.Physics.Arcade.Body;
-    // AAAA: Smaller hit body (was full bannerW × bannerH = 140×48, now 80×30)
-    // so clouds only trigger when plane is actually visually close, not just
-    // passing nearby. Body centered on the container.
-    body.setSize(80, 30);
-    body.setOffset(-40, -15);
+    // AAAA: GENEROUS hit body matching the cloud visual size (research: kids need
+    // forgiving hitboxes). Cloud is 120×44 visually. Body = 100×36 (slightly
+    // smaller than visual, but still generous). Centered on container.
+    body.setSize(100, 36);
+    body.setOffset(-50, -18);
     body.setAllowGravity(false);
     body.setImmovable(false);
 
@@ -547,10 +547,24 @@ export default class AirplaneScene extends BaseEngine {
       if (this._justUnpaused) {
         this._justUnpaused = false;
         this.plane.setVelocityX(0);
+        this.plane.setVelocityY(0);
       }
       this.updateAirplane();
     } catch (e) {
-      console.error('[MiniStar] Airplane update error:', e);
+      console.error('[MiniStar] Rocket update error:', e);
+    }
+  }
+
+  // AAAA: Override _togglePause to zero plane velocity on pause.
+  // This ensures the rocket doesn't "drift" while paused or jump on resume.
+  protected _togglePause() {
+    // @ts-ignore — call parent's _togglePause
+    super._togglePause();
+    if (this._isPaused && this.plane) {
+      this.plane.setVelocity(0, 0);
+    }
+    if (!this._isPaused) {
+      this._justUnpaused = true;
     }
   }
 

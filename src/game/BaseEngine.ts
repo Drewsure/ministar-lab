@@ -971,7 +971,7 @@ export abstract class BaseEngine extends Phaser.Scene {
   // overlay, sets timeScale (0 on pause / 1 on resume), and pauses/resumes the
   // physics world. All callers (pause button, keyboard 'P', overlay Resume btn)
   // route through here so pause state stays consistent across systems.
-  private _togglePause() {
+  protected _togglePause() {
     if (this.isFinished) return;
     if (this._isPaused) {
       // Resume
