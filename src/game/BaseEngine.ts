@@ -645,7 +645,10 @@ export abstract class BaseEngine extends Phaser.Scene {
   protected finishGame(won: boolean) {
     if (this.isFinished) return;
     this.isFinished = true;
-    try { this.tweens.killAll(); } catch {}
+    // NOTE: Do NOT call tweens.killAll() here — it kills the fade-in tween
+    // of the overlay buttons below, leaving them invisible (alpha 0) and
+    // making the game appear to "hang" with no clickable buttons.
+    // Only kill tweens on game objects, not on the overlay we're about to create.
 
     // AAA ARCHITECTURE: Emit game end event
     this.eventBus.emit(GAME_EVENTS.GAME_END, {
@@ -665,7 +668,8 @@ export abstract class BaseEngine extends Phaser.Scene {
     const verify = verifyTelemetry({ events: [...this.answeredEvents, completed], totalQuestions: this.maxScore, durationMs });
 
     try { this.physics.world.pause(); } catch {}
-    const overlay = this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x000000, 0.65).setDepth(500);
+    // AAAA: Use depth 960+ (above pause overlay at 950) so buttons are always clickable.
+    const overlay = this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x000000, 0.75).setDepth(960).setInteractive({ useHandCursor: 'default' });
 
     const isQuarantined = verify.status === 'quarantine';
     const isReview = verify.status === 'review';
@@ -678,18 +682,18 @@ export abstract class BaseEngine extends Phaser.Scene {
     const title = isQuarantined ? '⚠ SCORE QUARANTINED' : isReview ? '⎯ FLAGGED FOR REVIEW' : won ? (this.score === this.maxScore ? 'PERFECT! 3 STARS!' : this.score >= this.maxScore * 0.7 ? 'GREAT JOB! 2 STARS!' : 'GOOD! 1 STAR!') : '⏱ TIME UP';
     const subtitle = isQuarantined ? verify.anomalyReason ?? 'anomaly detected' : isReview ? verify.anomalyReason ?? 'review required' : `Score: ${this.score} / ${this.maxScore}`;
 
-    const titleText = this.add.text(this.scale.width / 2, this.scale.height / 2 - 80, title, { fontFamily: 'Inter, sans-serif', fontSize: '36px', color: '#' + statusColor.toString(16).padStart(6, '0'), fontStyle: 'bold' }).setOrigin(0.5).setDepth(501);
+    const titleText = this.add.text(this.scale.width / 2, this.scale.height / 2 - 80, title, { fontFamily: 'Inter, sans-serif', fontSize: '36px', color: '#' + statusColor.toString(16).padStart(6, '0'), fontStyle: 'bold' }).setOrigin(0.5).setDepth(961);
 
     if (won) {
       const stars = this.score === this.maxScore ? 3 : this.score >= this.maxScore * 0.7 ? 2 : 1;
       const starY = this.scale.height / 2 - 30;
       for (let i = 0; i < 3; i++) {
         const filled = i < stars;
-        this.add.text(this.scale.width / 2 + (i - 1) * 50, starY, filled ? '⭐' : '☆', { fontFamily: 'Inter, sans-serif', fontSize: '36px' }).setOrigin(0.5).setDepth(501);
+        this.add.text(this.scale.width / 2 + (i - 1) * 50, starY, filled ? '⭐' : '☆', { fontFamily: 'Inter, sans-serif', fontSize: '36px' }).setOrigin(0.5).setDepth(961);
       }
     }
 
-    const subText = this.add.text(this.scale.width / 2, this.scale.height / 2 + 20, subtitle, { fontFamily: 'Inter, sans-serif', fontSize: '20px', color: '#ffffff' }).setOrigin(0.5).setDepth(501);
+    const subText = this.add.text(this.scale.width / 2, this.scale.height / 2 + 20, subtitle, { fontFamily: 'Inter, sans-serif', fontSize: '20px', color: '#ffffff' }).setOrigin(0.5).setDepth(961);
 
     const accuracy = this.maxScore > 0 ? Math.round((this.score / this.maxScore) * 100) : 0;
     const timeSec = (durationMs / 1000).toFixed(1);
@@ -708,18 +712,18 @@ export abstract class BaseEngine extends Phaser.Scene {
       `Accuracy: ${accuracy}%   ·   Streak: ${this.streak}   ·   Time: ${timeSec}s`, {
         fontFamily: 'Inter, sans-serif', fontSize: '16px', color: '#ffffff',
         fontStyle: 'bold', align: 'center',
-      }).setOrigin(0.5).setDepth(501).setAlpha(0.9);
+      }).setOrigin(0.5).setDepth(961).setAlpha(0.9);
     const stats2 = this.add.text(this.scale.width / 2, statsY + 25,
       `⭐ ${starsWon}/3   ·   +${xpEarned} XP   ·   +${tokensEarned} tokens`, {
         fontFamily: 'Inter, sans-serif', fontSize: '15px', color: '#ffffff',
         fontStyle: 'bold', align: 'center',
-      }).setOrigin(0.5).setDepth(501).setAlpha(0.9);
+      }).setOrigin(0.5).setDepth(961).setAlpha(0.9);
     const stats3 = this.add.text(this.scale.width / 2, statsY + 48,
       bestText, {
         fontFamily: 'Inter, sans-serif', fontSize: '15px',
         color: '#' + this.theme.warning.toString(16).padStart(6, '0'),
         fontStyle: 'bold', align: 'center',
-      }).setOrigin(0.5).setDepth(501).setAlpha(0.9);
+      }).setOrigin(0.5).setDepth(961).setAlpha(0.9);
 
     // Achievement badges
     const badges: string[] = [];
@@ -731,7 +735,7 @@ export abstract class BaseEngine extends Phaser.Scene {
     if (durationMs < 30000 && this.score >= this.maxScore * 0.5) badges.push('⚡ SPEED DEMON');
     if (this.score === 0 && !won) badges.push('🌱 KEEP TRYING');
     if (badges.length > 0) {
-      this.add.text(this.scale.width / 2, this.scale.height / 2 + 110, badges.join('  ·  '), { fontFamily: 'Inter, sans-serif', fontSize: '13px', color: '#' + this.theme.warning.toString(16).padStart(6, '0'), fontStyle: 'bold', align: 'center', wordWrap: { width: 500 } }).setOrigin(0.5).setDepth(501);
+      this.add.text(this.scale.width / 2, this.scale.height / 2 + 110, badges.join('  ·  '), { fontFamily: 'Inter, sans-serif', fontSize: '13px', color: '#' + this.theme.warning.toString(16).padStart(6, '0'), fontStyle: 'bold', align: 'center', wordWrap: { width: 500 } }).setOrigin(0.5).setDepth(961);
     }
 
     // BUTTONS: Bigger with backgrounds, stacked vertically so they don't overlap
@@ -741,34 +745,49 @@ export abstract class BaseEngine extends Phaser.Scene {
 
     // Play Again button
     const btnBg = this.add.rectangle(this.scale.width / 2, btnY, btnW, btnH, statusColor, 0.95)
-      .setStrokeStyle(2, 0xffffff, 0.5).setDepth(501).setInteractive({ useHandCursor: true });
+      .setStrokeStyle(2, 0xffffff, 0.5).setDepth(961).setInteractive({ useHandCursor: true });
     const btn = this.add.text(this.scale.width / 2, btnY, '🔄 Play Again', {
       fontFamily: 'Inter, sans-serif', fontSize: '22px', color: '#000000', fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(502).setInteractive({ useHandCursor: true });
+    }).setOrigin(0.5).setDepth(962).setInteractive({ useHandCursor: true });
     btn.on('pointerdown', () => { audioBus.play('tap'); this.scene.restart({ config: this.registry.get('launchConfig') }); });
     btnBg.on('pointerdown', () => { audioBus.play('tap'); this.scene.restart({ config: this.registry.get('launchConfig') }); });
 
     // New Game button
     const btnBg2 = this.add.rectangle(this.scale.width / 2, btnY + 60, btnW, btnH, this.theme.card, 0.95)
-      .setStrokeStyle(2, this.theme.accent, 0.8).setDepth(501).setInteractive({ useHandCursor: true });
+      .setStrokeStyle(2, this.theme.accent, 0.8).setDepth(961).setInteractive({ useHandCursor: true });
     const btn2 = this.add.text(this.scale.width / 2, btnY + 60, '🎮 New Game', {
       fontFamily: 'Inter, sans-serif', fontSize: '22px', color: '#ffffff', fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(502).setInteractive({ useHandCursor: true });
+    }).setOrigin(0.5).setDepth(962).setInteractive({ useHandCursor: true });
     btn2.on('pointerdown', () => { audioBus.play('tap'); try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ministar-exit-game')); } catch {} try { this.game.destroy(true); } catch {} });
     btnBg2.on('pointerdown', () => { audioBus.play('tap'); try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ministar-exit-game')); } catch {} try { this.game.destroy(true); } catch {} });
 
     // Game Complete button
     const btnBg3 = this.add.rectangle(this.scale.width / 2, btnY + 120, btnW, btnH, this.theme.success, 0.95)
-      .setStrokeStyle(2, 0xffffff, 0.5).setDepth(501).setInteractive({ useHandCursor: true });
+      .setStrokeStyle(2, 0xffffff, 0.5).setDepth(961).setInteractive({ useHandCursor: true });
     const btn3 = this.add.text(this.scale.width / 2, btnY + 120, '✓ Complete', {
       fontFamily: 'Inter, sans-serif', fontSize: '22px', color: '#000000', fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(502).setInteractive({ useHandCursor: true });
+    }).setOrigin(0.5).setDepth(962).setInteractive({ useHandCursor: true });
     btn3.on('pointerdown', () => { audioBus.play('tap'); try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ministar-exit-game')); } catch {} try { this.game.destroy(true); } catch {} });
     btnBg3.on('pointerdown', () => { audioBus.play('tap'); try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ministar-exit-game')); } catch {} try { this.game.destroy(true); } catch {} });
 
-    // Animate overlay in
+    // Animate overlay in — buttons start at alpha 0 and fade to 1.
+    // AAAA: Removed tweens.killAll() from finishGame start (was killing this
+    // fade-in tween, leaving buttons invisible → game appeared to "hang").
+    // Now the fade-in works correctly. If the tween somehow fails, buttons
+    // are still at alpha 0 — so we add a safety delayedCall to force alpha 1
+    // after 500ms in case the tween doesn't complete.
     overlay.setAlpha(0); titleText.setAlpha(0); subText.setAlpha(0); statsText.setAlpha(0); stats2.setAlpha(0); stats3.setAlpha(0); btnBg.setAlpha(0); btn.setAlpha(0); btnBg2.setAlpha(0); btn2.setAlpha(0); btnBg3.setAlpha(0); btn3.setAlpha(0);
     this.tweens.add({ targets: [overlay, titleText, subText, statsText, stats2, stats3, btnBg, btn, btnBg2, btn2, btnBg3, btn3], alpha: { from: 0, to: 1 }, duration: 400, ease: 'Cubic.out' });
+
+    // AAAA: Safety fallback — if the fade-in tween is killed for any reason,
+    // force all overlay elements to alpha 1 after 500ms so buttons are visible + clickable.
+    this.time.delayedCall(500, () => {
+      try {
+        [overlay, titleText, subText, statsText, stats2, stats3, btnBg, btn, btnBg2, btn2, btnBg3, btn3].forEach(o => {
+          if (o && o.active) o.setAlpha(1);
+        });
+      } catch {}
+    });
   }
 
   protected checkWin() { if (this.score >= this.maxScore && !this.isFinished) { this.time.delayedCall(400, () => this.finishGame(true)); } }
