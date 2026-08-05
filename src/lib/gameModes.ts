@@ -27,10 +27,10 @@ export const GAME_MODES: GameModeMeta[] = [
   },
   {
     id: 'airplane',
-    name: 'Airplane',
+    name: 'Rocket',
     engine: 'Selection',
     description: 'Fly through clouds and steer into the correct term banner.',
-    emoji: '✈️',
+    emoji: '🚀',
     minTerms: 2,
     maxTerms: 10,
     accent: '#0ea5e9',

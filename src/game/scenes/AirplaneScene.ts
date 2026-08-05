@@ -54,6 +54,7 @@ export default class AirplaneScene extends BaseEngine {
   private stormClouds: StormCloud[] = [];
   private slowedUntil = 0;
   private _spawnCount = 0; // AAAA: alternates correct/decoy clouds
+  private _justUnpaused = false; // AAAA: reset velocity after unpause
 
   protected maxQuestions() { return Math.min(this.terms.length, 15); }
 
@@ -65,7 +66,7 @@ export default class AirplaneScene extends BaseEngine {
     this._skipAutoCelebrate = true;
 
     // ---- Title ----
-    this.add.text(this.scale.width / 2, 30, '✈️ Airplane', {
+    this.add.text(this.scale.width / 2, 30, '🚀 Rocket', {
       fontFamily: 'Inter, sans-serif', fontSize: '20px', color: this.hex(this.theme.accent), fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(50);
 
@@ -95,7 +96,7 @@ export default class AirplaneScene extends BaseEngine {
     // ---- Clear instructions ----
     this.instructionsText = this.add.text(
       this.scale.width / 2, 130,
-      'Move LEFT or RIGHT to catch the correct banner!\nUse arrow keys, A/D, or tap left/right side of screen!',
+      'Move LEFT or RIGHT to catch the correct cloud!\nUse arrow keys, A/D, or tap left/right side of screen!',
       {
         fontFamily: 'Inter, sans-serif', fontSize: '13px', color: this.hex(this.theme.warning),
         align: 'center',
@@ -249,27 +250,26 @@ export default class AirplaneScene extends BaseEngine {
 
     const bannerW = 140, bannerH = 48;
 
-    // AAAA KIDS MODE — Storm cloud: ~12% chance to spawn (very occasionally).
-    // Storm clouds are hazards, not word banners. Only after 1+ catch.
-    if (Math.random() < 0.12 && this.catches >= 1) {
+    // AAAA: GUARANTEE the correct cloud appears at least every other spawn.
+    // Alternate: odd spawn = correct cloud, even spawn = decoy.
+    // AAAA FIX: Storm clouds can only spawn on EVEN turns (decoy turns),
+    // so they never steal the correct cloud's turn.
+    this._spawnCount = (this._spawnCount || 0) + 1;
+    const isCorrectTurn = (this._spawnCount % 2 === 1); // odd = correct, even = decoy
+
+    // Storm cloud only on decoy turns (12% chance, after 1+ catch).
+    if (!isCorrectTurn && Math.random() < 0.12 && this.catches >= 1) {
       this._spawnStormCloud();
       return;
     }
 
-    // AAAA: GUARANTEE the correct cloud appears at least every other spawn.
-    // Alternate: odd spawn = correct cloud, even spawn = decoy.
-    // This ensures the target word always comes down within 5 seconds.
-    // Was: 50% random chance — sometimes the correct word never appeared.
-    this._spawnCount = (this._spawnCount || 0) + 1;
-    const isCorrect = (this._spawnCount % 2 === 1); // odd = correct, even = decoy
-
     const decoys = this.terms.filter(t => t.id !== this.activePrompt!.id);
-    const term = isCorrect ? this.activePrompt : (Phaser.Utils.Array.GetRandom(decoys) ?? this.activePrompt);
+    const term = isCorrectTurn ? this.activePrompt : (Phaser.Utils.Array.GetRandom(decoys) ?? this.activePrompt);
 
     // Random x position across the screen
     const x = Phaser.Math.Between(bannerW, this.scale.width - bannerW);
 
-    this._spawnSingleBanner({ term, isCorrect }, x, bannerW, bannerH, 0);
+    this._spawnSingleBanner({ term, isCorrect: isCorrectTurn }, x, bannerW, bannerH, 0);
   }
 
   // AAAA KIDS MODE — Storm cloud hazard spawn.
@@ -543,6 +543,11 @@ export default class AirplaneScene extends BaseEngine {
   update() {
     if (this.isFinished || this._isPaused || !this.plane) return;
     try {
+      // AAAA: Reset velocity if we just unpaused (prevents queued velocity from button taps during pause).
+      if (this._justUnpaused) {
+        this._justUnpaused = false;
+        this.plane.setVelocityX(0);
+      }
       this.updateAirplane();
     } catch (e) {
       console.error('[MiniStar] Airplane update error:', e);

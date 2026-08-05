@@ -65,7 +65,7 @@ export abstract class BaseEngine extends Phaser.Scene {
 
   // AAAA KIDS MODE — Per-game themed mascot emojis
   private static readonly _MASCOT_EMOJIS: Record<string, string> = {
-    'MazeChaseScene': '🦊', 'QuizScene': '🐶', 'AirplaneScene': '🦅',
+    'MazeChaseScene': '🦊', 'QuizScene': '🐶', 'AirplaneScene': '🚀',
     'GameshowScene': '🤖', 'MemoryMatchScene': '🧠', 'MatchUpScene': '🔗',
     'BalloonPopScene': '🎈', 'WhackAMoleScene': '🔨', 'AnagramScene': '🔤',
     'WordsearchScene': '🔍', 'BridgeBuilderScene': '🌉', 'CrosswordScene': '📝',
@@ -292,7 +292,7 @@ export abstract class BaseEngine extends Phaser.Scene {
   private static readonly _GAME_INSTRUCTIONS: Record<string, string> = {
     'MazeChaseScene': 'Welcome to Maze Chase! Move through the maze, collect the correct words, and dodge the ghosts! Use arrow keys or tap to move.',
     'QuizScene': 'Welcome to Quiz! Read each question, tap to hear it, then tap the correct answer!',
-    'AirplaneScene': 'Welcome to Airplane! Steer your rocket left and right to catch the correct banners! Watch out for storm clouds!',
+    'AirplaneScene': 'Welcome to Rocket! Steer your rocket left and right to catch the correct clouds! Watch out for storm clouds!',
     'GameshowScene': 'Welcome to the Gameshow! Answer each question before time runs out!',
     'MemoryMatchScene': 'Welcome to Memory Match! Flip cards to find matching pairs! Tap any card to hear it!',
     'MatchUpScene': 'Welcome to Match Up! Drag the words on the left to their meanings on the right! Tap any text to hear it!',
@@ -887,7 +887,7 @@ export abstract class BaseEngine extends Phaser.Scene {
     const gameNames: Record<string, string> = {
       'MazeChaseScene': '🌽 Maze Chase',
       'QuizScene': '❓ Quiz',
-      'AirplaneScene': '✈️ Airplane Catch',
+      'AirplaneScene': '🚀 Rocket Catch',
       'GameshowScene': '🎮 Gameshow',
       'MemoryMatchScene': '🃏 Memory Match',
       'MatchUpScene': '🔗 Match Up',
