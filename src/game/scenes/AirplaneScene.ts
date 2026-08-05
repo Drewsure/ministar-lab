@@ -57,6 +57,12 @@ export default class AirplaneScene extends BaseEngine {
   protected maxQuestions() { return Math.min(this.terms.length, 15); }
 
   protected buildWorld() {
+    // AAAA: Opt out of auto-celebration fanfare — Airplane is an action game
+    // where each correct catch shouldn't trigger a full-screen celebration
+    // overlay (would block gameplay). Correct catches get a green ripple +
+    // score popup + mascot celebrate instead.
+    this._skipAutoCelebrate = true;
+
     // ---- Title ----
     this.add.text(this.scale.width / 2, 30, '✈️ Airplane', {
       fontFamily: 'Inter, sans-serif', fontSize: '20px', color: this.hex(this.theme.accent), fontStyle: 'bold',
@@ -482,12 +488,12 @@ export default class AirplaneScene extends BaseEngine {
 
     if (isCorrect) {
       this.catches++;
+      // AAAA: Positive feedback — green popup + correct sound.
+      audioBus.play('correct');
+      this.juice.scorePopup(container.x, container.y - 20, '✓ Catch!', this.theme.success);
       // Speed ramp every 4 catches
       if (this.catches % 4 === 0) {
-        // AAAA KIDS MODE — Gentler speed ramp: +0.1 every 4 catches (was +0.2),
-        // cap 1.5 (was 2.0). At cap: 1.5 × 80 = 120 px/s = 6.7s traverse — readable.
         this.speedMultiplier = Math.min(1.5, this.speedMultiplier + 0.1);
-        // REMOVED zoomPunch — causes camera freeze;
       }
       // Advance prompt to next term
       const remaining = this.terms.filter(t => t.id !== this.activePrompt!.id);
@@ -498,6 +504,14 @@ export default class AirplaneScene extends BaseEngine {
       }
       this.updatePromptText();
       this.checkWin();
+    } else {
+      // AAAA: Wrong cloud caught — clear verbal + visual feedback.
+      audioBus.play('incorrect');
+      this.juice.shake('light');
+      this.juice.scorePopup(container.x, container.y - 20, '❌ Wrong!', this.theme.danger);
+      this.time.delayedCall(200, () => {
+        audioBus.speak(`That was ${banner.term.term}. Catch ${this.activePrompt?.term ?? 'the right one'}!`, { rate: 0.92 });
+      });
     }
   }
 
