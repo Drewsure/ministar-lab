@@ -123,7 +123,15 @@ export default class AirplaneScene extends BaseEngine {
     this.plane.setCollideWorldBounds(true).setDepth(30);
     this.plane.setScale(1.4);
     this.plane.setRotation(0);
-    this.plane.setCircle(16, 0, 0);
+    // AAAA: Fix overlap body — was setCircle(16) which is too small + misaligned.
+    // Use a proper body size matching the visual sprite (32×32 × 1.4 scale = ~45px).
+    // Center the body on the sprite.
+    const pBody = this.plane.body as Phaser.Physics.Arcade.Body;
+    pBody.setSize(30, 30);
+    pBody.setOffset(
+      (this.plane.width - 30) / 2,
+      (this.plane.height - 30) / 2
+    );
 
     // ---- Exhaust particle trail ----
     const exhaustKey = 'particle-' + this.theme.id;
@@ -287,8 +295,9 @@ export default class AirplaneScene extends BaseEngine {
     const container = this.add.container(x, y, [puff1, puff2, puff3, bg, lightning, label]).setSize(cloudW, cloudH);
     this.physics.add.existing(container);
     const body = container.body as Phaser.Physics.Arcade.Body;
-    body.setSize(cloudW, cloudH);
-    body.setOffset(-cloudW / 2, -cloudH / 2);
+    // AAAA: Smaller hit body for storm clouds too (was full cloudW × cloudH).
+    body.setSize(90, 35);
+    body.setOffset(-45, -17);
     body.setAllowGravity(false);
     body.setImmovable(false);
 
@@ -382,8 +391,11 @@ export default class AirplaneScene extends BaseEngine {
     const container = this.add.container(x, y, [puff1, puff2, puff3, bg, txt, label]).setSize(bannerW, bannerH);
     this.physics.add.existing(container);
     const body = container.body as Phaser.Physics.Arcade.Body;
-    body.setSize(bannerW, bannerH);
-    body.setOffset(-bannerW / 2, -bannerH / 2);
+    // AAAA: Smaller hit body (was full bannerW × bannerH = 140×48, now 80×30)
+    // so clouds only trigger when plane is actually visually close, not just
+    // passing nearby. Body centered on the container.
+    body.setSize(80, 30);
+    body.setOffset(-40, -15);
     body.setAllowGravity(false);
     body.setImmovable(false);
 
