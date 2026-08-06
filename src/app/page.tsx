@@ -106,8 +106,6 @@ export default function Home() {
   const [extendedTime, setExtendedTime] = useState(false);
 
   // Load stats AFTER hydration to prevent SSR mismatch
-  // AAAA FIX: Added empty dependency array [] — was missing, causing infinite
-  // re-render loop (setStats → render → useEffect → setStats → ...).
   useEffect(() => {
     setStats(loadStats());
     setStatsLoaded(true);
@@ -116,7 +114,7 @@ export default function Home() {
       setSlowMode(localStorage.getItem('ministar-slow-mode') === 'true');
       setExtendedTime(localStorage.getItem('ministar-extended-time') === 'true');
     } catch {}
-  }, []); // ← empty array = run ONCE on mount, not every render
+  }, []); // AAAA: empty array = run ONCE on mount (was missing → infinite loop)
 
   // Sync theme when brand changes
   if (brand.subdomain !== lastBrand) {
@@ -546,20 +544,13 @@ export default function Home() {
                     {/* Mystery Box — Blooket-style reward */}
                     <button
                       onClick={() => {
-                        if (stats.tokens < 20) return;
-                        // AAAA FIX: Init audio BEFORE speaking (first click needs
-                        // the gesture to unlock AudioContext). Use setTimeout to
-                        // let the context resume before speaking.
-                        audioBus.init();
-                        audioBus.initTTS();
-                        const newStats = { ...stats, tokens: stats.tokens - 20, mysteryBoxesOpened: stats.mysteryBoxesOpened + 1, xp: stats.xp + 50 };
-                        setStats(newStats);
-                        saveStats(newStats);
-                        // Delay speak so AudioContext is ready (was failing on first click).
-                        setTimeout(() => {
-                          audioBus.play('pop');
+                        if (stats.tokens >= 20) {
+                          const newStats = { ...stats, tokens: stats.tokens - 20, mysteryBoxesOpened: stats.mysteryBoxesOpened + 1, xp: stats.xp + 50 };
+                          setStats(newStats);
+                          saveStats(newStats);
+                          audioBus.init();
                           audioBus.speak('You opened a mystery box! Plus fifty XP!');
-                        }, 100);
+                        }
                       }}
                       disabled={stats.tokens < 20}
                       className="rounded-xl px-3 py-1.5 text-xs font-bold transition-all"
