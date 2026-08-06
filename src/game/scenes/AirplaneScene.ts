@@ -96,7 +96,7 @@ export default class AirplaneScene extends BaseEngine {
     // ---- Clear instructions ----
     this.instructionsText = this.add.text(
       this.scale.width / 2, 130,
-      'Move LEFT or RIGHT to catch the correct cloud!\nUse arrow keys, A/D, or tap left/right side of screen!',
+      'Move LEFT/RIGHT/UP/DOWN to catch the correct cloud!\nUse arrow keys, WASD, or tap screen!',
       {
         fontFamily: 'Inter, sans-serif', fontSize: '13px', color: this.hex(this.theme.warning),
         align: 'center',
@@ -180,31 +180,46 @@ export default class AirplaneScene extends BaseEngine {
     // ---- Keyboard input (created ONCE) ----
     if (this.input.keyboard) {
       this.cursors = this.input.keyboard.createCursorKeys();
-      this.wasd = this.input.keyboard.addKeys('A,D') as Record<string, Phaser.Input.Keyboard.Key>;
+      this.wasd = this.input.keyboard.addKeys('W,A,S,D') as Record<string, Phaser.Input.Keyboard.Key>;
     }
 
-    // DRAMA: On-screen LEFT/RIGHT buttons for mobile — BIG tap targets.
-    // AAAA: Check _isPaused before moving plane.
-    const leftBtn = this.add.text(60, this.scale.height - 50, '◀', {
-      fontFamily: 'Inter, sans-serif', fontSize: '40px', color: '#ffffff',
+    // AAAA: Full D-pad for mobile — LEFT/RIGHT/UP/DOWN.
+    // Positioned bottom-left corner in a + layout.
+    const dpadX = 70;
+    const dpadY = this.scale.height - 70;
+    const dpadBtnStyle = {
+      fontFamily: 'Inter, sans-serif', fontSize: '32px', color: '#ffffff',
       backgroundColor: '#' + this.theme.accent.toString(16).padStart(6, '0'),
-      padding: { x: 28, y: 16 },
+      padding: { x: 20, y: 12 },
       fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(400).setInteractive({ useHandCursor: true });
+    };
+
+    const leftBtn = this.add.text(dpadX - 55, dpadY, '◀', dpadBtnStyle)
+      .setOrigin(0.5).setDepth(400).setInteractive({ useHandCursor: true });
     leftBtn.on('pointerdown', () => {
       if (this._isPaused || this.isFinished) return;
       this.plane.setVelocityX(-200 * this.speedMultiplier);
     });
 
-    const rightBtn = this.add.text(this.scale.width - 60, this.scale.height - 50, '▶', {
-      fontFamily: 'Inter, sans-serif', fontSize: '40px', color: '#ffffff',
-      backgroundColor: '#' + this.theme.accent.toString(16).padStart(6, '0'),
-      padding: { x: 28, y: 16 },
-      fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(400).setInteractive({ useHandCursor: true });
+    const rightBtn = this.add.text(dpadX + 55, dpadY, '▶', dpadBtnStyle)
+      .setOrigin(0.5).setDepth(400).setInteractive({ useHandCursor: true });
     rightBtn.on('pointerdown', () => {
       if (this._isPaused || this.isFinished) return;
       this.plane.setVelocityX(200 * this.speedMultiplier);
+    });
+
+    const upBtn = this.add.text(dpadX, dpadY - 45, '▲', dpadBtnStyle)
+      .setOrigin(0.5).setDepth(400).setInteractive({ useHandCursor: true });
+    upBtn.on('pointerdown', () => {
+      if (this._isPaused || this.isFinished) return;
+      this.plane.setVelocityY(-200 * this.speedMultiplier);
+    });
+
+    const downBtn = this.add.text(dpadX, dpadY + 45, '▼', dpadBtnStyle)
+      .setOrigin(0.5).setDepth(400).setInteractive({ useHandCursor: true });
+    downBtn.on('pointerdown', () => {
+      if (this._isPaused || this.isFinished) return;
+      this.plane.setVelocityY(200 * this.speedMultiplier);
     });
   }
 
@@ -619,25 +634,39 @@ export default class AirplaneScene extends BaseEngine {
   }
 
   private updateAirplane() {
-    // Plane speed: faster base (350 was 200 — too slow per user feedback)
     const baseSpeed = 350;
-    // AAAA KIDS MODE — Storm cloud slow effect: 50% speed for 3s after hit.
     const slowFactor = this.time.now < this.slowedUntil ? 0.5 : 1.0;
     const speed = baseSpeed * Math.max(this.speedMultiplier, 0.6) * slowFactor * this.timeMultiplier();
     const pointer = this.input.activePointer;
 
-    let vx = 0;
+    // AAAA: Full 4-directional movement — left/right AND up/down.
+    let vx = 0, vy = 0;
     if (this.cursors?.left.isDown || this.wasd?.A.isDown) vx -= 1;
     if (this.cursors?.right.isDown || this.wasd?.D.isDown) vx += 1;
+    if (this.cursors?.up.isDown || this.wasd?.W.isDown) vy -= 1;
+    if (this.cursors?.down.isDown || this.wasd?.S.isDown) vy += 1;
 
-    if (vx !== 0) {
+    if (vx !== 0 || vy !== 0) {
+      // Keyboard movement.
       this.plane.setVelocityX(vx * speed);
+      this.plane.setVelocityY(vy * speed);
     } else if (pointer.isDown) {
+      // Touch/mouse — move toward the tap position in BOTH X and Y.
       const dx = pointer.x - this.plane.x;
+      const dy = pointer.y - this.plane.y;
       this.plane.setVelocityX(Math.sign(dx) * Math.min(Math.abs(dx) * 6, speed));
+      this.plane.setVelocityY(Math.sign(dy) * Math.min(Math.abs(dy) * 6, speed));
     } else {
-      this.plane.setVelocityX(0);
+      this.plane.setVelocity(0, 0);
     }
+
+    // AAAA: Constrain rocket to the play area (don't go above the clouds start
+    // or below the screen). Allow vertical range from 200 (just below prompt)
+    // to height - 30 (bottom of screen).
+    const minY = 200;
+    const maxY = this.scale.height - 30;
+    if (this.plane.y < minY) { this.plane.y = minY; this.plane.setVelocityY(0); }
+    if (this.plane.y > maxY) { this.plane.y = maxY; this.plane.setVelocityY(0); }
 
     // Tilt the plane based on velocity (visual feedback)
     const vel = this.plane.body?.velocity.x ?? 0;
