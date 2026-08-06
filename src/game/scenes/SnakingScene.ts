@@ -111,7 +111,7 @@ export default class SnakingScene extends BaseEngine {
       this.snake.push({
         x: startX - i * this.gridStep, y: startY,
         text: this.add.text(startX - i * this.gridStep, startY,
-          i === 0 ? '🐶' : '🟪', { fontSize: '24px' }).setOrigin(0.5).setDepth(100),
+          i === 0 ? '🐍' : '🟢', { fontSize: '24px' }).setOrigin(0.5).setDepth(100),
       });
     }
 
@@ -475,10 +475,10 @@ export default class SnakingScene extends BaseEngine {
     // Move snake forward: unshift new head, demote old head to body.
     const newHead: SnakeSeg = {
       x: newX, y: newY,
-      text: this.add.text(newX, newY, '🐶', { fontSize: '24px' }).setOrigin(0.5).setDepth(100),
+      text: this.add.text(newX, newY, '🐍', { fontSize: '24px' }).setOrigin(0.5).setDepth(100),
     };
     this.snake.unshift(newHead);
-    if (this.snake[1]) this.snake[1].text.setText('🟪');
+    if (this.snake[1]) this.snake[1].text.setText('🟢');
 
     if (eaten) {
       this._handleEat(eaten);

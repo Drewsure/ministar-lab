@@ -106,6 +106,8 @@ export default function Home() {
   const [extendedTime, setExtendedTime] = useState(false);
 
   // Load stats AFTER hydration to prevent SSR mismatch
+  // AAAA FIX: Added empty dependency array [] — was missing, causing infinite
+  // re-render loop (setStats → render → useEffect → setStats → ...).
   useEffect(() => {
     setStats(loadStats());
     setStatsLoaded(true);
@@ -114,7 +116,7 @@ export default function Home() {
       setSlowMode(localStorage.getItem('ministar-slow-mode') === 'true');
       setExtendedTime(localStorage.getItem('ministar-extended-time') === 'true');
     } catch {}
-  });
+  }, []); // ← empty array = run ONCE on mount, not every render
 
   // Sync theme when brand changes
   if (brand.subdomain !== lastBrand) {
