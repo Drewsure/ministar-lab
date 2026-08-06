@@ -67,12 +67,29 @@
 | 🐢 Slow button | `🐢 Slow` | 1 |
 | ⏱️ Time+ button | `⏱️ Time` | 1 |
 
-### 5. All 32 Games
+### 5. All 32 Games — Hover-to-Speak + Karaoke Highlight
+
+**MANDATORY:** Every interactable text object in every game MUST use either:
+- `this.makeHoverSpeakable(textObj, speechText)` — for standard text (prompt, options, labels)
+- `this.speakPromptWithHighlight(textObj, speechText)` — called on `pointerover` + `pointerdown` for text that needs custom handling (e.g., Snaking letters where stopPropagation must NOT fire)
+
+**FORBIDDEN:** Raw `audioBus.speak()` on `pointerdown` without karaoke highlight — this was the old pattern. ALL speakable text must have:
+1. `pointerover` handler (desktop hover → speak with karaoke)
+2. `pointerdown` handler (mobile tap → speak with karaoke)
+3. `_isPaused` guard (don't speak while paused)
+4. Karaoke highlight (rainbow color cycle + yellow glow + pulsing scale)
+
+**EXCEPTION:** Game-action buttons (whack, mic, submit, hint, skip) that play sounds but don't speak text are NOT required to have karaoke — only text that is READ ALOUD needs it.
 
 | Feature | Expected |
 |---------|----------|
 | speakPromptWithHighlight | 32/32 games |
 | makeHoverSpeakable | 32/32 games |
+| No raw audioBus.speak on text pointerdown | All games (use speakPromptWithHighlight instead) |
+
+**Special case — Snaking letter bubbles:** Use custom `pointerover` + `pointerdown` handlers that call `speakPromptWithHighlight` but do NOT call `event.stopPropagation()` (so the snake direction handler still fires). See SnakingScene.ts `_spawnWord` letter creation for the pattern.
+
+**Special case — SpeakIt replay button:** Uses `pointerover` + `pointerdown` calling `speakPromptWithHighlight` directly (not `makeHoverSpeakable`) because the speech text changes per round.
 
 ### 6. QuizScene.ts — Living Storybook (712+ lines)
 

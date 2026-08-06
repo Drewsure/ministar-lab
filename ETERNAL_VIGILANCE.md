@@ -325,9 +325,80 @@ this.scene.tweens.add({
 
 Before creating ANY zip:
 1. Run all 10 checks above
-2. Verify `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/` returns 200
-3. Verify a game launches (QuizScene, 27+ children, canAnswer=true, zero console errors)
-4. Verify NO BOM in vercel.json or package.json
-5. Verify `src/app/page.tsx` exists in the zip
+2. Run `bash scripts/verify-aaaa-features.sh` — ALL 113 checks MUST pass
+3. Verify `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/` returns 200
+4. Verify a game launches (QuizScene, 27+ children, canAnswer=true, zero console errors)
+5. Verify NO BOM in vercel.json or package.json
+6. Verify `src/app/page.tsx` exists in the zip
+7. Verify `PERSISTENCE_GUARD.md` is included in the zip
+8. Verify `useEffect` in page.tsx has `[]` dependency array (no infinite loop)
 
 **If any check fails, FIX IT BEFORE ZIPPING.**
+
+---
+
+## ✅ CHECK 11: Hover-to-Speak Karaoke Highlight (ALL 32 games)
+
+**What happens:** Text objects use raw `audioBus.speak()` on `pointerdown` without karaoke highlight or hover support. Child taps text → hears plain speech with no visual feedback. Hovering over text does nothing.
+
+**How to verify:**
+```bash
+# All 32 games must have makeHoverSpeakable
+for f in src/game/scenes/*.ts; do
+  grep -q "makeHoverSpeakable" "$f" && echo "✅ $(basename $f)" || echo "❌ $(basename $f)"
+done
+
+# No raw audioBus.speak on text pointerdown (game-action buttons OK)
+grep -rn "pointerdown.*audioBus.speak" src/game/scenes/
+# Should return NOTHING (or only game-action buttons, not text-to-speak)
+```
+
+**Fix:** Replace `audioBus.speak()` on text with `this.speakPromptWithHighlight(textObj, speechText)` on BOTH `pointerover` AND `pointerdown`. Or use `this.makeHoverSpeakable(textObj, speechText)` which does both automatically.
+
+**Special cases:**
+- Snaking letters: Custom handlers (no stopPropagation) calling `speakPromptWithHighlight`
+- SpeakIt replay: Custom handlers calling `speakPromptWithHighlight`
+- Game-action buttons (whack, mic, submit): No change needed — these play sounds, not speech
+
+---
+
+## ✅ CHECK 12: finishGame Overlay Not Hanging
+
+**What happens:** `finishGame()` calls `tweens.killAll()` at the start, which kills the overlay fade-in tween. Buttons stay at alpha 0 (invisible) → game appears to "hang" with no clickable buttons.
+
+**How to verify:**
+```bash
+grep "tweens.killAll" src/game/BaseEngine.ts
+# Should NOT appear in finishGame() — only in shutdown/destroy handlers
+```
+
+**Fix:** Do NOT call `tweens.killAll()` in `finishGame()`. The overlay fade-in tween must be allowed to run. Add a safety `delayedCall(500ms)` that forces all overlay elements to alpha 1 as a fallback.
+
+---
+
+## ✅ CHECK 13: Pause Total Freeze
+
+**What happens:** Pause only pauses physics but NOT tweens/timers → banners keep falling, moles keep popping, clouds keep spawning during pause.
+
+**How to verify:**
+```bash
+grep "timeScale = 0" src/game/BaseEngine.ts  # Must exist in _togglePause
+grep "timeScale = 1" src/game/BaseEngine.ts  # Must exist in _togglePause resume
+grep "setInteractive" src/game/BaseEngine.ts | grep "950"  # Overlay must block input
+```
+
+**Fix:** `_togglePause()` must set `this.time.timeScale = 0` on pause (freezes ALL tweens + timers) and `this.time.timeScale = 1` on resume. Overlay rectangle must have `setInteractive()` at depth 950 to block all pointer events.
+
+---
+
+## ✅ CHECK 14: useEffect Dependency Array (React infinite loop)
+
+**What happens:** `useEffect` in `page.tsx` missing `[]` dependency array → runs on every render → `setState` → re-render → `useEffect` → `setState` → infinite loop → "Maximum update depth exceeded" crash.
+
+**How to verify:**
+```bash
+grep -A5 "useEffect" src/app/page.tsx | grep "\[\]"
+# Must find [] at the end of useEffect
+```
+
+**Fix:** Add `}, []);` at the end of the `useEffect` that loads stats/toggles.
