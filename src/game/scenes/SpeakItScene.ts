@@ -27,14 +27,19 @@ export default class SpeakItScene extends BaseEngine {
     }).setOrigin(0.5).setDepth(49);
     this.makeHoverSpeakable(this.promptText);
 
-    // Replay button — tap to hear the word again
+    // Replay button — tap or hover to hear the word again with karaoke highlight
     const replayBtn = this.add.text(this.scale.width / 2, 220, '🔊 Tap to hear the word', {
       fontFamily: 'Inter, sans-serif', fontSize: '20px', color: this.hex(this.theme.warning), fontStyle: 'bold',
       backgroundColor: '#' + this.theme.card.toString(16).padStart(6, '0'),
       padding: { x: 16, y: 8 },
     }).setOrigin(0.5).setDepth(50).setInteractive({ useHandCursor: true });
+    replayBtn.on('pointerover', () => {
+      if (this._isPaused || this.isFinished) return;
+      if (this.currentTerm) this.speakPromptWithHighlight(replayBtn, this.currentTerm.term);
+    });
     replayBtn.on('pointerdown', () => {
-      if (this.currentTerm) audioBus.speak(this.currentTerm.term);
+      if (this._isPaused || this.isFinished) return;
+      if (this.currentTerm) this.speakPromptWithHighlight(replayBtn, this.currentTerm.term);
     });
 
     this.setupGlobalPointer((x, y) => {

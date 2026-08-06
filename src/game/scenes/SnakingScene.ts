@@ -415,12 +415,20 @@ export default class SnakingScene extends BaseEngine {
         });
       }
 
-      // ESL: tap-to-hear-letter (local handler — does NOT stopPropagation so
-      // the global pointer handler still changes snake direction).
+      // AAAA: Hover-to-speak with karaoke highlight on letters.
+      // Custom handler — does NOT stopPropagation on pointerdown so the
+      // global pointer handler still changes snake direction.
       text.setData('speakText', letter);
       text.setInteractive({ useHandCursor: true });
+      // Hover (desktop) → speak with karaoke highlight.
+      text.on('pointerover', () => {
+        if (this._isPaused || this.isFinished) return;
+        this.speakPromptWithHighlight(text, letter);
+      });
+      // Tap (mobile) → speak with karaoke highlight (NO stopPropagation).
       text.on('pointerdown', () => {
-        try { audioBus.speak(letter); } catch {}
+        if (this._isPaused || this.isFinished) return;
+        this.speakPromptWithHighlight(text, letter);
       });
 
       this.letterBubbles.push({
