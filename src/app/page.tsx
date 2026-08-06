@@ -546,13 +546,20 @@ export default function Home() {
                     {/* Mystery Box — Blooket-style reward */}
                     <button
                       onClick={() => {
-                        if (stats.tokens >= 20) {
-                          const newStats = { ...stats, tokens: stats.tokens - 20, mysteryBoxesOpened: stats.mysteryBoxesOpened + 1, xp: stats.xp + 50 };
-                          setStats(newStats);
-                          saveStats(newStats);
-                          audioBus.init();
+                        if (stats.tokens < 20) return;
+                        // AAAA FIX: Init audio BEFORE speaking (first click needs
+                        // the gesture to unlock AudioContext). Use setTimeout to
+                        // let the context resume before speaking.
+                        audioBus.init();
+                        audioBus.initTTS();
+                        const newStats = { ...stats, tokens: stats.tokens - 20, mysteryBoxesOpened: stats.mysteryBoxesOpened + 1, xp: stats.xp + 50 };
+                        setStats(newStats);
+                        saveStats(newStats);
+                        // Delay speak so AudioContext is ready (was failing on first click).
+                        setTimeout(() => {
+                          audioBus.play('pop');
                           audioBus.speak('You opened a mystery box! Plus fifty XP!');
-                        }
+                        }, 100);
                       }}
                       disabled={stats.tokens < 20}
                       className="rounded-xl px-3 py-1.5 text-xs font-bold transition-all"
