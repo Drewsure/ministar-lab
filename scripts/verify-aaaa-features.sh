@@ -37,6 +37,62 @@ echo "=========================================="
 echo "AAAA Feature Verification"
 echo "=========================================="
 
+# ============================================================================
+# PROACTIVE LINE-COUNT GUARDS — if ANY file shrinks below its minimum,
+# the deployment is BLOCKED. This catches regressions we haven't explicitly
+# listed in the feature checks below. File sizes are set to ~90% of current
+# to allow minor edits without false positives, but catch major reverts.
+# ============================================================================
+echo "--- Proactive Line-Count Guards ---"
+check_lines() {
+  local name="$1" file="$2" min="$3" actual
+  if [ ! -f "$file" ]; then
+    echo "❌ FAIL: $name — file missing!"; FAIL=$((FAIL+1)); FAILURES="$FAILURES\n  - $name (file missing)"; return
+  fi
+  actual=$(wc -l < "$file" 2>/dev/null || echo 0)
+  if [ "$actual" -lt "$min" ]; then
+    echo "❌ FAIL: $name — $actual lines (min $min) — LIKELY REVERTED!"; FAIL=$((FAIL+1)); FAILURES="$FAILURES\n  - $name ($actual lines, min $min — likely reverted)"
+  else
+    echo "✅ PASS: $name ($actual lines, min $min)"; PASS=$((PASS+1))
+  fi
+}
+check_lines "BaseEngine" "src/game/BaseEngine.ts" 1000
+check_lines "KidsJuice" "src/game/KidsJuice.ts" 300
+check_lines "audio.ts" "src/lib/audio.ts" 340
+check_lines "page.tsx" "src/app/page.tsx" 600
+check_lines "Juice.ts" "src/game/Juice.ts" 1350
+check_lines "AirplaneScene" "src/game/scenes/AirplaneScene.ts" 640
+check_lines "QuizScene" "src/game/scenes/QuizScene.ts" 750
+check_lines "GameshowScene" "src/game/scenes/GameshowScene.ts" 660
+check_lines "SnakingScene" "src/game/scenes/SnakingScene.ts" 570
+check_lines "SpinWheelScene" "src/game/scenes/SpinWheelScene.ts" 290
+check_lines "EndlessRunnerScene" "src/game/scenes/EndlessRunnerScene.ts" 200
+check_lines "WhackAMoleScene" "src/game/scenes/WhackAMoleScene.ts" 300
+check_lines "BalloonPopScene" "src/game/scenes/BalloonPopScene.ts" 330
+check_lines "RhythmTapScene" "src/game/scenes/RhythmTapScene.ts" 370
+check_lines "TowerDefenseScene" "src/game/scenes/TowerDefenseScene.ts" 410
+check_lines "MazeChaseScene" "src/game/scenes/MazeChaseScene.ts" 900
+check_lines "AnagramScene" "src/game/scenes/AnagramScene.ts" 350
+check_lines "CrosswordScene" "src/game/scenes/CrosswordScene.ts" 530
+check_lines "FlashCardsScene" "src/game/scenes/FlashCardsScene.ts" 300
+check_lines "GroupSortScene" "src/game/scenes/GroupSortScene.ts" 280
+check_lines "LabelItScene" "src/game/scenes/LabelItScene.ts" 65
+check_lines "MatchUpScene" "src/game/scenes/MatchUpScene.ts" 310
+check_lines "MemoryMatchScene" "src/game/scenes/MemoryMatchScene.ts" 340
+check_lines "MonsterFighterScene" "src/game/scenes/MonsterFighterScene.ts" 380
+check_lines "PhysicsPuzzlerScene" "src/game/scenes/PhysicsPuzzlerScene.ts" 120
+check_lines "RescueQuestScene" "src/game/scenes/RescueQuestScene.ts" 130
+check_lines "SpeakItScene" "src/game/scenes/SpeakItScene.ts" 130
+check_lines "SpotItScene" "src/game/scenes/SpotItScene.ts" 380
+check_lines "StarFarmScene" "src/game/scenes/StarFarmScene.ts" 1750
+check_lines "StoryAdventureScene" "src/game/scenes/StoryAdventureScene.ts" 300
+check_lines "TrainingAcademyScene" "src/game/scenes/TrainingAcademyScene.ts" 115
+check_lines "TreasureHuntScene" "src/game/scenes/TreasureHuntScene.ts" 300
+check_lines "TypeAnswerScene" "src/game/scenes/TypeAnswerScene.ts" 330
+check_lines "WordsearchScene" "src/game/scenes/WordsearchScene.ts" 285
+check_lines "FarmLifeScene" "src/game/scenes/FarmLifeScene.ts" 520
+echo ""
+
 echo "--- BaseEngine.ts ---"
 check "Auto-celebrate" "_skipAutoCelebrate" "src/game/BaseEngine.ts" 2
 check "Auto-mascot" "_skipAutoMascot" "src/game/BaseEngine.ts" 2
