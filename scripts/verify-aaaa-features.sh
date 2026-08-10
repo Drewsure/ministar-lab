@@ -122,6 +122,12 @@ echo "--- Airplane Storm ---"
 check "StormCloud" "interface StormCloud" "src/game/scenes/AirplaneScene.ts" 1
 check "_spawnStormCloud" "_spawnStormCloud" "src/game/scenes/AirplaneScene.ts" 2
 check "_handleStormHit" "_handleStormHit" "src/game/scenes/AirplaneScene.ts" 2
+check "Rocket 4-dir WASD" "W,A,S,D" "src/game/scenes/AirplaneScene.ts" 1
+check "Rocket D-pad up" "upBtn" "src/game/scenes/AirplaneScene.ts" 1
+check "Rocket D-pad down" "downBtn" "src/game/scenes/AirplaneScene.ts" 1
+check "Rocket vy movement" "setVelocityY" "src/game/scenes/AirplaneScene.ts" 3
+check "Rocket _togglePause override" "super._togglePause" "src/game/scenes/AirplaneScene.ts" 1
+check_absent "Snaking no dog emoji" "🐶" "src/game/scenes/SnakingScene.ts"
 check "slowedUntil" "slowedUntil" "src/game/scenes/AirplaneScene.ts" 3
 check "Storm 12%" "Math.random.. < 0.12" "src/game/scenes/AirplaneScene.ts" 1
 check "Speed cap 1.5" "Math.min.1.5" "src/game/scenes/AirplaneScene.ts" 1
