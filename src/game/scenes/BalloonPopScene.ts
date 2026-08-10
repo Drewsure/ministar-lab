@@ -26,11 +26,12 @@ import { audioBus } from '../../lib/audio';
 interface Balloon {
   container: Phaser.GameObjects.Container;
   term: TermItem;
-  isCorrect: boolean;
   hit: boolean;
   x: number;
   y: number;
   color: number;
+  riseTween: Phaser.Tweens.Tween | null;
+  baseX: number;
 }
 
 interface DefBox {
@@ -50,7 +51,6 @@ export default class BalloonPopScene extends BaseEngine {
   private defBoxes: DefBox[] = [];
   private promptText!: Phaser.GameObjects.Text;
   private promptBg!: Phaser.GameObjects.Rectangle;
-  private activeTerm?: TermItem;
   private spawnTimer?: Phaser.Time.TimerEvent;
   private comboCount = 0;
   private lastCorrectTime = 0;
@@ -66,9 +66,9 @@ export default class BalloonPopScene extends BaseEngine {
     }).setOrigin(0.5).setDepth(50);
 
     // ---- Prompt ----
-    this.promptBg = this.add.rectangle(this.scale.width / 2, 100, 600, 36, this.theme.card, 0.9)
+    this.promptBg = this.add.rectangle(this.scale.width / 2, 100, 620, 36, this.theme.card, 0.9)
       .setStrokeStyle(2, this.theme.accent, 0.6).setDepth(48);
-    this.promptText = this.add.text(this.scale.width / 2, 100, 'Pop balloons to drop words into matching definitions!', {
+    this.promptText = this.add.text(this.scale.width / 2, 100, 'Pop balloons — drop each word into its matching definition below!', {
       fontFamily: 'Inter, sans-serif', fontSize: '14px',
       color: this.hex(this.theme.text), fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(49);
@@ -100,7 +100,7 @@ export default class BalloonPopScene extends BaseEngine {
       }
     });
 
-    audioBus.speak('Pop the balloons to drop words into the matching definitions below!');
+    audioBus.speak('Pop the balloons and drop each word into its matching definition below!');
   }
 
   protected onTick(_remainingMs: number) {}
@@ -112,14 +112,16 @@ export default class BalloonPopScene extends BaseEngine {
     this.defBoxes.forEach(d => { try { d.bg.destroy(); d.text.destroy(); } catch {} });
     this.defBoxes = [];
 
-    // Pick 4 terms for this round (1 correct + 3 decoys)
+    // Pick 4 terms for this round — each will have a matching balloon spawn.
+    // AAAA KIDS MODE — Only spawn balloons whose term has a matching box, so
+    // every pop has a clear correct/wrong outcome (no more "missed" feedback
+    // for balloons whose word was never in any box).
     const pool = [...this.terms];
     Phaser.Utils.Array.Shuffle(pool);
     const roundTerms = pool.slice(0, Math.min(4, pool.length));
-    this.activeTerm = roundTerms[0];
 
     const boxW = Math.min(180, (this.scale.width - 40) / roundTerms.length);
-    const boxH = 60;
+    const boxH = 64;
     const gap = 10;
     const totalW = roundTerms.length * boxW + (roundTerms.length - 1) * gap;
     const startX = (this.scale.width - totalW) / 2 + boxW / 2;
@@ -140,9 +142,9 @@ export default class BalloonPopScene extends BaseEngine {
       this.defBoxes.push({ term, x, y: boxY, w: boxW, h: boxH, bg, text });
     });
 
-    this.promptText.setText(`Pop the balloon carrying: ${this.activeTerm.term}`);
+    this.promptText.setText('Pop a balloon — drop its word into the matching definition!');
     // AAAA KIDS MODE — Speak the prompt with karaoke highlight.
-    this.speakPromptWithHighlight(this.promptText, `Pop the balloon carrying: ${this.activeTerm.term}`, { isQuestion: true });
+    this.speakPromptWithHighlight(this.promptText, 'Pop a balloon and drop its word into the matching definition below!', { isQuestion: true });
   }
 
   // ===========================================================================
@@ -150,15 +152,18 @@ export default class BalloonPopScene extends BaseEngine {
   // ===========================================================================
   private spawnBalloon() {
     if (this.isFinished) return;
-
-    // Pick a random term — sometimes correct, sometimes decoy
-    const pool = [...this.terms];
-    const term = Phaser.Utils.Array.GetRandom(pool);
-    const isCorrect = term.id === this.activeTerm?.id;
+    if (this.defBoxes.length === 0) return;
+    // AAAA KIDS MODE — Only spawn balloons carrying one of the CURRENT
+    // round's definition-box terms. This guarantees every popped balloon has
+    // a matching box — no more "missed because the word had no box" feedback.
+    const box = Phaser.Utils.Array.GetRandom(this.defBoxes);
+    const term = box.term;
     const color = BALLOON_COLORS[Math.floor(Math.random() * BALLOON_COLORS.length)];
 
-    // Random x position across the screen
-    const x = Phaser.Math.Between(60, this.scale.width - 60);
+    // Spawn somewhere in the left 60% so the horizontal sway can carry the
+    // balloon across multiple boxes — player must TIME the pop to land the
+    // falling word in the correct definition box.
+    const baseX = Phaser.Math.Between(120, this.scale.width - 120);
     const y = this.scale.height + 30; // start below screen
 
     // Build balloon visual
@@ -174,11 +179,12 @@ export default class BalloonPopScene extends BaseEngine {
       color: '#ffffff', fontStyle: 'bold',
     }).setOrigin(0.5);
 
-    const container = this.add.container(x, y, [balloonCircle, highlight, string, label])
+    const container = this.add.container(baseX, y, [balloonCircle, highlight, string, label])
       .setDepth(20);
 
     const balloon: Balloon = {
-      container, term, isCorrect, hit: false, x, y, color,
+      container, term, hit: false, x: baseX, y, color,
+      riseTween: null, baseX,
     };
     this.balloons.push(balloon);
 
@@ -186,30 +192,34 @@ export default class BalloonPopScene extends BaseEngine {
     // AAAA KIDS MODE — Gentler rise ramp + slow mode. Was 14000-(level-1)*1500 floor 6000.
     // Now: 14000-(level-1)*1000, floor 8000ms, divided by timeMultiplier().
     const riseDuration = Math.max(8000, 14000 - (this.level - 1) * 1000) / this.timeMultiplier();
-    this.tweens.add({
+    const startTime = this.time.now;
+    const swayAmplitude = 60; // px left/right of baseX
+    const swayPeriod = 2600; // ms for a full left-right cycle
+    const riseTween = this.tweens.add({
       targets: container,
       y: -50,
       duration: riseDuration,
       ease: 'Sine.inOut',
-      // GC FIX: onUpdate creates a closure each frame. Use a bound function
-      // reference instead. But Phaser doesn't support that easily, so at
-      // least minimize work inside the callback.
+      // AAAA — Horizontal sway gives the player TIMING control over where the
+      // word will land. Without sway, the balloon's x is fixed and the player
+      // has no way to aim the drop.
       onUpdate: () => {
-        // GC FIX: Minimize allocations — just read/write properties
-        const cx = container.x;
-        const cy = container.y;
-        balloon.y = cy;
-        // Sway — use tween's elapsed time instead of Date.now()
-        balloon.x = cx;
+        const elapsed = this.time.now - startTime;
+        const sway = Math.sin((elapsed / swayPeriod) * Math.PI * 2) * swayAmplitude;
+        const clamped = Math.max(40, Math.min(this.scale.width - 40, balloon.baseX + sway));
+        container.x = clamped;
+        balloon.x = clamped;
+        balloon.y = container.y;
       },
       onComplete: () => {
-        // Balloon escaped — remove
+        // Balloon escaped — remove silently (no penalty)
         if (!balloon.hit) {
           this.balloons.splice(this.balloons.indexOf(balloon), 1);
           try { container.destroy(); } catch {}
         }
       },
     });
+    balloon.riseTween = riseTween;
   }
 
   // ===========================================================================
@@ -218,6 +228,8 @@ export default class BalloonPopScene extends BaseEngine {
   private popBalloon(b: Balloon) {
     if (b.hit) return;
     b.hit = true;
+    // AAAA — Stop the rise/sway tween so the drop tween has full control of y.
+    if (b.riseTween) { try { b.riseTween.stop(); } catch {} }
 
     // Pop sound + confetti
     audioBus.play('pop');
@@ -230,7 +242,6 @@ export default class BalloonPopScene extends BaseEngine {
     // Keep label visible — it falls
 
     // Drop the word with gravity tween
-    const startY = b.y;
     const dropTargetY = this.scale.height - 50; // where def boxes are
 
     this.tweens.add({
@@ -265,10 +276,12 @@ export default class BalloonPopScene extends BaseEngine {
     }
 
     if (!landedBox) {
-      // Missed all boxes
-      this.promptText.setText(`❌ Missed! ${b.term.term} didn't land in any box.`);
+      // Missed all boxes — word fell between the cracks.
+      this.promptText.setText(`❌ Missed! ${b.term.term} didn't land in any box. Try again!`);
+      this.speakPromptWithHighlight(this.promptText, `Missed! ${b.term.term} didn't land in any box.`);
       audioBus.play('incorrect');
       this.juice.shake('light');
+      this.juice.scorePopup(b.x, b.y - 30, '❌ Miss', this.theme.danger);
       this.recordAnswer({
         term: b.term.term, response: 'missed', success: false,
         coordinate: { x: b.x, y: b.y, t: this.time.now },
@@ -286,11 +299,13 @@ export default class BalloonPopScene extends BaseEngine {
     });
 
     if (isCorrect) {
-      // Correct! Flash box green
-      landedBox.bg.setFillStyle(this.theme.success, 0.9);
+      // Correct! Flash box green + big celebration
+      landedBox.bg.setFillStyle(this.theme.success, 0.95);
       audioBus.play('correct');
       audioBus.speak(b.term.term);
       this.juice.burst(b.x, b.y, 'correct');
+      this.juice.confettiRain(900);
+      this.juice.scorePopup(b.x, b.y - 30, `✅ ${b.term.term}`, this.theme.success);
 
       // Combo system
       const now = Date.now();
@@ -301,14 +316,15 @@ export default class BalloonPopScene extends BaseEngine {
       }
       this.lastCorrectTime = now;
 
-      const comboText = this.comboCount >= 2 ? ` 🔥 x${this.comboCount} combo!` : '';
+      const comboText = this.comboCount >= 2 ? `  🔥 x${this.comboCount} combo!` : '';
       this.promptText.setText(`✅ Correct! ${b.term.term} = ${landedBox.term.definition ?? landedBox.term.term}${comboText}`);
-      this.juice.scorePopup(b.x, b.y - 30, `+1${comboText}`, this.theme.warning);
+      this.speakPromptWithHighlight(this.promptText, `Correct! ${b.term.term}!`);
+      this.juice.scorePopup(b.x, b.y - 60, `+1${comboText}`, this.theme.warning);
 
       // Reset box after delay
       setTimeout(() => {
         if (landedBox) landedBox.bg.setFillStyle(this.theme.card, 0.92);
-      }, 500);
+      }, 600);
 
       // Next round
       this.currentRound++;
@@ -321,15 +337,17 @@ export default class BalloonPopScene extends BaseEngine {
       }
     } else {
       // Wrong box
-      landedBox.bg.setFillStyle(this.theme.danger, 0.9);
+      landedBox.bg.setFillStyle(this.theme.danger, 0.95);
       audioBus.play('incorrect');
       this.juice.shake('medium');
       this.promptText.setText(`❌ Wrong! ${b.term.term} doesn't match that definition.`);
+      this.speakPromptWithHighlight(this.promptText, `Wrong! ${b.term.term} doesn't match.`);
+      this.juice.scorePopup(b.x, b.y - 30, '❌ Wrong', this.theme.danger);
       this.comboCount = 0;
 
       setTimeout(() => {
         if (landedBox) landedBox.bg.setFillStyle(this.theme.card, 0.92);
-      }, 500);
+      }, 600);
     }
   }
 
@@ -337,10 +355,7 @@ export default class BalloonPopScene extends BaseEngine {
   // NEXT ROUND
   // ===========================================================================
   private _nextRound() {
-    // Pick a new active term
-    const pool = [...this.terms];
-    Phaser.Utils.Array.Shuffle(pool);
-    this.activeTerm = pool[0];
+    // Pick a fresh set of definition boxes for the next round.
     this._buildDefBoxes();
   }
 }

@@ -113,17 +113,23 @@ export default class CrosswordScene extends BaseEngine {
           }
         }
       }
-      // Hit-test keyboard buttons
+      // Hit-test keyboard buttons — use each key's stored hitW/hitH so the
+      // wide DEL/CHECK buttons are tappable across their full area.
       for (const key of this.keyboardKeys) {
-        if (Math.abs(x - key.x) < 15 && Math.abs(y - key.y) < 15) {
-          const bg = key.getAt(0) as Phaser.GameObjects.Rectangle;
-          const txt = key.getAt(1) as Phaser.GameObjects.Text;
-          if (txt && txt.text === '⌫ DEL') {
+        const hw = (key.getData('hitW') as number) ?? 26;
+        const hh = (key.getData('hitH') as number) ?? 26;
+        if (Math.abs(x - key.x) <= hw / 2 && Math.abs(y - key.y) <= hh / 2) {
+          const kind = key.getData('kind') as string;
+          if (kind === 'delete') {
             this.deleteLetter();
-          } else if (txt) {
-            // ESL: speak the letter when tapped
-            audioBus.speak(txt.text);
-            this.typeLetter(txt.text);
+          } else if (kind === 'submit') {
+            this.submitEntry();
+          } else {
+            const txt = key.getAt(1) as Phaser.GameObjects.Text;
+            if (txt) {
+              audioBus.speak(txt.text);
+              this.typeLetter(txt.text);
+            }
           }
           return;
         }
@@ -301,6 +307,18 @@ export default class CrosswordScene extends BaseEngine {
   // ===========================================================================
   private renderGrid() {
     if (this.gridRows === 0) return;
+    // AAAA KIDS MODE — Adaptive cell size: shrink cells if the grid would
+    // collide with the fixed-position keyboard at the bottom of the canvas.
+    // Canvas is 800x600. Title (~50) + clue (~84) + grid offset (130) leaves
+    // ~470px before the keyboard area (which starts at height-110).
+    // Reserve 140px for the keyboard + breathing room.
+    const maxGridH = this.scale.height - this.gridOffsetY - 150;
+    const maxGridW = this.scale.width - 40;
+    const cellByH = Math.floor(maxGridH / this.gridRows);
+    const cellByW = Math.floor(maxGridW / this.gridCols);
+    this.cellSize = Math.max(22, Math.min(38, cellByH, cellByW));
+    this.gridOffsetX = (this.scale.width - this.gridCols * this.cellSize) / 2;
+    const fontSize = Math.max(14, Math.floor(this.cellSize * 0.6)) + 'px';
     for (let r = 0; r < this.gridRows; r++) {
       for (let c = 0; c < this.gridCols; c++) {
         const cell = this.grid[r][c];
@@ -316,7 +334,7 @@ export default class CrosswordScene extends BaseEngine {
 
         const text = this.add.text(x, y, '', {
           fontFamily: 'Inter, sans-serif',
-          fontSize: '23px',
+          fontSize,
           color: this.hex(this.theme.text),
           fontStyle: 'bold',
         }).setOrigin(0.5).setDepth(11);
@@ -328,7 +346,7 @@ export default class CrosswordScene extends BaseEngine {
         if (owner && owner.cells[0].r === r && owner.cells[0].c === c) {
           this.add.text(x - this.cellSize / 2 + 3, y - this.cellSize / 2 + 2, String(owner.number), {
             fontFamily: 'Inter, sans-serif',
-            fontSize: '12px',
+            fontSize: '10px',
             color: this.hex(this.theme.textMuted),
           }).setOrigin(0, 0).setDepth(12);
         }
@@ -343,9 +361,15 @@ export default class CrosswordScene extends BaseEngine {
     this.keyboardKeys.forEach(k => k.destroy());
     this.keyboardKeys = [];
     const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const rows = [alphabet.slice(0, 10), alphabet.slice(10, 19), alphabet.slice(19)];
-    const btnSize = 28, gap = 4;
-    const kbY = this.gridOffsetY + this.gridRows * this.cellSize + 30;
+    // AAAA KIDS MODE — 2 rows of 13 letters each so ALL 26 letters fit within
+    // the canvas without overflowing. Old layout was 10/9/7 rows + DEL row =
+    // 4 rows tall, and on tall grids the keyboard slid off the bottom.
+    const rows = [alphabet.slice(0, 13), alphabet.slice(13)];
+    const btnSize = 26, gap = 3;
+    // Fixed Y near the bottom — independent of grid size so the keyboard is
+    // ALWAYS visible. Two letter rows + one DEL/Submit row.
+    const kbY = this.scale.height - 100;
+    const rowStep = btnSize + gap;
 
     rows.forEach((row, ri) => {
       const totalW = row.length * btnSize + (row.length - 1) * gap;
@@ -353,18 +377,21 @@ export default class CrosswordScene extends BaseEngine {
       for (let i = 0; i < row.length; i++) {
         const letter = row[i];
         const x = startX + i * (btnSize + gap);
-        const y = kbY + ri * (btnSize + gap);
+        const y = kbY + ri * rowStep;
         const bg = this.add.rectangle(0, 0, btnSize, btnSize, this.theme.card, 0.9)
           .setStrokeStyle(1, this.theme.accent, 0.5);
         const txt = this.add.text(0, 0, letter, {
           fontFamily: 'Inter, sans-serif',
-          fontSize: '16px',
+          fontSize: '14px',
           color: this.hex(this.theme.text),
           fontStyle: 'bold',
         }).setOrigin(0.5);
         const container = this.add.container(x, y, [bg, txt])
           .setSize(btnSize, btnSize)
           .setInteractive({ useHandCursor: true });
+        container.setData('hitW', btnSize);
+        container.setData('hitH', btnSize);
+        container.setData('kind', 'letter');
         container.on('pointerover', () => { bg.setFillStyle(this.theme.cardAlt, 1); audioBus.play('hover'); });
         container.on('pointerout', () => bg.setFillStyle(this.theme.card, 0.9));
         // NOTE: per-container pointerdown removed — global handler handles letter taps.
@@ -372,17 +399,42 @@ export default class CrosswordScene extends BaseEngine {
       }
     });
 
-    // Backspace + check button row
-    const kbY2 = kbY + 3 * (btnSize + gap) + 8;
-    const bsBg = this.add.rectangle(0, 0, 80, btnSize, this.theme.danger, 0.7)
+    // Delete + Submit row — wider buttons, centered as a pair.
+    const kbY2 = kbY + 2 * rowStep + 6;
+    const actionW = 110, actionH = btnSize;
+    const actionGap = 20;
+    const totalActionW = actionW * 2 + actionGap;
+    const actionStartX = (this.scale.width - totalActionW) / 2 + actionW / 2;
+
+    // Delete button (left)
+    const bsBg = this.add.rectangle(0, 0, actionW, actionH, this.theme.danger, 0.75)
       .setStrokeStyle(1, this.theme.danger);
-    const bsTxt = this.add.text(0, 0, '⌫ DEL', {
-      fontFamily: 'Inter, sans-serif', fontSize: '14px', color: '#ffffff', fontStyle: 'bold',
+    const bsTxt = this.add.text(0, 0, '⌫ DELETE', {
+      fontFamily: 'Inter, sans-serif', fontSize: '13px', color: '#ffffff', fontStyle: 'bold',
     }).setOrigin(0.5);
-    const bsBtn = this.add.container(this.scale.width / 2 - 50, kbY2, [bsBg, bsTxt])
-      .setSize(80, btnSize).setInteractive({ useHandCursor: true });
-    // NOTE: per-container pointerdown removed — global handler handles DEL taps.
+    const bsBtn = this.add.container(actionStartX, kbY2, [bsBg, bsTxt])
+      .setSize(actionW, actionH).setInteractive({ useHandCursor: true });
+    bsBtn.setData('hitW', actionW);
+    bsBtn.setData('hitH', actionH);
+    bsBtn.setData('kind', 'delete');
+    bsBtn.on('pointerover', () => bsBg.setFillStyle(this.theme.danger, 1));
+    bsBtn.on('pointerout', () => bsBg.setFillStyle(this.theme.danger, 0.75));
     this.keyboardKeys.push(bsBtn);
+
+    // Submit / Check button (right) — validates the active entry.
+    const subBg = this.add.rectangle(0, 0, actionW, actionH, this.theme.success, 0.75)
+      .setStrokeStyle(1, this.theme.success);
+    const subTxt = this.add.text(0, 0, '✓ CHECK', {
+      fontFamily: 'Inter, sans-serif', fontSize: '13px', color: '#ffffff', fontStyle: 'bold',
+    }).setOrigin(0.5);
+    const subBtn = this.add.container(actionStartX + actionW + actionGap, kbY2, [subBg, subTxt])
+      .setSize(actionW, actionH).setInteractive({ useHandCursor: true });
+    subBtn.setData('hitW', actionW);
+    subBtn.setData('hitH', actionH);
+    subBtn.setData('kind', 'submit');
+    subBtn.on('pointerover', () => subBg.setFillStyle(this.theme.success, 1));
+    subBtn.on('pointerout', () => subBg.setFillStyle(this.theme.success, 0.75));
+    this.keyboardKeys.push(subBtn);
   }
 
   // ===========================================================================
@@ -446,10 +498,13 @@ export default class CrosswordScene extends BaseEngine {
   private updateClueText() {
     if (!this.activeEntry) {
       this.clueText.setText('Tap a cell to start');
+      this.clueText.setData('speakText', 'Tap a cell to start');
       return;
     }
     const dirLabel = this.activeEntry.dir === 'across' ? 'Across' : 'Down';
-    this.clueText.setText(`${this.activeEntry.number} ${dirLabel}: ${this.activeEntry.clue}`);
+    const clueStr = `${this.activeEntry.number} ${dirLabel}: ${this.activeEntry.clue}`;
+    this.clueText.setText(clueStr);
+    this.clueText.setData('speakText', `${dirLabel}. ${this.activeEntry.clue}`);
     // AAAA KIDS MODE — Speak the clue with karaoke highlight.
     this.speakPromptWithHighlight(this.clueText, `${dirLabel}. ${this.activeEntry.clue}`, { isQuestion: true });
   }
@@ -492,6 +547,60 @@ export default class CrosswordScene extends BaseEngine {
     gridCell.text?.setText('');
     audioBus.play('tap');
     this.updateHighlights();
+  }
+
+  // ===========================================================================
+  // SUBMIT ENTRY — validates the active entry when CHECK is tapped.
+  // Gives explicit right/wrong feedback so the player knows their input matters.
+  // ===========================================================================
+  private submitEntry() {
+    if (!this.activeEntry) {
+      this._flashFeedback('Tap a clue cell first!');
+      audioBus.play('incorrect');
+      this.juice.shake('light');
+      return;
+    }
+    const entry = this.activeEntry;
+    const allFilled = entry.cells.every(c => this.grid[c.r][c.c].userInput !== '');
+    if (!allFilled) {
+      this._flashFeedback(`Fill all ${entry.cells.length} letters of "${entry.word}" first!`);
+      audioBus.play('incorrect');
+      this.juice.shake('light');
+      return;
+    }
+    const allCorrect = entry.cells.every(c => this.grid[c.r][c.c].userInput === c.letter);
+    if (allCorrect) {
+      // checkEntrySolved will mark solved + celebrate + advance score.
+      this.checkEntrySolved();
+    } else {
+      // Wrong — highlight wrong cells red briefly + shake.
+      const wrongCells = entry.cells.filter(c => this.grid[c.r][c.c].userInput !== c.letter);
+      this._flashFeedback(`${wrongCells.length} letter${wrongCells.length === 1 ? '' : 's'} wrong in "${entry.word}". Try again!`);
+      audioBus.play('incorrect');
+      this.juice.shake('medium');
+      wrongCells.forEach(c => {
+        const gc = this.grid[c.r][c.c];
+        gc.rect?.setFillStyle(this.theme.danger, 0.6);
+        this.tweens.add({
+          targets: gc.text, scale: { from: 1, to: 1.3 }, duration: 120, yoyo: true, ease: 'Quad.out',
+        });
+      });
+      this.time.delayedCall(600, () => {
+        wrongCells.forEach(c => {
+          this.grid[c.r][c.c].rect?.setFillStyle(this.theme.card, 0.95);
+        });
+      });
+    }
+  }
+
+  // Show a transient feedback message in the clue banner, then restore the clue.
+  private _flashFeedback(msg: string) {
+    this.clueText.setText(msg);
+    this.clueText.setData('speakText', msg); // update hover-speak text
+    this.speakPromptWithHighlight(this.clueText, msg);
+    this.time.delayedCall(1800, () => {
+      if (!this.isFinished) this.updateClueText();
+    });
   }
 
   private moveCursor(dir: string) {

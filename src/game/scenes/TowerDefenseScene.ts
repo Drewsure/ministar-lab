@@ -23,6 +23,7 @@ type Lane = 0 | 1;
 interface Enemy {
   word: string; lane: Lane; progress: number; reached: boolean; defeated: boolean;
   text: Phaser.GameObjects.Text; hp: number; maxHp: number; speed: number; slowed: number;
+  hpBar: Phaser.GameObjects.Rectangle; hpBarBg: Phaser.GameObjects.Rectangle;
 }
 interface Tower {
   type: TowerType; level: 1 | 2 | 3; lane: Lane; x: number; y: number;
@@ -58,6 +59,8 @@ export default class TowerDefenseScene extends BaseEngine {
   private selectedTowerType: TowerType | null = null;
   private canAct = true;
   private feedbackText!: Phaser.GameObjects.Text;
+  private waveCleared = false; // AAAA — prevents wave-clear logic re-entry
+  private castleText!: Phaser.GameObjects.Text; // for damage flash
 
   protected maxQuestions() { return Math.min(this.terms.length, 7); }
 
@@ -90,7 +93,7 @@ export default class TowerDefenseScene extends BaseEngine {
     }).setOrigin(1, 0).setDepth(50);
 
     // Castle (right side)
-    this.add.text(this.scale.width - 50, 240, '🏰', { fontSize: '48px' }).setOrigin(0.5).setDepth(30);
+    this.castleText = this.add.text(this.scale.width - 50, 240, '🏰', { fontSize: '48px' }).setOrigin(0.5).setDepth(30);
     this.add.text(this.scale.width - 50, 280, 'Castle', {
       fontFamily: 'Inter, sans-serif', fontSize: '11px',
       color: '#ffffff', fontStyle: 'bold',
@@ -277,6 +280,8 @@ export default class TowerDefenseScene extends BaseEngine {
     if (this.currentWave >= 3) { this.finishGame(true); return; }
     this.currentWave++;
     this.waveText.setText(`Wave ${this.currentWave}/3`);
+    // AAAA — reset wave-clear flag so the new wave can trigger clear when done.
+    this.waveCleared = false;
     this.enemies = [];
     this.canAct = true;
 
@@ -298,42 +303,55 @@ export default class TowerDefenseScene extends BaseEngine {
         backgroundColor: '#' + this.theme.danger.toString(16).padStart(6, '0'),
         padding: { x: 6, y: 3 },
       }).setOrigin(0.5, 0.5).setDepth(15);
+      // AAAA — HP bar above enemy (only meaningful when maxHp > 1, but always
+      // render so the visual slot exists; hide if maxHp === 1).
+      const hpBarBg = this.add.rectangle(40, laneY - 20, 44, 5, 0x000000, 0.55)
+        .setStrokeStyle(1, 0xffffff, 0.4).setDepth(16).setVisible(enemyHp > 1);
+      const hpBar = this.add.rectangle(40, laneY - 20, 42, 3, this.theme.success, 1)
+        .setDepth(17).setVisible(enemyHp > 1).setOrigin(0.5, 0.5);
       this.enemies.push({
         word: term.term, lane, progress: -i * 0.18, reached: false, defeated: false,
         text, hp: enemyHp, maxHp: enemyHp, speed: waveSpeed, slowed: 0,
+        hpBar, hpBarBg,
       });
     }
     this.feedbackText.setText(`Wave ${this.currentWave}! ${waveSize} enemies incoming!`);
+    this.speakPromptWithHighlight(this.feedbackText, `Wave ${this.currentWave}! ${waveSize} enemies incoming!`);
     audioBus.speak(`Wave ${this.currentWave}!`);
   }
 
   private _tick() {
     if (this.isFinished) { if (this.gameLoop) this.gameLoop.remove(); return; }
 
-    // Move enemies
+    // Move enemies — use for...of so `return` exits _tick cleanly on game over.
     let allDone = true;
-    this.enemies.forEach(e => {
-      if (!e.reached && !e.defeated) {
-        allDone = false;
-        const speed = e.slowed > 0 ? e.speed * 0.4 : e.speed;
-        e.progress += speed;
-        e.text.x = 40 + e.progress * (this.scale.width - 120);
-        if (e.slowed > 0) e.slowed -= 0.05;
-        if (e.progress >= 1) {
-          e.reached = true;
-          this.castleHp--;
-          this._updateHp();
-          audioBus.play('incorrect');
-          this.juice.shake('light');
-          e.text.setVisible(false);
-          if (this.castleHp <= 0) {
-            if (this.gameLoop) this.gameLoop.remove();
-            this.finishGame(false);
-            return;
-          }
+    for (const e of this.enemies) {
+      if (e.reached || e.defeated) continue;
+      allDone = false;
+      const speed = e.slowed > 0 ? e.speed * 0.4 : e.speed;
+      e.progress += speed;
+      e.text.x = 40 + e.progress * (this.scale.width - 120);
+      // Move HP bar with the enemy
+      e.hpBar.x = e.text.x;
+      e.hpBarBg.x = e.text.x;
+      if (e.slowed > 0) e.slowed -= 0.05;
+      if (e.progress >= 1) {
+        e.reached = true;
+        this.castleHp--;
+        this._updateHp();
+        audioBus.play('incorrect');
+        this.juice.shake('light');
+        this._flashCastle();
+        e.text.setVisible(false);
+        e.hpBar.setVisible(false);
+        e.hpBarBg.setVisible(false);
+        if (this.castleHp <= 0) {
+          if (this.gameLoop) this.gameLoop.remove();
+          this.finishGame(false);
+          return; // exits _tick — do NOT process towers / projectiles after loss
         }
       }
-    });
+    }
 
     // Tower firing
     const now = this.time.now;
@@ -355,6 +373,12 @@ export default class TowerDefenseScene extends BaseEngine {
         const damage = def.damage * tower.level;
         this._fireProjectile(tower, target as Enemy, damage, def.slow);
         tower.cooldown = def.fireRate / tower.level;
+        // AAAA — muzzle recoil: tiny scale punch + angle flick on the tower
+        // container so the player SEES the tower shoot.
+        this.tweens.add({
+          targets: tower.container, scaleX: 1.18, scaleY: 0.85, duration: 90,
+          yoyo: true, ease: 'Quad.out',
+        });
       }
     });
 
@@ -367,24 +391,34 @@ export default class TowerDefenseScene extends BaseEngine {
       const dx = p.target.text.x - p.x;
       const dy = p.target.text.y - p.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < 10) {
-        // Hit
+      if (dist < 12) {
+        // Hit — damage + flash + HP bar update
         p.target.hp -= p.damage;
         if (p.slowEffect) p.target.slowed = 1;
+        this._flashEnemy(p.target);
         this.juice.burst(p.target.text.x, p.target.text.y, 'incorrect');
         try { p.sprite.destroy(); } catch {}
         if (p.target.hp <= 0) {
           p.target.defeated = true;
           p.target.text.setVisible(false);
+          p.target.hpBar.setVisible(false);
+          p.target.hpBarBg.setVisible(false);
           this.coins += 5;
           this.coinsText.setText(`💰 ${this.coins}`);
           audioBus.play('correct');
+          this.juice.burst(p.target.text.x, p.target.text.y, 'correct');
+          this.juice.scorePopup(p.target.text.x, p.target.text.y - 24, '+5💰', this.theme.warning);
           audioBus.speak(p.target.word);
           this.recordAnswer({
             term: p.target.word, response: 'shot', success: true,
-            coordinate: { x: p.target.text.x, y: p.target.text.y, t: this.time.now },
+            coordinate: { x: p.target.text.x, y: p.target.text.y, t: now },
           });
           this.checkWin();
+        } else {
+          // Survived — shrink HP bar to reflect remaining health
+          const pct = Math.max(0, p.target.hp / p.target.maxHp);
+          p.target.hpBar.setDisplaySize(42 * pct, 3);
+          if (pct < 0.5) p.target.hpBar.setFillStyle(this.theme.warning, 1);
         }
         return false;
       }
@@ -397,16 +431,50 @@ export default class TowerDefenseScene extends BaseEngine {
       return true;
     });
 
-    // Wave complete?
-    if (allDone) {
-      this.feedbackText.setText(`Wave ${this.currentWave} cleared! +10💰 bonus`);
-      this.coins += 10;
-      this.coinsText.setText(`💰 ${this.coins}`);
-      this.time.delayedCall(2000, () => { if (!this.isFinished) this._startWave(); });
-      // Prevent re-entry
-      this.canAct = false;
-      this.time.delayedCall(2100, () => { this.canAct = true; });
+    // Wave complete? (guard against re-entry — waveCleared is reset in _startWave)
+    if (allDone && !this.waveCleared) {
+      this.waveCleared = true;
+      this._celebrateWaveClear();
     }
+  }
+
+  // AAAA — Enemy hit flash: red tint + scale punch so the player SEES the hit.
+  private _flashEnemy(e: Enemy) {
+    try {
+      e.text.setTint(0xff5555);
+      this.tweens.add({
+        targets: e.text, scale: 1.35, duration: 90, yoyo: true, ease: 'Quad.out',
+        onComplete: () => { try { e.text.clearTint(); } catch {} },
+      });
+    } catch {}
+  }
+
+  // AAAA — Castle damage flash: tint red + shake so the player FEELS the hit.
+  private _flashCastle() {
+    try {
+      this.castleText.setTint(0xff4444);
+      this.tweens.add({
+        targets: this.castleText, scale: 1.25, duration: 220, yoyo: true, ease: 'Back.out',
+        onComplete: () => { try { this.castleText.clearTint(); } catch {} },
+      });
+    } catch {}
+  }
+
+  // AAAA — Wave clear celebration: bonus coins + confetti + advance to next wave.
+  private _celebrateWaveClear() {
+    this.feedbackText.setText(`Wave ${this.currentWave} cleared! +10💰 bonus`);
+    this.speakPromptWithHighlight(this.feedbackText, `Wave ${this.currentWave} cleared! Bonus ten coins!`);
+    this.coins += 10;
+    this.coinsText.setText(`💰 ${this.coins}`);
+    this.juice.burst(this.scale.width / 2, 250, 'win');
+    this.juice.confettiRain(1200);
+    audioBus.play('correct');
+    // Disable building during the celebration window.
+    this.canAct = false;
+    this.time.delayedCall(2200, () => {
+      if (!this.isFinished) this._startWave();
+      this.canAct = true;
+    });
   }
 
   private _fireProjectile(tower: Tower, target: Enemy, damage: number, slow?: number) {
