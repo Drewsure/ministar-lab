@@ -183,6 +183,9 @@ check "Rocket D-pad up" "upBtn" "src/game/scenes/AirplaneScene.ts" 1
 check "Rocket D-pad down" "downBtn" "src/game/scenes/AirplaneScene.ts" 1
 check "Rocket vy movement" "setVelocityY" "src/game/scenes/AirplaneScene.ts" 3
 check "Rocket _togglePause override" "super._togglePause" "src/game/scenes/AirplaneScene.ts" 1
+check "Three-Tier Juice in BaseEngine" "_threeTierJuice" "src/game/BaseEngine.ts" 1
+check "Three-Tier Juice in RhythmTap" "_threeTierJuice" "src/game/scenes/RhythmTapScene.ts" 1
+check "Three-Tier Juice in TowerDefense" "_threeTierJuice" "src/game/scenes/TowerDefenseScene.ts" 1
 check_absent "Snaking no dog emoji" "🐶" "src/game/scenes/SnakingScene.ts"
 check "slowedUntil" "slowedUntil" "src/game/scenes/AirplaneScene.ts" 3
 check "Storm 12%" "Math.random.. < 0.12" "src/game/scenes/AirplaneScene.ts" 1

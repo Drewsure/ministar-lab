@@ -349,6 +349,88 @@ export abstract class BaseEngine extends Phaser.Scene {
   }
 
   // ===========================================================================
+  // AAAA — THREE-TIER JUICE LOOP (Juice-to-Cognition Ratio Enforcer)
+  // ===========================================================================
+  // Every player interaction gets a strict three-tier feedback architecture:
+  //
+  // Tier 1 — Immediate Physical Response (0-50ms):
+  //   Squash-and-stretch matrix scaling on the tapped object using a bouncy
+  //   cubic-bezier curve. scaleX→1.3, scaleY→0.7 instantly, then lerp back.
+  //
+  // Tier 2 — Neurological Validation (50-150ms):
+  //   2-frame viewport freeze (Hit-Stop) via physics.world.pause() for ~33ms,
+  //   then a burst of 8-12 high-contrast primary-colored particles behind the
+  //   interaction point using juice.burst().
+  //
+  // Tier 3 — Persistent Structural Reward (150-500ms):
+  //   A physics-based reward asset (⭐ emoji) spawns at the interaction point
+  //   and accelerates toward the score UI anchor (top-center) using a spring-
+  //   damper tween. Plays 'pop' on arrival.
+  //
+  // This method is GC-free: all objects are either pooled (juice.burst) or
+  // destroyed via tween onComplete. No per-frame allocations.
+  // ===========================================================================
+  protected _threeTierJuice(x: number, y: number, target?: Phaser.GameObjects.GameObject) {
+    try {
+      // ---- TIER 1: Immediate Physical Response (0-50ms) ----
+      // Squash-and-stretch on the target object (if provided).
+      if (target && 'setScale' in target) {
+        const obj = target as Phaser.GameObjects.GameObject & { setScale: (x: number, y: number) => any };
+        // Instant squash: scaleX 1.3, scaleY 0.7 (compressed).
+        obj.setScale(1.3, 0.7);
+        // Bouncy cubic-bezier lerp back to (1, 1) over 250ms.
+        this.tweens.add({
+          targets: target,
+          scaleX: 1, scaleY: 1,
+          duration: 250,
+          ease: 'Back.out', // cubic-bezier-like bouncy curve
+        });
+      }
+
+      // ---- TIER 2: Neurological Validation (50-150ms) ----
+      // Hit-Stop: 2-frame physics freeze (~33ms) for mechanical weight.
+      try {
+        this.physics.world.pause();
+        this.time.delayedCall(33, () => {
+          try { if (this.sys.isActive()) this.physics.world.resume(); } catch {}
+        });
+      } catch {}
+
+      // Particle burst: 8-12 high-contrast primary-colored shapes.
+      this.juice?.burst(x, y, 'correct');
+
+      // ---- TIER 3: Persistent Structural Reward (150-500ms) ----
+      // Spawn a ⭐ that flies to the score UI anchor (top-center, y=55).
+      const star = this.add.text(x, y, '⭐', {
+        fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, Inter, sans-serif',
+        fontSize: '24px',
+      }).setOrigin(0.5).setDepth(200);
+
+      // Spring-damper tween toward UI anchor (top-center of screen).
+      const targetX = this.scale.width / 2;
+      const targetY = 55;
+      this.tweens.add({
+        targets: star,
+        x: targetX,
+        y: targetY,
+        scale: { from: 1.2, to: 0.4 },
+        alpha: { from: 1, to: 0.7 },
+        duration: 400,
+        ease: 'Cubic.in', // accelerating = spring-damper feel
+        onComplete: () => {
+          try {
+            // Pop on arrival.
+            audioBus.play('pop');
+            star.destroy();
+          } catch {}
+        },
+      });
+    } catch (e) {
+      console.error('[BaseEngine] _threeTierJuice error:', e);
+    }
+  }
+
+  // ===========================================================================
   // AAAA KIDS MODE — Auto-Mascot (themed emoji per game, bottom-right corner)
   // ===========================================================================
   private _createAutoMascot() {

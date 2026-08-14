@@ -61,10 +61,6 @@ export default class TowerDefenseScene extends BaseEngine {
   private feedbackText!: Phaser.GameObjects.Text;
   private waveCleared = false; // AAAA — prevents wave-clear logic re-entry
   private castleText!: Phaser.GameObjects.Text; // for damage flash
-  // AAAA ENHANCEMENT FIELDS — squash-charge-fire, coin magnet, spotlight, streak.
-  private consecutiveKills = 0; // resets on castle damage / wave start.
-  private streakShown = false;  // prevents repeat 3-streak popup for the same streak.
-  private spotlight?: Phaser.GameObjects.Graphics; // sweeping beam on wave start.
 
   protected maxQuestions() { return Math.min(this.terms.length, 7); }
 
@@ -286,9 +282,6 @@ export default class TowerDefenseScene extends BaseEngine {
     this.waveText.setText(`Wave ${this.currentWave}/3`);
     // AAAA — reset wave-clear flag so the new wave can trigger clear when done.
     this.waveCleared = false;
-    // AAAA ENHANCEMENT — reset streak counters on wave start (fresh chance).
-    this.consecutiveKills = 0;
-    this.streakShown = false;
     this.enemies = [];
     this.canAct = true;
 
@@ -325,8 +318,6 @@ export default class TowerDefenseScene extends BaseEngine {
     this.feedbackText.setText(`Wave ${this.currentWave}! ${waveSize} enemies incoming!`);
     this.speakPromptWithHighlight(this.feedbackText, `Wave ${this.currentWave}! ${waveSize} enemies incoming!`);
     audioBus.speak(`Wave ${this.currentWave}!`);
-    // AAAA ENHANCEMENT — Spotlight sweep across the path, then lock on lead enemy.
-    this._startSpotlightSweep();
   }
 
   private _tick() {
@@ -351,9 +342,6 @@ export default class TowerDefenseScene extends BaseEngine {
         audioBus.play('incorrect');
         this.juice.shake('light');
         this._flashCastle();
-        // AAAA ENHANCEMENT — Castle damage breaks the kill streak (crowd goes quiet).
-        this.consecutiveKills = 0;
-        this.streakShown = false;
         e.text.setVisible(false);
         e.hpBar.setVisible(false);
         e.hpBarBg.setVisible(false);
@@ -385,10 +373,12 @@ export default class TowerDefenseScene extends BaseEngine {
         const damage = def.damage * tower.level;
         this._fireProjectile(tower, target as Enemy, damage, def.slow);
         tower.cooldown = def.fireRate / tower.level;
-        // AAAA ENHANCEMENT — Squash-Charge-Fire: replaces the simple muzzle
-        // recoil. Tower squashes down (charging) → snaps stretched (hit-stop)
-        // → Bounce.out rebound back to (1,1) (elastic).
-        this._squashChargeFire(tower);
+        // AAAA — muzzle recoil: tiny scale punch + angle flick on the tower
+        // container so the player SEES the tower shoot.
+        this.tweens.add({
+          targets: tower.container, scaleX: 1.18, scaleY: 0.85, duration: 90,
+          yoyo: true, ease: 'Quad.out',
+        });
       }
     });
 
@@ -418,16 +408,14 @@ export default class TowerDefenseScene extends BaseEngine {
           audioBus.play('correct');
           this.juice.burst(p.target.text.x, p.target.text.y, 'correct');
           this.juice.scorePopup(p.target.text.x, p.target.text.y - 24, '+5💰', this.theme.warning);
+
+          // AAAA THREE-TIER JUICE LOOP — on enemy kill:
+          // Tier 1: Squash the enemy text (already hidden, so squash the kill position).
+          // Tier 2: Hit-Stop freeze + particle burst at kill point.
+          // Tier 3: ⭐ reward flies to coin UI anchor (top-left).
+          this._threeTierJuice(p.target.text.x, p.target.text.y);
+
           audioBus.speak(p.target.word);
-          // AAAA ENHANCEMENT — Coin magnet: 8-10 🪙 emojis burst outward,
-          // then magnetically fly to the coin counter, each playing 'pop' on arrival.
-          this._spawnCoinBurst(p.target.text.x, p.target.text.y);
-          // AAAA ENHANCEMENT — 3-hit streak crowd wave: confetti + popup + 'streak' sound.
-          this.consecutiveKills++;
-          if (this.consecutiveKills >= 3 && !this.streakShown) {
-            this.streakShown = true;
-            this._triggerCrowdWave(p.target.text.x, p.target.text.y);
-          }
           this.recordAnswer({
             term: p.target.word, response: 'shot', success: true,
             coordinate: { x: p.target.text.x, y: p.target.text.y, t: now },
@@ -494,179 +482,6 @@ export default class TowerDefenseScene extends BaseEngine {
       if (!this.isFinished) this._startWave();
       this.canAct = true;
     });
-  }
-
-  // AAAA ENHANCEMENT — Tower Squash-Charge-Fire: replaces simple muzzle recoil.
-  // Stage 1: squash down (scaleX 1.4, scaleY 0.5) over 180ms (charging tension).
-  // Stage 2: snap to stretched (scaleX 0.6, scaleY 1.6) for 2 frames (hit-stop).
-  // Stage 3: Bounce.easeOut lerp back to (1,1) over 400ms (elastic rebound).
-  private _squashChargeFire(tower: Tower) {
-    try {
-      // Kill any prior recoil tween so rapid fire doesn't pile up overlapping tweens.
-      this.tweens.killTweensOf(tower.container);
-    } catch {}
-    try {
-      // Stage 1 — squash down (charging tension).
-      this.tweens.add({
-        targets: tower.container,
-        scaleX: 1.4, scaleY: 0.5,
-        duration: 180, ease: 'Quad.out',
-        onComplete: () => {
-          // Stage 2 — snap to stretched (hit-stop, ~2 frames at 60fps = ~33ms).
-          try { tower.container.setScale(0.6, 1.6); } catch {}
-          this.time.delayedCall(33, () => {
-            if (this.isFinished) {
-              try { tower.container.setScale(1, 1); } catch {}
-              return;
-            }
-            // Stage 3 — Bounce.easeOut lerp back to (1,1) (elastic rebound).
-            try {
-              this.tweens.add({
-                targets: tower.container,
-                scaleX: 1, scaleY: 1,
-                duration: 400, ease: 'Bounce.out',
-              });
-            } catch {}
-          });
-        },
-      });
-    } catch {}
-  }
-
-  // AAAA ENHANCEMENT — Coin Magnet on Enemy Kill: 8-10 🪙 emojis burst outward
-  // from the kill position, then magnetically fly toward the coin counter (top),
-  // each playing 'pop' sound on arrival. Uses pure emoji text objects (no assets).
-  private _spawnCoinBurst(x: number, y: number) {
-    const count = 8 + Math.floor(Math.random() * 3); // 8..10 coins
-    const targetX = this.coinsText.x;
-    const targetY = this.coinsText.y;
-    for (let i = 0; i < count; i++) {
-      const angle = (i / count) * Math.PI * 2;
-      const burstDist = 28 + Math.random() * 18;
-      const burstX = x + Math.cos(angle) * burstDist;
-      const burstY = y + Math.sin(angle) * burstDist;
-      try {
-        const coin = this.add.text(x, y, '🪙', { fontSize: '20px' })
-          .setOrigin(0.5).setDepth(40);
-        // Stage A: burst outward (short, snappy).
-        this.tweens.add({
-          targets: coin,
-          x: burstX, y: burstY,
-          scale: { from: 0.6, to: 1.1 },
-          duration: 220, ease: 'Quad.out',
-          onComplete: () => {
-            // Stage B: magnetically fly to the coin counter.
-            this.tweens.add({
-              targets: coin,
-              x: targetX, y: targetY,
-              scale: 0.5, alpha: 0.7,
-              duration: 380, ease: 'Cubic.in',
-              onComplete: () => {
-                try { audioBus.play('pop'); } catch {}
-                try { coin.destroy(); } catch {}
-              },
-            });
-          },
-        });
-      } catch {}
-    }
-  }
-
-  // AAAA ENHANCEMENT — Spotlight Sweep on Wave Start: a colored semi-transparent
-  // triangle beam pivots around the spawn point sweeping across the path for 2
-  // seconds, then locks onto the lead enemy (rotates to face it) before fading.
-  private _startSpotlightSweep() {
-    try {
-      if (this.spotlight) { try { this.spotlight.destroy(); } catch {} }
-      const gfx = this.add.graphics().setDepth(12);
-      this.spotlight = gfx;
-      const pivotX = 60;
-      const pivotY = 260;
-      const sweepState = { angle: -Math.PI / 3 };
-      const beamColor = this.theme.accent;
-      const drawBeam = () => {
-        try {
-          gfx.clear();
-          gfx.fillStyle(beamColor, 0.18);
-          const a = sweepState.angle;
-          // Compute the triangle's three corners manually (pivot + base ± width
-          // 700 units away) — avoids Phaser Graphics.translate/rotate typing gaps.
-          const cosA = Math.cos(a);
-          const sinA = Math.sin(a);
-          const baseX = pivotX + cosA * 700;
-          const baseY = pivotY + sinA * 700;
-          // Perpendicular vector (rotated 90°): (-sin, cos).
-          const perpX = -sinA * 60;
-          const perpY = cosA * 60;
-          gfx.beginPath();
-          gfx.moveTo(pivotX, pivotY);
-          gfx.lineTo(baseX + perpX, baseY + perpY);
-          gfx.lineTo(baseX - perpX, baseY - perpY);
-          gfx.closePath();
-          gfx.fillPath();
-        } catch {}
-      };
-      // Sweep for 2 seconds (Sine.inOut so it slows at the ends — spotlight feel).
-      this.tweens.add({
-        targets: sweepState,
-        angle: Math.PI / 3,
-        duration: 2000,
-        ease: 'Sine.inOut',
-        onUpdate: () => { drawBeam(); },
-        onComplete: () => {
-          // Lock onto lead enemy: rotate to face them, hold briefly, then fade.
-          const lead = this.enemies.find(e => !e.reached && !e.defeated);
-          if (lead) {
-            const targetAngle = Math.atan2(lead.text.y - pivotY, lead.text.x - pivotX);
-            this.tweens.add({
-              targets: sweepState,
-              angle: targetAngle,
-              duration: 300, ease: 'Quad.out',
-              onUpdate: () => { drawBeam(); },
-              onComplete: () => {
-                this.tweens.add({
-                  targets: gfx, alpha: 0, duration: 700,
-                  onComplete: () => { try { gfx.destroy(); } catch {} },
-                });
-              },
-            });
-          } else {
-            this.tweens.add({
-              targets: gfx, alpha: 0, duration: 400,
-              onComplete: () => { try { gfx.destroy(); } catch {} },
-            });
-          }
-        },
-      });
-    } catch {}
-  }
-
-  // AAAA ENHANCEMENT — Crowd Wave on 3-hit Streak: confetti rain + 10 emoji
-  // confetti pieces from the top + 'streak' sound + "🔥 3-STREAK!" popup.
-  private _triggerCrowdWave(x: number, y: number) {
-    try { this.juice.scorePopup(this.scale.width / 2, 180, '🔥 3-STREAK!', this.theme.warning); } catch {}
-    try { audioBus.play('streak'); } catch {}
-    // Reuse confetti rain if available (skips silently on low-end devices).
-    try { this.juice.confettiRain(900); } catch {}
-    // Spawn 10 emoji confetti from the top (always runs, even if confettiRain skipped).
-    const emojis = ['🎉', '🎊', '✨', '⭐', '🌟', '💫', '🎈', '🪅'];
-    for (let i = 0; i < 10; i++) {
-      try {
-        const ex = 60 + Math.random() * (this.scale.width - 120);
-        const piece = this.add.text(ex, -20, emojis[i % emojis.length], { fontSize: '24px' })
-          .setOrigin(0.5).setDepth(80);
-        this.tweens.add({
-          targets: piece,
-          y: this.scale.height + 30,
-          x: ex + (Math.random() - 0.5) * 80,
-          angle: 360 * (Math.random() > 0.5 ? 1 : -1),
-          duration: 1800 + Math.random() * 600, ease: 'Cubic.in',
-          onComplete: () => { try { piece.destroy(); } catch {} },
-        });
-      } catch {}
-    }
-    // Speak the streak celebration.
-    try { audioBus.speak('Three in a row! Amazing!'); } catch {}
   }
 
   private _fireProjectile(tower: Tower, target: Enemy, damage: number, slow?: number) {

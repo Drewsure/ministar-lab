@@ -23,10 +23,6 @@ interface FallingNote {
   speed: number;
   hit: boolean;
   missed: boolean;
-  // AAAA ENHANCEMENT — porcelain break state: gravity + spin after a miss.
-  breaking: boolean; // true once the note starts falling under gravity.
-  vy: number;        // vertical velocity for porcelain break physics.
-  vr: number;        // rotation velocity (deg per tick) for porcelain break spin.
   text: Phaser.GameObjects.Text;
   bg: Phaser.GameObjects.Rectangle;
 }
@@ -63,8 +59,6 @@ export default class RhythmTapScene extends BaseEngine {
   private notesQueue: string[] = [];
   private beatPulse = 0;
   private canTap = true;
-  // AAAA ENHANCEMENT — host commentary triggers every 5th successful hit.
-  private hitCount = 0;
 
   protected maxQuestions() { return Math.min(this.terms.length, 15); }
 
@@ -226,10 +220,7 @@ export default class RhythmTapScene extends BaseEngine {
       // AAAA KIDS MODE — Gentler speed ramp + slow mode. Was 1.2 + notesIdx*0.05 cap +2.0.
       // Now: 1.0 + notesIdx*0.03 cap +1.2, multiplied by timeMultiplier().
       lane, word, y: this.SPAWN_Y, speed: (1.0 + Math.min(1.2, this.notesIdx * 0.03)) * this.timeMultiplier(),
-      hit: false, missed: false,
-      // AAAA ENHANCEMENT — porcelain break state (idle until a miss triggers it).
-      breaking: false, vy: 0, vr: 0,
-      text, bg,
+      hit: false, missed: false, text, bg,
     };
     this.notes.push(note);
     // Pulse the lane slightly to telegraph the incoming note
@@ -239,19 +230,7 @@ export default class RhythmTapScene extends BaseEngine {
   private _tick() {
     if (this.isFinished) { if (this.gameLoop) this.gameLoop.remove(); return; }
     for (const note of this.notes) {
-      if (note.hit) continue;
-      if (note.breaking) {
-        // AAAA ENHANCEMENT — Porcelain break physics: gravity accelerates the
-        // note downward, spin rotation tilts the word as it falls off-screen.
-        note.vy += 0.4; // gravity per tick (16ms) — gentle porcelain tumble.
-        note.y += note.vy;
-        note.text.y = note.y;
-        note.bg.y = note.y;
-        note.text.angle += note.vr;
-        note.bg.angle += note.vr;
-        continue;
-      }
-      if (note.missed) continue;
+      if (note.hit || note.missed) continue;
       note.y += note.speed;
       note.text.y = note.y;
       note.bg.y = note.y;
@@ -297,9 +276,9 @@ export default class RhythmTapScene extends BaseEngine {
     const note = best as FallingNote;
     note.hit = true;
     let timing: string, points: number;
-    if (bestDist < 12) { timing = 'PERFECT!'; points = 3; this.combo++; this.perfects++; this.hitCount++; }
-    else if (bestDist < 28) { timing = 'GOOD!'; points = 2; this.combo++; this.goods++; this.hitCount++; }
-    else if (bestDist < 60) { timing = 'OK'; points = 1; this.combo = 0; this.oks++; this.hitCount++; }
+    if (bestDist < 12) { timing = 'PERFECT!'; points = 3; this.combo++; this.perfects++; }
+    else if (bestDist < 28) { timing = 'GOOD!'; points = 2; this.combo++; this.goods++; }
+    else if (bestDist < 60) { timing = 'OK'; points = 1; this.combo = 0; this.oks++; }
     else { timing = 'MISS!'; points = 0; this.combo = 0; this.misses++; }
 
     // Combo bonuses
@@ -319,16 +298,16 @@ export default class RhythmTapScene extends BaseEngine {
       this.juice.burst(note.text.x, note.text.y, this.combo >= 5 ? 'streak' : 'correct');
       this.juice.scorePopup(note.text.x, note.text.y - 30,
         `${timing} +${points}`, timing === 'PERFECT!' ? this.theme.warning : this.theme.success);
-      // AAAA ENHANCEMENT — Rainbow burst on PERFECT: 8 rainbow emoji in a radial
-      // pattern + screen flash + 'streak' sound (ascending pitch).
-      if (timing === 'PERFECT!') {
-        this._rainbowBurst(note.text.x, note.text.y);
-      }
-      // Squash the note before destroying
-      this.tweens.add({
-        targets: [note.text, note.bg],
-        scale: 1.4, alpha: 0, duration: 200, ease: 'Back.out',
-        onComplete: () => { try { note.text.destroy(); note.bg.destroy(); } catch {} },
+
+      // AAAA THREE-TIER JUICE LOOP — woven into the hit logic:
+      // Tier 1 (0-50ms): Squash-and-stretch the note text + bg.
+      // Tier 2 (50-150ms): Hit-Stop (2-frame freeze) + particle burst.
+      // Tier 3 (150-500ms): ⭐ reward flies to score UI anchor.
+      this._threeTierJuice(note.text.x, note.text.y, note.text);
+
+      // Destroy note after Three-Tier Juice completes (scale tween handles it).
+      this.time.delayedCall(300, () => {
+        try { note.text.destroy(); note.bg.destroy(); } catch {}
       });
     } else {
       audioBus.play('incorrect');
@@ -352,15 +331,11 @@ export default class RhythmTapScene extends BaseEngine {
     const acc = total > 0 ? Math.round(((this.perfects + this.goods + this.oks) / total) * 100) : 100;
     this.accuracyText.setText(`Perfect ${this.perfects} · Good ${this.goods} · OK ${this.oks} · Miss ${this.misses} · ${acc}% accuracy`);
 
-    // AAAA ENHANCEMENT — Escalating mascot at combo milestones (5 / 10 / 15):
-    // emoji tier popup + ascending pitch sound + 3 extra star particles.
-    if (timing !== 'MISS!' && (this.combo === 5 || this.combo === 10 || this.combo === 15)) {
-      this._escalateMascot(this.combo);
-    }
-
-    // AAAA ENHANCEMENT — Host commentary on every 5th successful hit (5, 10, 15, …).
-    if (timing !== 'MISS!' && this.hitCount > 0 && this.hitCount % 5 === 0) {
-      this._hostCommentary();
+    // Streak flash at combo milestones
+    if (this.combo === 5 || this.combo === 10 || this.combo === 20) {
+      this.juice.flash(this.theme.warning, 0.2, 200);
+      this.juice.scorePopup(this.scale.width / 2, 200,
+        `COMBO x${this.combo}!`, this.theme.warning);
     }
 
     this.checkWin();
@@ -386,96 +361,13 @@ export default class RhythmTapScene extends BaseEngine {
     this.accuracyText.setText(`Perfect ${this.perfects} · Good ${this.goods} · OK ${this.oks} · Miss ${this.misses} · ${acc}% accuracy`);
 
     if (!wrongLane) {
-      // AAAA ENHANCEMENT — Porcelain break: real missed note detaches and falls
-      // under gravity while spinning — NO score deduction (kid-friendly).
-      // _tick() will continue updating its physics until it leaves the screen.
-      this._porcelainBreak(note);
+      // Squash the missed note
+      this.tweens.add({
+        targets: [note.text, note.bg],
+        alpha: 0, duration: 300, ease: 'Cubic.out',
+        onComplete: () => { try { note.text.destroy(); note.bg.destroy(); } catch {} },
+      });
     }
-  }
-
-  // AAAA ENHANCEMENT — Porcelain Break on Miss: stop the note's normal downward
-  // movement, apply gravity (velocityY increases each tick) and random rotation
-  // (-3..+3 deg/tick, mapping roughly to -45°..+45° over the fall). Play a 'sad
-  // boing' sound (audioBus.play('hover', { freq: 200, duration: 0.3 }) as fallback).
-  private _porcelainBreak(note: FallingNote) {
-    note.breaking = true;
-    // Random rotation velocity in degrees-per-tick (≈ ±3 deg → ±45°+ over ~20 ticks).
-    note.vr = (Math.random() * 6) - 3;
-    // Small upward initial velocity so the word "pops loose" before gravity wins.
-    note.vy = -2 - Math.random() * 2;
-    try { audioBus.play('hover', { freq: 200, duration: 0.3 }); } catch {}
-    // Brief tint flash to telegraph the break (porcelain "crack" feel).
-    try { note.text.setTint(0xffeeaa); } catch {}
-    this.time.delayedCall(140, () => { try { note.text.clearTint(); } catch {} });
-  }
-
-  // AAAA ENHANCEMENT — Rainbow Burst on Perfect Hit: 8 rainbow emoji (⭐🌟💫✨)
-  // in a radial pattern + screen border flash (rainbow-ish tint) + 'streak'
-  // sound (the ascending pitch comes from the audio preset's sweep 880→1320Hz).
-  private _rainbowBurst(x: number, y: number) {
-    try { this.juice.burst(x, y, 'streak'); } catch {}
-    try { audioBus.play('streak'); } catch {}
-    // Flash the screen border with a rainbow-ish tint.
-    try { this.juice.flash(0x00ffff, 0.35, 220); } catch {}
-    const emojis = ['⭐', '🌟', '💫', '✨'];
-    for (let i = 0; i < 8; i++) {
-      try {
-        const angle = (i / 8) * Math.PI * 2;
-        const dist = 50;
-        const tx = x + Math.cos(angle) * dist;
-        const ty = y + Math.sin(angle) * dist;
-        const piece = this.add.text(x, y, emojis[i % emojis.length], { fontSize: '22px' })
-          .setOrigin(0.5).setDepth(45);
-        this.tweens.add({
-          targets: piece, x: tx, y: ty,
-          scale: 1.5, alpha: 0, angle: 180,
-          duration: 700, ease: 'Cubic.out',
-          onComplete: () => { try { piece.destroy(); } catch {} },
-        });
-      } catch {}
-    }
-  }
-
-  // AAAA ENHANCEMENT — Escalating Mascot on Combo milestones (5 / 10 / 15):
-  // emoji-tier popup ("🔥 COMBO x5!", "⚡ COMBO x10!", "💎 COMBO x15!") +
-  // ascending pitch sound (base 660Hz + combo * 50Hz) + 3 extra star particles
-  // spawned around the hit zone.
-  private _escalateMascot(combo: number) {
-    const emoji = combo >= 15 ? '💎' : combo >= 10 ? '⚡' : '🔥';
-    const text = `${emoji} COMBO x${combo}!`;
-    try { this.juice.flash(this.theme.warning, 0.2, 200); } catch {}
-    try { this.juice.scorePopup(this.scale.width / 2, 180, text, this.theme.warning); } catch {}
-    // Ascending pitch: base 660Hz + combo * 50Hz.
-    const freq = 660 + combo * 50;
-    try { audioBus.play('streak', { freq }); } catch {}
-    // 3 extra star particles around the hit zone.
-    const starEmojis = ['⭐', '🌟', '💫'];
-    for (let i = 0; i < 3; i++) {
-      try {
-        const ox = (Math.random() - 0.5) * 80;
-        const oy = (Math.random() - 0.5) * 60;
-        const piece = this.add.text(this.scale.width / 2 + ox, this.HIT_LINE_Y + oy, starEmojis[i], { fontSize: '20px' })
-          .setOrigin(0.5).setDepth(46);
-        this.tweens.add({
-          targets: piece, y: piece.y - 60, alpha: 0, scale: 1.5,
-          duration: 800, ease: 'Back.out',
-          onComplete: () => { try { piece.destroy(); } catch {} },
-        });
-      } catch {}
-    }
-  }
-
-  // AAAA ENHANCEMENT — Host Commentary on every 5th successful hit: speak a
-  // random encouragement phrase with pitch 1.2 (warm host voice).
-  private _hostCommentary() {
-    const phrases = [
-      'Amazing rhythm!',
-      'Perfect timing!',
-      'The crowd loves it!',
-      "You're on fire!",
-    ];
-    const phrase = phrases[Math.floor(Math.random() * phrases.length)];
-    try { audioBus.speak(phrase, { pitch: 1.2 }); } catch {}
   }
 
   private _flashLane(lane: number, intensity: number) {
