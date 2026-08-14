@@ -25,6 +25,7 @@ interface FallingNote {
   missed: boolean;
   text: Phaser.GameObjects.Text;
   bg: Phaser.GameObjects.Rectangle;
+  spoken: boolean; // AAAA: tracks whether the word has been vocalized as it falls
 }
 
 export default class RhythmTapScene extends BaseEngine {
@@ -220,7 +221,7 @@ export default class RhythmTapScene extends BaseEngine {
       // AAAA KIDS MODE — Gentler speed ramp + slow mode. Was 1.2 + notesIdx*0.05 cap +2.0.
       // Now: 1.0 + notesIdx*0.03 cap +1.2, multiplied by timeMultiplier().
       lane, word, y: this.SPAWN_Y, speed: (1.0 + Math.min(1.2, this.notesIdx * 0.03)) * this.timeMultiplier(),
-      hit: false, missed: false, text, bg,
+      hit: false, missed: false, text, bg, spoken: false,
     };
     this.notes.push(note);
     // Pulse the lane slightly to telegraph the incoming note
@@ -234,6 +235,13 @@ export default class RhythmTapScene extends BaseEngine {
       note.y += note.speed;
       note.text.y = note.y;
       note.bg.y = note.y;
+      // AAAA: Vocalize the word when it reaches the "reading zone" (middle of screen).
+      // This is the learning aide — the child hears the word as it falls,
+      // reinforcing word recognition. Only speaks ONCE per note.
+      if (!note.spoken && note.y > 120 && note.y < 250) {
+        note.spoken = true;
+        audioBus.speak(note.word, { rate: 0.92, pitch: 1.05 });
+      }
       // Missed? (passed the hit line by more than 30px)
       if (note.y > this.HIT_LINE_Y + 30) {
         note.missed = true;
