@@ -449,40 +449,58 @@ export default class RhythmTapScene extends BaseEngine {
     const acc = total > 0 ? Math.round(((this.perfects + this.goods + this.oks) / total) * 100) : 100;
     this.accuracyText.setText(`Perfect ${this.perfects} · Good ${this.goods} · OK ${this.oks} · Miss ${this.misses} · ${acc}% accuracy`);
 
-    // AAAA: Missed must-tap notes STALL in the lane — they don't disappear.
-    // They stack up visually (turning red + semi-transparent) and block the lane.
-    // When MAX_STALLED notes accumulate, the game ends (lane is too clogged).
+    // AAAA: Missed must-tap notes STALL and STACK UPWARD in the lane.
+    // Each new missed note stacks on top of the previous one (like Tetris blocks).
+    // The lane fills from the hit line upward. When 5 notes stack up, game over.
     if (!wrongLane && note.mustTap) {
-      // Stop the note at the hit line — it stalls here.
-      note.y = this.HIT_LINE_Y;
-      note.text.y = note.y;
-      note.bg.y = note.y;
+      // Calculate stack position: each stalled note sits 55px above the last.
+      const stackIdx = this._stalledNotes.length;
+      const stackY = this.HIT_LINE_Y - stackIdx * 55; // Stack upward from hit line
+
+      // Stop the note at the stack position.
+      note.y = stackY;
+      note.text.y = stackY;
+      note.bg.y = stackY;
       note.missed = true; // Prevents re-processing in _tick
 
       // Turn it red + semi-transparent to show it's stalled.
       try {
-        note.bg.setFillStyle(this.theme.danger, 0.6);
+        note.bg.setFillStyle(this.theme.danger, 0.65);
         note.bg.setStrokeStyle(3, this.theme.danger, 0.9);
-        note.text.setColor('#ff6666');
-        note.text.setAlpha(0.7);
+        note.text.setColor('#ff8888');
+        note.text.setAlpha(0.75);
       } catch {}
 
-      // Add a "stalled" wobble animation.
+      // Drop-in animation: the note "thuds" into its stack position.
       this.tweens.add({
         targets: [note.text, note.bg],
-        x: { from: note.text.x - 3, to: note.text.x + 3 },
-        duration: 200, yoyo: true, repeat: 999, ease: 'Sine.inOut',
+        y: stackY + 8, // Overshoot down slightly
+        duration: 150,
+        ease: 'Quad.out',
+        yoyo: true, // Bounce back up
+        onComplete: () => {
+          // Settle into final position with a wobble.
+          note.text.y = stackY;
+          note.bg.y = stackY;
+          this.tweens.add({
+            targets: [note.text, note.bg],
+            x: { from: note.text.x - 2, to: note.text.x + 2 },
+            duration: 300, yoyo: true, repeat: 999, ease: 'Sine.inOut',
+          });
+        },
       });
 
       this._stalledNotes.push(note);
 
-      // Show stalled count warning.
-      this.juice.scorePopup(note.text.x, note.text.y - 30, `⚠ STALLED! (${this._stalledNotes.length}/${this.MAX_STALLED})`, this.theme.danger);
+      // Show stack count warning — appears ABOVE the topmost stalled note.
+      const warningY = stackY - 35;
+      this.juice.scorePopup(note.text.x, warningY, `⚠ STACK ${this._stalledNotes.length}/${this.MAX_STALLED}`, this.theme.danger);
+      audioBus.play('whack', { freq: 150, duration: 0.15 }); // Thud sound
       audioBus.speak(`Missed! ${note.word}!`, { rate: 0.92 });
 
       // Check if too many stalled notes — game over.
       if (this._stalledNotes.length >= this.MAX_STALLED) {
-        this.time.delayedCall(500, () => {
+        this.time.delayedCall(800, () => {
           this._finish();
         });
       }
