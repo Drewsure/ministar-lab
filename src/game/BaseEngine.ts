@@ -21,6 +21,7 @@ export abstract class BaseEngine extends Phaser.Scene {
   protected score = 0;
   protected streak = 0;
   protected maxScore = 0;
+  protected totalAttempts = 0; // AAAA: tracks ALL attempts (correct + wrong) for real accuracy
   protected answeredEvents: XapiEvent[] = [];
   protected isFinished = false;
   protected _isPaused = false;
@@ -162,7 +163,7 @@ export abstract class BaseEngine extends Phaser.Scene {
     this.qrSlug = cfg.qrSlug;
     this.tenantId = cfg.tenantId;
     this.studentId = cfg.studentId;
-    this.score = 0; this.streak = 0; this.isFinished = false;
+    this.score = 0; this.streak = 0; this.isFinished = false; this.totalAttempts = 0;
     this.answeredEvents = []; this.level = 1;
     // AAAA KIDS MODE — Apply Extended Time multiplier (+50% questions when enabled).
     const baseMax = this.maxQuestions();
@@ -787,6 +788,8 @@ export abstract class BaseEngine extends Phaser.Scene {
 
   protected recordAnswer(opts: { term: string; response: string; success: boolean; coordinate?: { x: number; y: number; t: number } }) {
     if (!this.juice || !this.hud) return;
+    // AAAA: Track EVERY attempt for real accuracy calculation.
+    this.totalAttempts++;
     const actor = getActor();
     const ev = makeAnsweredEvent({ actor, gameMode: this.scene.key, unit: this.unit, term: opts.term, response: opts.response, success: opts.success, score: this.score, maxScore: this.maxScore, durationMs: Date.now() - this.startTime, coordinate: opts.coordinate, streak: this.streak, tenantId: this.tenantId });
     this.answeredEvents.push(ev); pushEvent(ev);
@@ -908,7 +911,10 @@ export abstract class BaseEngine extends Phaser.Scene {
 
     const subText = this.add.text(this.scale.width / 2, this.scale.height / 2 + 20, subtitle, { fontFamily: 'Inter, sans-serif', fontSize: '20px', color: '#ffffff' }).setOrigin(0.5).setDepth(961);
 
-    const accuracy = this.maxScore > 0 ? Math.round((this.score / this.maxScore) * 100) : 0;
+    // AAAA: Real accuracy = correct answers / total attempts (not score / maxScore).
+    // Old formula (score/maxScore) always showed ~100% in no-penalty games
+    // because the child keeps trying until correct, so score always reaches maxScore.
+    const realAccuracy = this.totalAttempts > 0 ? Math.round((this.score / this.totalAttempts) * 100) : 0;
     const timeSec = (durationMs / 1000).toFixed(1);
     const xpEarned = this.score * 10 + (this.score === this.maxScore ? 50 : 0);
     const tokensEarned = this.score * 5;
@@ -922,7 +928,7 @@ export abstract class BaseEngine extends Phaser.Scene {
     // STATS: Stack vertically with clear spacing (was overlapping on one line)
     const statsY = this.scale.height / 2 + 35;
     const statsText = this.add.text(this.scale.width / 2, statsY,
-      `Accuracy: ${accuracy}%   ·   Streak: ${this.streak}   ·   Time: ${timeSec}s`, {
+      `Accuracy: ${realAccuracy}%   ·   Streak: ${this.streak}   ·   Time: ${timeSec}s`, {
         fontFamily: 'Inter, sans-serif', fontSize: '16px', color: '#ffffff',
         fontStyle: 'bold', align: 'center',
       }).setOrigin(0.5).setDepth(961).setAlpha(0.9);
