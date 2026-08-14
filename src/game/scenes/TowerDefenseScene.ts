@@ -196,6 +196,10 @@ export default class TowerDefenseScene extends BaseEngine {
   }
 
   private _selectTowerType(t: TowerType) {
+    // IRONCLAD-POLISH — Rigid input debounce: drops taps that arrive within
+    // 100ms of the previous accepted tap. Filters erratic touch patterns
+    // (rapid multi-tap, sliding fingers) without blocking UI buttons.
+    if (!this._debounceInput()) return;
     this.selectedTowerType = t;
     audioBus.play('tap');
     audioBus.speak(TOWER_DEFS[t].name);
@@ -214,6 +218,10 @@ export default class TowerDefenseScene extends BaseEngine {
   }
 
   private _buildTower(slotIdx: number) {
+    // IRONCLAD-POLISH — Rigid input debounce: drops taps that arrive within
+    // 100ms of the previous accepted tap. Filters erratic touch patterns
+    // (rapid multi-tap, sliding fingers) without blocking UI buttons.
+    if (!this._debounceInput()) return;
     const slot = this.towerSlots[slotIdx];
     if (slot.tower) return;
     if (!this.selectedTowerType) {
@@ -257,6 +265,10 @@ export default class TowerDefenseScene extends BaseEngine {
   }
 
   private _upgradeTower(slotIdx: number) {
+    // IRONCLAD-POLISH — Rigid input debounce: drops taps that arrive within
+    // 100ms of the previous accepted tap. Filters erratic touch patterns
+    // (rapid multi-tap, sliding fingers) without blocking UI buttons.
+    if (!this._debounceInput()) return;
     const slot = this.towerSlots[slotIdx];
     if (!slot.tower) return;
     if (slot.tower.level >= 3) {
@@ -329,6 +341,10 @@ export default class TowerDefenseScene extends BaseEngine {
 
   private _tick() {
     if (this.isFinished) { if (this.gameLoop) this.gameLoop.remove(); return; }
+    // IRONCLAD-POLISH — Frame-rate independent deltaTime. At 60fps, dt*60 = 1.0
+    // (matches the original per-frame speed). At 30fps, dt*60 = 2.0 so the game
+    // still advances at the same wall-clock speed despite fewer frames.
+    const dt = this.game.loop.delta / 1000;
     // CINEMATIC SPECTACLE — subtle camera drift on every frame (skipped while paused).
     this._cinematicIdle();
 
@@ -338,7 +354,8 @@ export default class TowerDefenseScene extends BaseEngine {
       if (e.reached || e.defeated) continue;
       allDone = false;
       const speed = e.slowed > 0 ? e.speed * 0.4 : e.speed;
-      e.progress += speed;
+      // IRONCLAD-POLISH — multiply by dt*60 so movement is frame-rate independent.
+      e.progress += speed * dt * 60;
       e.text.x = 40 + e.progress * (this.scale.width - 120);
       // Move HP bar with the enemy
       e.hpBar.x = e.text.x;
@@ -393,11 +410,16 @@ export default class TowerDefenseScene extends BaseEngine {
       }
     });
 
-    // Move projectiles
-    this.projectiles = this.projectiles.filter(p => {
+    // IRONCLAD-POLISH — Zero-allocation cleanup. Compacts `this.projectiles`
+    // in place (swap-and-pop pattern) instead of allocating a new array every
+    // tick via `.filter()`. Avoids per-frame GC pressure on long games and
+    // during heavy projectile waves.
+    let writeIdx = 0;
+    for (let readIdx = 0; readIdx < this.projectiles.length; readIdx++) {
+      const p = this.projectiles[readIdx];
       if (p.target.defeated || p.target.reached) {
         try { p.sprite.destroy(); } catch {}
-        return false;
+        continue; // Skip — don't increment writeIdx
       }
       const dx = p.target.text.x - p.x;
       const dy = p.target.text.y - p.y;
@@ -448,16 +470,19 @@ export default class TowerDefenseScene extends BaseEngine {
           p.target.hpBar.setDisplaySize(42 * pct, 3);
           if (pct < 0.5) p.target.hpBar.setFillStyle(this.theme.warning, 1);
         }
-        return false;
+        continue; // Skip — don't increment writeIdx (projectile consumed)
       }
-      // Move toward target
+      // Move toward target — IRONCLAD-POLISH: multiply by dt*60 so movement is
+      // frame-rate independent (matches original per-frame speed at 60fps).
       const step = p.speed;
-      p.x += (dx / dist) * step;
-      p.y += (dy / dist) * step;
+      p.x += (dx / dist) * step * dt * 60;
+      p.y += (dy / dist) * step * dt * 60;
       p.sprite.x = p.x;
       p.sprite.y = p.y;
-      return true;
-    });
+      if (writeIdx !== readIdx) this.projectiles[writeIdx] = p;
+      writeIdx++;
+    }
+    this.projectiles.length = writeIdx; // Truncate in place — no new array allocated
 
     // Wave complete? (guard against re-entry — waveCleared is reset in _startWave)
     if (allDone && !this.waveCleared) {

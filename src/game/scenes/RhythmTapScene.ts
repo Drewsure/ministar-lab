@@ -269,11 +269,16 @@ export default class RhythmTapScene extends BaseEngine {
 
   private _tick() {
     if (this.isFinished) { if (this.gameLoop) this.gameLoop.remove(); return; }
+    // IRONCLAD-POLISH — Frame-rate independent deltaTime. At 60fps, dt*60 = 1.0
+    // (matches the original per-frame speed). At 30fps, dt*60 = 2.0 so the game
+    // still advances at the same wall-clock speed despite fewer frames.
+    const dt = this.game.loop.delta / 1000;
     // CINEMATIC SPECTACLE — subtle camera drift on every frame (skipped while paused).
     this._cinematicIdle();
     for (const note of this.notes) {
       if (note.hit || note.missed) continue;
-      note.y += note.speed;
+      // IRONCLAD-POLISH — multiply by dt*60 so movement is frame-rate independent.
+      note.y += note.speed * dt * 60;
       note.text.y = note.y;
       note.bg.y = note.y;
       // AAAA: Vocalize the word when it reaches the "reading zone" (middle of screen).
@@ -299,17 +304,28 @@ export default class RhythmTapScene extends BaseEngine {
         }
       }
     }
-    // Cleanup dead notes (off-screen below)
-    this.notes = this.notes.filter(n => {
+    // IRONCLAD-POLISH — Zero-allocation cleanup. Compacts `this.notes` in place
+    // (swap-and-pop pattern) instead of allocating a new array every tick via
+    // `.filter()`. Avoids per-frame GC pressure on long games.
+    let writeIdx = 0;
+    for (let readIdx = 0; readIdx < this.notes.length; readIdx++) {
+      const n = this.notes[readIdx];
       if (n.y > this.scale.height + 50) {
         try { n.text.destroy(); n.bg.destroy(); } catch {}
-        return false;
+        continue; // Skip — don't increment writeIdx
       }
-      return true;
-    });
+      if (writeIdx !== readIdx) this.notes[writeIdx] = n;
+      writeIdx++;
+    }
+    this.notes.length = writeIdx; // Truncate in place — no new array allocated
   }
 
   private _handleLaneTap(lane: 0 | 1 | 2) {
+    // IRONCLAD-POLISH — Rigid input debounce: drops taps that arrive within
+    // 100ms of the previous accepted tap. Filters erratic touch patterns
+    // (rapid multi-tap, sliding fingers, kid mashing) without blocking the
+    // global pointerdown (which would also block the pause button).
+    if (!this._debounceInput()) return;
     if (!this.canTap || this.isFinished) return;
     this._flashLane(lane, 0.6);
     audioBus.play('flip');

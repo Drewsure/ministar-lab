@@ -34,6 +34,15 @@ export abstract class BaseEngine extends Phaser.Scene {
   private pauseOverlay?: Phaser.GameObjects.Container;
   private _lastSfxTime = 0;
 
+  // IRONCLAD-POLISH — Rigid input debounce (100ms). Used by game-action
+  // pointerdown handlers (NOT by setupGlobalPointer itself) to filter out
+  // erratic touch patterns: rapid multi-tap, sliding fingers, kid mashing.
+  // The pause button, spin button, and other UI controls bypass this because
+  // the debounce check is added INSIDE game-action handlers, not in the
+  // global pointer dispatcher.
+  private _lastInputTime = 0;
+  protected _INPUT_DEBOUNCE_MS = 100;
+
   // AAA ARCHITECTURE: Global Pool Manager + Event Bus
   protected poolManager: GlobalPoolManager = GlobalPoolManager.getInstance();
   protected eventBus: EventBus = new EventBus();
@@ -1012,6 +1021,19 @@ export abstract class BaseEngine extends Phaser.Scene {
       if (this._isPaused || this.isFinished) return;
       handler(p.x, p.y);
     });
+  }
+
+  // IRONCLAD-POLISH — Rigid input debounce for game-action handlers.
+  // Returns false if called within _INPUT_DEBOUNCE_MS of the last call,
+  // true otherwise. Updates _lastInputTime on every accepted call.
+  // NOTE: Call this at the TOP of game-action handlers (lane tap, build tower,
+  // select tower type, etc.) — NOT at the top of setupGlobalPointer. The pause
+  // button + spin button + other UI controls must NOT be debounced.
+  protected _debounceInput(): boolean {
+    const now = this.time.now;
+    if (now - this._lastInputTime < this._INPUT_DEBOUNCE_MS) return false;
+    this._lastInputTime = now;
+    return true;
   }
 
   protected checkLevelUp() {
