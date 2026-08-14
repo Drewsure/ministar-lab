@@ -54,6 +54,11 @@ export default class RhythmTapScene extends BaseEngine {
   private hitLineGlow!: Phaser.GameObjects.Rectangle;
   private scoreText!: Phaser.GameObjects.Text;
   private comboText!: Phaser.GameObjects.Text;
+  // AAAA: Color-coding toggle — when true, must-tap notes glow gold and
+  // free-pass notes are dim gray. When false, all notes look identical
+  // and the child must rely on audio only (harder "pure listening" mode).
+  // Read from localStorage 'ministar-rhythm-color-code' (default: true).
+  private _colorCodeNotes = true;
   private feedbackText!: Phaser.GameObjects.Text;
   private accuracyText!: Phaser.GameObjects.Text;
   private promptBg!: Phaser.GameObjects.Rectangle;
@@ -68,6 +73,11 @@ export default class RhythmTapScene extends BaseEngine {
   protected maxQuestions() { return Math.min(this.terms.length, 15); }
 
   protected buildWorld() {
+    // AAAA: Load color-code preference from localStorage (default: ON).
+    try {
+      this._colorCodeNotes = localStorage.getItem('ministar-rhythm-color-code') !== 'false';
+    } catch {}
+
     this.add.text(this.scale.width / 2, 35, '🎵 Rhythm Tap', {
       fontFamily: 'Inter, sans-serif', fontSize: '24px',
       color: this.hex(this.theme.accent), fontStyle: 'bold',
@@ -221,13 +231,26 @@ export default class RhythmTapScene extends BaseEngine {
     const startX = (this.scale.width - totalW) / 2 + this.LANE_W / 2;
     const x = startX + lane * this.LANE_W;
 
-    // AAAA: must-tap notes glow gold; free-pass notes are dimmer.
+    // AAAA: Color identification is OPTIONAL — controlled by _colorCodeNotes flag.
+    // When ON: must-tap notes glow gold, free-pass notes are dim gray.
+    // When OFF: all notes look identical — child must rely on AUDIO ONLY
+    // (whether the word was spoken) to decide which to tap. This is the
+    // harder "pure listening" mode, toggled by a setting.
+    const colorCode = this._colorCodeNotes;
+    const bgColor = colorCode
+      ? (mustTap ? this.theme.warning : this.theme.card)
+      : this.theme.accent; // Same color for both when color-coding is OFF
+    const bgAlpha = colorCode ? (mustTap ? 0.9 : 0.5) : 0.85;
+    const strokeColor = colorCode ? (mustTap ? 0xffff00 : 0xffffff) : 0xffffff;
+    const strokeAlpha = colorCode ? (mustTap ? 0.8 : 0.3) : 0.4;
+    const textColor = colorCode ? (mustTap ? '#ffffff' : '#999999') : '#ffffff';
+
     const bg = this.add.rectangle(x, this.SPAWN_Y, this.LANE_W - 24, 50,
-      mustTap ? this.theme.warning : this.theme.card, mustTap ? 0.9 : 0.5)
-      .setStrokeStyle(2, mustTap ? 0xffff00 : 0xffffff, mustTap ? 0.8 : 0.3).setDepth(15);
+      bgColor, bgAlpha)
+      .setStrokeStyle(2, strokeColor, strokeAlpha).setDepth(15);
     const text = this.add.text(x, this.SPAWN_Y, word, {
       fontFamily: 'Inter, sans-serif', fontSize: '18px',
-      color: mustTap ? '#ffffff' : '#999999', fontStyle: 'bold',
+      color: textColor, fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(16);
 
     const note: FallingNote = {
