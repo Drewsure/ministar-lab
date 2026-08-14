@@ -58,7 +58,9 @@ export default class RhythmTapScene extends BaseEngine {
   // free-pass notes are dim gray. When false, all notes look identical
   // and the child must rely on audio only (harder "pure listening" mode).
   // Read from localStorage 'ministar-rhythm-color-code' (default: true).
-  private _colorCodeNotes = true;
+  private _stalledNotes: FallingNote[] = []; // AAAA: missed notes that stall in the lane
+  private readonly MAX_STALLED = 5; // AAAA: game ends when this many notes are stalled
+  private _colorCodeNotes = true; // AAAA: optional color-coding toggle
   private feedbackText!: Phaser.GameObjects.Text;
   private accuracyText!: Phaser.GameObjects.Text;
   private promptBg!: Phaser.GameObjects.Rectangle;
@@ -447,8 +449,46 @@ export default class RhythmTapScene extends BaseEngine {
     const acc = total > 0 ? Math.round(((this.perfects + this.goods + this.oks) / total) * 100) : 100;
     this.accuracyText.setText(`Perfect ${this.perfects} · Good ${this.goods} · OK ${this.oks} · Miss ${this.misses} · ${acc}% accuracy`);
 
-    if (!wrongLane) {
-      // Squash the missed note
+    // AAAA: Missed must-tap notes STALL in the lane — they don't disappear.
+    // They stack up visually (turning red + semi-transparent) and block the lane.
+    // When MAX_STALLED notes accumulate, the game ends (lane is too clogged).
+    if (!wrongLane && note.mustTap) {
+      // Stop the note at the hit line — it stalls here.
+      note.y = this.HIT_LINE_Y;
+      note.text.y = note.y;
+      note.bg.y = note.y;
+      note.missed = true; // Prevents re-processing in _tick
+
+      // Turn it red + semi-transparent to show it's stalled.
+      try {
+        note.bg.setFillStyle(this.theme.danger, 0.6);
+        note.bg.setStrokeStyle(3, this.theme.danger, 0.9);
+        note.text.setColor('#ff6666');
+        note.text.setAlpha(0.7);
+      } catch {}
+
+      // Add a "stalled" wobble animation.
+      this.tweens.add({
+        targets: [note.text, note.bg],
+        x: { from: note.text.x - 3, to: note.text.x + 3 },
+        duration: 200, yoyo: true, repeat: 999, ease: 'Sine.inOut',
+      });
+
+      this._stalledNotes.push(note);
+
+      // Show stalled count warning.
+      this.juice.scorePopup(note.text.x, note.text.y - 30, `⚠ STALLED! (${this._stalledNotes.length}/${this.MAX_STALLED})`, this.theme.danger);
+      audioBus.speak(`Missed! ${note.word}!`, { rate: 0.92 });
+
+      // Check if too many stalled notes — game over.
+      if (this._stalledNotes.length >= this.MAX_STALLED) {
+        this.time.delayedCall(500, () => {
+          this._finish();
+        });
+      }
+    } else if (!wrongLane) {
+      // Free-pass note missed (shouldn't happen — they don't register misses).
+      // Just fade it out.
       this.tweens.add({
         targets: [note.text, note.bg],
         alpha: 0, duration: 300, ease: 'Cubic.out',
