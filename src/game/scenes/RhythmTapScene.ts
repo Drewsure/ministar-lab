@@ -80,6 +80,9 @@ export default class RhythmTapScene extends BaseEngine {
       this._colorCodeNotes = localStorage.getItem('ministar-rhythm-color-code') !== 'false';
     } catch {}
 
+    // CINEMATIC SPECTACLE — enable subtle camera drift so the stage feels alive.
+    this._cinematicIdleEnabled = true;
+
     this.add.text(this.scale.width / 2, 35, '🎵 Rhythm Tap', {
       fontFamily: 'Inter, sans-serif', fontSize: '24px',
       color: this.hex(this.theme.accent), fontStyle: 'bold',
@@ -266,6 +269,8 @@ export default class RhythmTapScene extends BaseEngine {
 
   private _tick() {
     if (this.isFinished) { if (this.gameLoop) this.gameLoop.remove(); return; }
+    // CINEMATIC SPECTACLE — subtle camera drift on every frame (skipped while paused).
+    this._cinematicIdle();
     for (const note of this.notes) {
       if (note.hit || note.missed) continue;
       note.y += note.speed;
@@ -394,6 +399,13 @@ export default class RhythmTapScene extends BaseEngine {
       // Tier 3 (150-500ms): ⭐ reward flies to score UI anchor.
       this._threeTierJuice(note.text.x, note.text.y, note.text);
 
+      // CINEMATIC SPECTACLE — every PERFECT hit gets the focal-camera + stage
+      // lighting treatment so the player feels the precision moment.
+      if (timing === 'PERFECT!') {
+        this._cinematicCamera(note.text.x, note.text.y);
+        this._stageLighting(); // auto-cycles cyan / magenta / yellow / green
+      }
+
       // Destroy note after Three-Tier Juice completes (scale tween handles it).
       this.time.delayedCall(300, () => {
         try { note.text.destroy(); note.bg.destroy(); } catch {}
@@ -421,10 +433,17 @@ export default class RhythmTapScene extends BaseEngine {
     this.accuracyText.setText(`Perfect ${this.perfects} · Good ${this.goods} · OK ${this.oks} · Miss ${this.misses} · ${acc}% accuracy`);
 
     // Streak flash at combo milestones
-    if (this.combo === 5 || this.combo === 10 || this.combo === 20) {
+    if (this.combo === 5 || this.combo === 10 || this.combo === 15 || this.combo === 20) {
       this.juice.flash(this.theme.warning, 0.2, 200);
       this.juice.scorePopup(this.scale.width / 2, 200,
         `COMBO x${this.combo}!`, this.theme.warning);
+      // CINEMATIC SPECTACLE — combo milestones (5/10/15) get focal-camera +
+      // stage lighting. Combo 20 still flashes but doesn't repeat cinematic
+      // (avoid runaway camera if the player goes on a long streak).
+      if (this.combo === 5 || this.combo === 10 || this.combo === 15) {
+        this._cinematicCamera(this.scale.width / 2, this.HIT_LINE_Y);
+        this._stageLighting();
+      }
     }
 
     this.checkWin();

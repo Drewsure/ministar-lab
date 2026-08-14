@@ -61,10 +61,17 @@ export default class TowerDefenseScene extends BaseEngine {
   private feedbackText!: Phaser.GameObjects.Text;
   private waveCleared = false; // AAAA — prevents wave-clear logic re-entry
   private castleText!: Phaser.GameObjects.Text; // for damage flash
+  // CINEMATIC SPECTACLE — kill streak counter for the 3-kill cinematic trigger.
+  // Resets when an enemy reaches the castle (penalty moment).
+  private _killStreak = 0;
 
   protected maxQuestions() { return Math.min(this.terms.length, 7); }
 
   protected buildWorld() {
+    // CINEMATIC SPECTACLE — enable subtle camera drift so the battlefield feels alive.
+    this._cinematicIdleEnabled = true;
+    this._killStreak = 0;
+
     this.add.text(this.scale.width / 2, 30, '🏰 Tower Defense', {
       fontFamily: 'Inter, sans-serif', fontSize: '22px',
       color: this.hex(this.theme.accent), fontStyle: 'bold',
@@ -322,6 +329,8 @@ export default class TowerDefenseScene extends BaseEngine {
 
   private _tick() {
     if (this.isFinished) { if (this.gameLoop) this.gameLoop.remove(); return; }
+    // CINEMATIC SPECTACLE — subtle camera drift on every frame (skipped while paused).
+    this._cinematicIdle();
 
     // Move enemies — use for...of so `return` exits _tick cleanly on game over.
     let allDone = true;
@@ -342,6 +351,8 @@ export default class TowerDefenseScene extends BaseEngine {
         audioBus.play('incorrect');
         this.juice.shake('light');
         this._flashCastle();
+        // CINEMATIC SPECTACLE — break the kill streak when the castle takes a hit.
+        this._killStreak = 0;
         e.text.setVisible(false);
         e.hpBar.setVisible(false);
         e.hpBarBg.setVisible(false);
@@ -415,6 +426,16 @@ export default class TowerDefenseScene extends BaseEngine {
           // Tier 3: ⭐ reward flies to coin UI anchor (top-left).
           this._threeTierJuice(p.target.text.x, p.target.text.y);
 
+          // CINEMATIC SPECTACLE — every 3-kill streak gets a focal-camera punch +
+          // stage lighting flash so the player feels the momentum shift.
+          this._killStreak++;
+          if (this._killStreak > 0 && this._killStreak % 3 === 0) {
+            this._cinematicCamera(p.target.text.x, p.target.text.y);
+            this._stageLighting(); // auto-cycles cyan / magenta / yellow / green
+            this.juice.scorePopup(this.scale.width / 2, 180,
+              `🔥 ${this._killStreak} KILL STREAK!`, this.theme.warning);
+          }
+
           audioBus.speak(p.target.word);
           this.recordAnswer({
             term: p.target.word, response: 'shot', success: true,
@@ -476,6 +497,11 @@ export default class TowerDefenseScene extends BaseEngine {
     this.juice.burst(this.scale.width / 2, 250, 'win');
     this.juice.confettiRain(1200);
     audioBus.play('correct');
+    // CINEMATIC SPECTACLE — wave clear gets a big focal-camera punch on the
+    // castle + double stage lighting flash (two colors back-to-back).
+    this._cinematicCamera(this.scale.width - 50, 240); // castle position
+    this._stageLighting();
+    this.time.delayedCall(180, () => { try { this._stageLighting(); } catch {} });
     // Disable building during the celebration window.
     this.canAct = false;
     this.time.delayedCall(2200, () => {

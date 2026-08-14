@@ -63,6 +63,14 @@ export abstract class BaseEngine extends Phaser.Scene {
   private _slowModeCache: boolean | null = null;
   private _extendedTimeCache: boolean | null = null;
 
+  // CINEMATIC SPECTACLE — Game Show Decorator (camera + stage lighting)
+  // Set _cinematicIdleEnabled = true in any game's buildWorld() to enable
+  // the subtle low-frequency camera drift (sine-wave ±2px/±1px) that keeps
+  // the scene feeling alive without being distracting.
+  protected _cinematicIdleEnabled = false;
+  private _stageLightingColorIdx = 0;
+  private static readonly _STAGE_LIGHTING_COLORS = [0x00ffff, 0xff00ff, 0xffff00, 0x00ff00];
+
   // AAAA KIDS MODE — Per-game themed mascot emojis
   private static readonly _MASCOT_EMOJIS: Record<string, string> = {
     'MazeChaseScene': '🦊', 'QuizScene': '🐶', 'AirplaneScene': '🚀',
@@ -431,6 +439,79 @@ export abstract class BaseEngine extends Phaser.Scene {
   }
 
   // ===========================================================================
+  // CINEMATIC SPECTACLE — Game Show Decorator
+  // ===========================================================================
+  // Three reusable cinematic helpers shared by ALL games. Wired into
+  // milestone moments (combo 5/10/15, wave clears, perfect hits, kill
+  // streaks) to deliver the "game show" feel without removing any existing
+  // juice. All methods are wrapped in try/catch so a camera/tween failure
+  // can NEVER crash the game loop.
+  //
+  // 1) _cinematicCamera(x, y) — focal zoom + pan + rumble on the action,
+  //    then auto-resets to the default framing after 400ms.
+  // 2) _cinematicIdle() — subtle sine-wave drift (±2px x, ±1px y) applied
+  //    every frame. Skipped while paused or finished.
+  // 3) _stageLighting(color) — 4 neon border rectangles flash + fade.
+  //    Cycles through cyan/magenta/yellow/green on repeated calls.
+  // ===========================================================================
+  protected _cinematicCamera(targetX: number, targetY: number) {
+    try {
+      // 15% focal zoom onto the action.
+      this.cameras.main.zoomTo(1.15, 200, 'Sine.easeInOut');
+      // Pan toward the target so the player's eye is led to the moment.
+      this.cameras.main.pan(targetX, targetY, 200, 'Sine.easeInOut');
+      // Subtle rumble — 0.003 intensity is gentle (below nausea threshold).
+      this.cameras.main.shake(120, 0.003);
+      // Reset to default framing after the focal moment passes.
+      this.time.delayedCall(400, () => {
+        try {
+          this.cameras.main.zoomTo(1, 300, 'Sine.easeInOut');
+          this.cameras.main.pan(this.scale.width / 2, this.scale.height / 2, 300, 'Sine.easeInOut');
+        } catch {}
+      });
+    } catch (e) {
+      console.error('[BaseEngine] _cinematicCamera error:', e);
+    }
+  }
+
+  protected _cinematicIdle() {
+    // Hard guard: never drift while paused or after the game ends — the
+    // camera must hold rock-steady on the pause overlay / finish card.
+    if (!this._cinematicIdleEnabled || this._isPaused || this.isFinished) return;
+    try {
+      const t = this.time.now;
+      // ±2px horizontal drift @ ~0.3Hz, ±1px vertical drift @ ~0.4Hz.
+      this.cameras.main.scrollX = Math.sin(t * 0.002) * 2;
+      this.cameras.main.scrollY = Math.sin(t * 0.0015) * 1;
+    } catch {}
+  }
+
+  protected _stageLighting(color: number = 0, duration: number = 300) {
+    try {
+      // Auto-cycle through neon hues when caller passes 0 (default).
+      // Pass an explicit color to override the cycle.
+      let c = color;
+      if (c === 0) {
+        c = BaseEngine._STAGE_LIGHTING_COLORS[this._stageLightingColorIdx % BaseEngine._STAGE_LIGHTING_COLORS.length];
+        this._stageLightingColorIdx++;
+      }
+      const w = this.scale.width, h = this.scale.height, bw = 15;
+      const borders = [
+        this.add.rectangle(w / 2, bw / 2, w, bw, c, 0.6).setDepth(940),
+        this.add.rectangle(w / 2, h - bw / 2, w, bw, c, 0.6).setDepth(940),
+        this.add.rectangle(bw / 2, h / 2, bw, h, c, 0.6).setDepth(940),
+        this.add.rectangle(w - bw / 2, h / 2, bw, h, c, 0.6).setDepth(940),
+      ];
+      this.tweens.add({
+        targets: borders, alpha: 0, duration,
+        ease: 'Cubic.out', onComplete: () => borders.forEach(b => b.destroy()),
+      });
+    } catch (e) {
+      console.error('[BaseEngine] _stageLighting error:', e);
+    }
+  }
+
+  // ===========================================================================
   // AAAA KIDS MODE — Auto-Mascot (themed emoji per game, bottom-right corner)
   // ===========================================================================
   private _createAutoMascot() {
@@ -494,19 +575,34 @@ export abstract class BaseEngine extends Phaser.Scene {
       this._mascotState = 'celebrate';
       try { this.tweens.killTweensOf(this._mascot); } catch {}
       this._mascot.setAngle(0);
+      this._mascot.setScale(1);
 
-      // Jump up + 360° spin.
+      // CINEMATIC SPECTACLE — enhanced celebrate:
+      //   • Jump higher (was -40, now -60)
+      //   • Scale punch up to 1.5x (was 1.0 — just jumped)
+      //   • 720° spin (was 360° — single flip)
+      //   • 3 celebratory star particles (⭐🌟💫) launched from the mascot base
+      //   • 'streak' chime (880→1320Hz triangle sweep)
       this.tweens.add({
         targets: this._mascot,
-        y: this._mascotBaseY - 40,
-        duration: 250, yoyo: true, repeat: 1, ease: 'Quad.out',
+        y: this._mascotBaseY - 60,
+        duration: 300, yoyo: true, repeat: 1, ease: 'Quad.out',
       });
       this.tweens.add({
         targets: this._mascot,
-        angle: 360,
+        angle: 720,
+        scale: 1.5,
         duration: 600, ease: 'Cubic.out',
         onComplete: () => {
           if (this._mascot) this._mascot.setAngle(0);
+          // Ease scale back to 1.0 with a slight overshoot for "bounce-back".
+          if (this._mascot) {
+            this.tweens.add({
+              targets: this._mascot,
+              scale: 1,
+              duration: 280, ease: 'Back.out',
+            });
+          }
           this._mascotState = 'idle';
           if (this._mascot) {
             this._mascotBobTween = this.tweens.add({
@@ -517,6 +613,32 @@ export abstract class BaseEngine extends Phaser.Scene {
           }
         },
       });
+
+      // CINEMATIC SPECTACLE — 3 star particles launched from the mascot base.
+      // Each rises + fades over 700ms, spreading horizontally for a fan effect.
+      const starEmojis = ['⭐', '🌟', '💫'];
+      for (let i = 0; i < 3; i++) {
+        try {
+          const px = this._mascotBaseX + (i - 1) * 16;
+          const py = this._mascotBaseY + 18;
+          const particle = this.add.text(px, py, starEmojis[i], {
+            fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, Inter, sans-serif',
+            fontSize: '22px',
+          }).setOrigin(0.5).setDepth(360);
+          this.tweens.add({
+            targets: particle,
+            y: py - 70,
+            x: px + (i - 1) * 14,
+            alpha: 0,
+            scale: 0.4,
+            duration: 700, ease: 'Cubic.out',
+            onComplete: () => { try { particle.destroy(); } catch {} },
+          });
+        } catch {}
+      }
+
+      // CINEMATIC SPECTACLE — 'streak' chime plays alongside the spin.
+      try { audioBus.play('streak'); } catch {}
     } catch (e) {
       console.error('[BaseEngine] _mascotCelebrate error:', e);
     }
