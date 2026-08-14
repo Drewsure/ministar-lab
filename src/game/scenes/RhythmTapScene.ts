@@ -13,7 +13,10 @@ import { audioBus } from '../../lib/audio';
 //   • Combo multiplier kicks in at 5 / 10 / 20 — score popup + screen flash
 //   • Beat pulse on the hit line + background grid sweep
 //   • Audio cue (60 BPM tick) keeps rhythm for ESL learners
-//   • Wrong-lane tap = MISS + combo reset (encourages reading, not mashing)
+//   • AAAA: Only SPOKEN words (gold) must be tapped. Unspoken words (gray) pass freely.
+//   • Tapping an unspoken word = drama (flash + shake + score -2 + "Don't tap!")
+//   • Letting a spoken word pass = miss (combo reset)
+//   • Words repeat continuously until 150s timeout
 // ============================================================================
 
 interface FallingNote {
@@ -26,6 +29,7 @@ interface FallingNote {
   text: Phaser.GameObjects.Text;
   bg: Phaser.GameObjects.Rectangle;
   spoken: boolean; // AAAA: tracks whether the word has been vocalized as it falls
+  mustTap: boolean; // AAAA: only spoken words require a tap — unspoken pass freely
 }
 
 export default class RhythmTapScene extends BaseEngine {
@@ -137,11 +141,14 @@ export default class RhythmTapScene extends BaseEngine {
       color: this.hex(this.theme.textMuted),
     }).setOrigin(0.5).setDepth(60);
 
-    // Build notes queue: shuffle terms, repeat to fill maxQuestions
+    // AAAA: Build notes queue — repeat words to fill a large queue for
+    // continuous spawning (game runs until timeout at 150s, not until queue empty).
     const pool = [...this.terms];
     Phaser.Utils.Array.Shuffle(pool);
     this.notesQueue = [];
-    while (this.notesQueue.length < this.maxQuestions()) {
+    // Fill with 3x the pool size so there's always more to spawn.
+    const targetCount = Math.max(pool.length * 3, 30);
+    while (this.notesQueue.length < targetCount) {
       this.notesQueue.push(pool[this.notesQueue.length % pool.length].term);
     }
 
@@ -168,7 +175,7 @@ export default class RhythmTapScene extends BaseEngine {
       },
     });
 
-    // Spawn timer — spawn a new note every 1.8s
+    // Spawn timer — spawn a new note every 1.8s (continuous, never stops until game ends)
     this.spawnTimer = this.time.addEvent({
       delay: 1800, loop: true,
       callback: () => {
@@ -197,31 +204,35 @@ export default class RhythmTapScene extends BaseEngine {
   }
 
   private _spawnNote() {
-    if (this.notesIdx >= this.notesQueue.length) {
-      if (this.notes.length === 0) this._finish();
-      return;
-    }
-    const lane = Math.floor(Math.random() * this.LANES) as 0 | 1 | 2;
-    const word = this.notesQueue[this.notesIdx];
+    // AAAA: Infinite spawning — loop the queue, don't stop when we reach the end.
+    // Game only ends on timeout (150s) or score threshold. Words repeat.
+    if (this.notesQueue.length === 0) return;
+    const word = this.notesQueue[this.notesIdx % this.notesQueue.length];
     this.notesIdx++;
+
+    const lane = Math.floor(Math.random() * this.LANES) as 0 | 1 | 2;
+
+    // AAAA: Only ~50% of notes are "must tap" (spoken words). The rest are
+    // silent decoys that pass through freely. This makes it a game of
+    // "listen and tap only correct items" — not tap-everything.
+    const mustTap = Math.random() < 0.5;
 
     const totalW = this.LANES * this.LANE_W;
     const startX = (this.scale.width - totalW) / 2 + this.LANE_W / 2;
     const x = startX + lane * this.LANE_W;
 
+    // AAAA: must-tap notes glow gold; free-pass notes are dimmer.
     const bg = this.add.rectangle(x, this.SPAWN_Y, this.LANE_W - 24, 50,
-      this.theme.accent, 0.85)
-      .setStrokeStyle(2, 0xffffff, 0.4).setDepth(15);
+      mustTap ? this.theme.warning : this.theme.card, mustTap ? 0.9 : 0.5)
+      .setStrokeStyle(2, mustTap ? 0xffff00 : 0xffffff, mustTap ? 0.8 : 0.3).setDepth(15);
     const text = this.add.text(x, this.SPAWN_Y, word, {
       fontFamily: 'Inter, sans-serif', fontSize: '18px',
-      color: '#ffffff', fontStyle: 'bold',
+      color: mustTap ? '#ffffff' : '#999999', fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(16);
 
     const note: FallingNote = {
-      // AAAA KIDS MODE — Gentler speed ramp + slow mode. Was 1.2 + notesIdx*0.05 cap +2.0.
-      // Now: 1.0 + notesIdx*0.03 cap +1.2, multiplied by timeMultiplier().
       lane, word, y: this.SPAWN_Y, speed: (1.0 + Math.min(1.2, this.notesIdx * 0.03)) * this.timeMultiplier(),
-      hit: false, missed: false, text, bg, spoken: false,
+      hit: false, missed: false, text, bg, spoken: false, mustTap,
     };
     this.notes.push(note);
     // Pulse the lane slightly to telegraph the incoming note
@@ -236,16 +247,26 @@ export default class RhythmTapScene extends BaseEngine {
       note.text.y = note.y;
       note.bg.y = note.y;
       // AAAA: Vocalize the word when it reaches the "reading zone" (middle of screen).
-      // This is the learning aide — the child hears the word as it falls,
-      // reinforcing word recognition. Only speaks ONCE per note.
-      if (!note.spoken && note.y > 120 && note.y < 250) {
+      // ONLY must-tap notes are spoken — free-pass notes stay silent.
+      if (!note.spoken && note.mustTap && note.y > 120 && note.y < 250) {
         note.spoken = true;
         audioBus.speak(note.word, { rate: 0.92, pitch: 1.05 });
       }
-      // Missed? (passed the hit line by more than 30px)
+      // AAAA: Only must-tap notes register a miss when they pass the hit line.
+      // Free-pass notes (mustTap=false) pass through with NO consequence.
       if (note.y > this.HIT_LINE_Y + 30) {
-        note.missed = true;
-        this._registerMiss(note);
+        if (note.mustTap) {
+          note.missed = true;
+          this._registerMiss(note);
+        } else {
+          // Free-pass note passed — fade it out silently.
+          note.missed = true;
+          this.tweens.add({
+            targets: [note.text, note.bg],
+            alpha: 0, duration: 300, ease: 'Cubic.out',
+            onComplete: () => { try { note.text.destroy(); note.bg.destroy(); } catch {} },
+          });
+        }
       }
     }
     // Cleanup dead notes (off-screen below)
@@ -263,21 +284,56 @@ export default class RhythmTapScene extends BaseEngine {
     this._flashLane(lane, 0.6);
     audioBus.play('flip');
 
-    // Find the closest un-hit note in this lane near the hit line
+    // Find the closest un-hit MUST-TAP note in this lane near the hit line.
+    // Free-pass notes (mustTap=false) are IGNORED — tapping them is a mistake.
     let best: FallingNote | null = null;
     let bestDist = Infinity;
+    let tappedFreePass: FallingNote | null = null;
+
     for (const note of this.notes) {
       if (note.hit || note.missed || note.lane !== lane) continue;
       const dist = Math.abs(note.y - this.HIT_LINE_Y);
-      if (dist < bestDist && dist < 80) {
-        bestDist = dist;
-        best = note;
+      if (dist < 80) {
+        if (note.mustTap && dist < bestDist) {
+          bestDist = dist;
+          best = note;
+        } else if (!note.mustTap && !tappedFreePass && dist < 40) {
+          // Tapping a free-pass (unspoken) note — this is a MISTAKE.
+          tappedFreePass = note;
+        }
       }
     }
 
+    // AAAA: Tapping an unspoken (free-pass) word = penalty (drama, loss).
+    if (tappedFreePass && !best) {
+      const fp = tappedFreePass as FallingNote;
+      fp.hit = true; // Mark so it doesn't also count as a miss
+      audioBus.play('incorrect');
+      this.juice.shake('medium');
+      this.juice.flash(this.theme.danger, 0.4, 250);
+      this.juice.scorePopup(fp.text.x, fp.text.y - 20, '❌ Don\'t tap!', this.theme.danger);
+      this.combo = 0;
+      this._updateCombo();
+      this.totalScore = Math.max(0, this.totalScore - 2); // Score deduction
+      this.scoreText.setText('Score: ' + this.totalScore);
+      this.feedbackText.setText(`❌ ${fp.word} was not called!`);
+      this.feedbackText.setColor('#' + this.theme.danger.toString(16).padStart(6, '0'));
+      audioBus.speak(`Don't tap! ${fp.word} was not called!`, { rate: 0.9 });
+      // Squash the wrongly-tapped note
+      this.tweens.add({
+        targets: [fp.text, fp.bg],
+        scale: 0.5, alpha: 0, duration: 200, ease: 'Cubic.in',
+        onComplete: () => { try { fp.text.destroy(); fp.bg.destroy(); } catch {} },
+      });
+      this.recordAnswer({
+        term: fp.word, response: 'wrong-tap', success: false,
+        coordinate: { x: fp.text.x, y: fp.text.y, t: this.time.now },
+      });
+      return;
+    }
+
     if (!best) {
-      // Wrong-lane tap (no note in this lane near the hit line)
-      this._registerMiss({ word: '—', lane, hit: false, missed: true } as FallingNote, true);
+      // No must-tap note in this lane near the hit line — no penalty (just a tap)
       return;
     }
 
@@ -397,6 +453,8 @@ export default class RhythmTapScene extends BaseEngine {
 
   private _finish() {
     if (this.isFinished) return;
+    // AAAA: Game ends on timeout or score threshold, not when queue is empty.
+    // Win = at least 50% of tapped must-tap words were correct.
     const total = this.perfects + this.goods + this.oks + this.misses;
     const win = total > 0 && (this.perfects + this.goods) / total >= 0.5;
     this.finishGame(win);
