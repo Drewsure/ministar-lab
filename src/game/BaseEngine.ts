@@ -366,6 +366,22 @@ export abstract class BaseEngine extends Phaser.Scene {
     try { KidsJuice.clearHighlights(this as any); } catch {}
   }
 
+  // AAAA: Color Assist — global toggle for highlighting correct answers.
+  // When ON (default): correct options get distinct color (green/gold).
+  // When OFF: all options look identical — child must read/listen to decide.
+  // All 32 games can call this.isColorAssist() to check the toggle.
+  protected isColorAssist(): boolean {
+    if (this._colorAssistCache === null) {
+      try {
+        this._colorAssistCache = typeof window !== 'undefined' && window.localStorage
+          ? window.localStorage.getItem('ministar-color-assist') !== 'false'
+          : true;
+      } catch { this._colorAssistCache = true; }
+    }
+    return this._colorAssistCache;
+  }
+  private _colorAssistCache: boolean | null = null;
+
   // ===========================================================================
   // AAAA — THREE-TIER JUICE LOOP (Juice-to-Cognition Ratio Enforcer)
   // ===========================================================================

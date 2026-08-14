@@ -60,7 +60,7 @@ export default class RhythmTapScene extends BaseEngine {
   // Read from localStorage 'ministar-rhythm-color-code' (default: true).
   private _stalledNotes: FallingNote[] = []; // AAAA: missed notes that stall in the lane
   private readonly MAX_STALLED = 5; // AAAA: game ends when this many notes are stalled
-  private _colorCodeNotes = true; // AAAA: optional color-coding toggle
+  private _colorCodeNotes = true; // AAAA: now uses global 'ministar-color-assist'
   private feedbackText!: Phaser.GameObjects.Text;
   private accuracyText!: Phaser.GameObjects.Text;
   private promptBg!: Phaser.GameObjects.Rectangle;
@@ -77,7 +77,7 @@ export default class RhythmTapScene extends BaseEngine {
   protected buildWorld() {
     // AAAA: Load color-code preference from localStorage (default: ON).
     try {
-      this._colorCodeNotes = localStorage.getItem('ministar-rhythm-color-code') !== 'false';
+      this._colorCodeNotes = localStorage.getItem('ministar-color-assist') !== 'false';
     } catch {}
 
     // CINEMATIC SPECTACLE — enable subtle camera drift so the stage feels alive.

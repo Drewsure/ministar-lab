@@ -104,7 +104,7 @@ export default function Home() {
   // AAAA KIDS MODE — Slow Mode + Extended Time toggles (localStorage-backed).
   const [slowMode, setSlowMode] = useState(false);
   const [extendedTime, setExtendedTime] = useState(false);
-  const [rhythmColor, setRhythmColor] = useState(true);
+  const [colorAssist, setColorAssist] = useState(true);
 
   // Load stats AFTER hydration to prevent SSR mismatch
   useEffect(() => {
@@ -114,7 +114,7 @@ export default function Home() {
     try {
       setSlowMode(localStorage.getItem('ministar-slow-mode') === 'true');
       setExtendedTime(localStorage.getItem('ministar-extended-time') === 'true');
-      setRhythmColor(localStorage.getItem('ministar-rhythm-color-code') !== 'false');
+      setColorAssist(localStorage.getItem('ministar-color-assist') !== 'false');
     } catch {}
   }, []); // AAAA: empty array = run ONCE on mount (was missing → infinite loop)
 
@@ -368,24 +368,24 @@ export default function Home() {
                 >
                   ⏱️ Time+
                 </button>
-                {/* AAAA — Rhythm Tap color-code toggle */}
+                {/* AAAA — Color Assist toggle (all games) */}
                 <button
                   onClick={() => {
-                    const next = localStorage.getItem('ministar-rhythm-color-code') !== 'false';
-                    localStorage.setItem('ministar-rhythm-color-code', String(!next));
-                    setRhythmColor(!next);
+                    const next = localStorage.getItem('ministar-color-assist') !== 'false';
+                    localStorage.setItem('ministar-color-assist', String(!next));
+                    setColorAssist(!next);
                   }}
                   className="rounded-xl px-3 py-2 text-xs font-semibold"
                   style={{
-                    background: rhythmColor
+                    background: colorAssist
                       ? 'color-mix(in oklab, var(--brand-accent) 45%, transparent)'
                       : 'color-mix(in oklab, var(--brand-accent) 18%, transparent)',
                     color: 'var(--brand-text)',
                     border: '1px solid color-mix(in oklab, var(--brand-accent) 40%, transparent)',
                   }}
-                  title="Rhythm Tap: color-code must-tap words (ON = gold/gray, OFF = audio only)"
+                  title="Color Assist: highlight correct answers with color (ON = colored, OFF = no color hints)"
                 >
-                  🎨 Color
+                  🎨 Color Assist
                 </button>
                 <button
                   onClick={() => {
