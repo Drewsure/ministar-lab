@@ -137,6 +137,10 @@
     color: var(--brand-text);
     font-family: var(--font-display);
     min-height: 100vh;
+    /* Kill horizontal overflow caused by the game frame's full-viewport
+       breakout (margin: 0 calc(50% - 50vw)). Without this, the browser
+       shows a horizontal scrollbar that interferes with vertical scroll. */
+    overflow-x: hidden;
   }
 }
 

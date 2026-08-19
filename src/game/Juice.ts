@@ -1324,8 +1324,13 @@ export class Hud {
       20, 70, 0, 4, t.success, 1
     ).setOrigin(0, 0.5).setDepth(201);
 
-    // Mascot in bottom-right corner
-    this.mascot = new MascotController(scene, theme, scene.scale.width - 60, scene.scale.height - 60);
+    // HUD mascot REMOVED — was duplicating the BaseEngine auto-mascot.
+    // BaseEngine._createAutoMascot() spawns a per-game themed emoji
+    // (🦊 MazeChase, ⌨️ TypeAnswer, 🔍 Wordsearch, etc.) at the same corner.
+    // The cloud-dog sprite here was the redundant "smiley face" the user
+    // asked us to remove. Keep the themed emoji mascot only.
+    this.mascot = new MascotController(scene, theme, -200, -200); // off-screen — kept for compat (this.mascot.celebrate() / .sad() are still called)
+    this.mascot.setVisible(false);
 
     this.startTime = Date.now(); // Use real time, not Phaser game time
     void hudBg; void scoreBg; void timerBg;
