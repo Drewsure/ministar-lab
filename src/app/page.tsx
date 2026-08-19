@@ -422,24 +422,24 @@ export default function Home() {
 
             <div
               style={{
-                // MAXIMIZE GAME AREA: Fill the full available viewport.
-                // The game (800×600 4:3) uses Scale.FIT — it scales to fit
-                // inside this container while maintaining aspect ratio.
-                // By making the container as large as possible (width:100%,
-                // height: calc(100vh - 160px)), the game is as big as possible.
-                // Flex centering ensures the canvas is centered.
-                width: '100%',
-                maxWidth: '1100px',
-                margin: '0 auto',
-                height: 'calc(100vh - 160px)',
-                minHeight: '300px',
+                // FULL-SCREEN GAME FRAME: dominates the entire monitor.
+                // No maxWidth cap — uses the full viewport width.
+                // height: 100vh minus a slim toolbar (~90px) — game fills
+                // everything else. Phaser Scale.RESIZE makes the canvas
+                // exactly match this container, so no letterbox / no black bars.
+                width: '100vw',
+                margin: '0 calc(50% - 50vw)', // break out of max-w-7xl wrapper
+
+                height: 'calc(100vh - 90px)',
+                minHeight: '400px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 border: `2px solid color-mix(in oklab, var(--brand-accent) 50%, transparent)`,
-                borderRadius: '16px',
+                borderRadius: '12px',
                 overflow: 'hidden',
                 background: '#000',
+                position: 'relative',
               }}
             >
               <GameCanvas config={launch} onExit={exitGame} />

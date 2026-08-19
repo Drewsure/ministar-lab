@@ -214,9 +214,12 @@ export abstract class BaseEngine extends Phaser.Scene {
     this.hud = new Hud(this, this.theme, (state) => this.onHudUpdate(state));
     this.startTime = Date.now();
 
-    // Level badge — CHECK 2: top-LEFT (x=80), 120×36, "LVL 1"
-    this.levelBg = this.add.rectangle(80, 45, 120, 36, 0x000000, 0.7).setStrokeStyle(2, this.theme.warning, 0.8).setDepth(250);
-    this.levelBadge = this.add.text(80, 45, `LVL ${this.level}`, { fontFamily: 'Inter, sans-serif', fontSize: '16px', color: this.hex(this.theme.warning), fontStyle: 'bold' }).setOrigin(0.5).setDepth(251);
+    // Level badge — TOP-RIGHT corner (separated from Score which is top-left).
+    // Was at x=80 same area as Score badge — caused collision/blur in top-left.
+    // Now sits in the top-right with a clear gap from the timer.
+    const lvlX = Math.max(this.scale.width - 260, 360);
+    this.levelBg = this.add.rectangle(lvlX, 45, 120, 36, 0x000000, 0.7).setStrokeStyle(2, this.theme.warning, 0.8).setDepth(250);
+    this.levelBadge = this.add.text(lvlX, 45, `LVL ${this.level}`, { fontFamily: 'Inter, sans-serif', fontSize: '16px', color: this.hex(this.theme.warning), fontStyle: 'bold' }).setOrigin(0.5).setDepth(251);
 
     // Urgency vignette
     this.urgencyVignette = this.add.graphics();
@@ -900,12 +903,30 @@ export abstract class BaseEngine extends Phaser.Scene {
     const verify = verifyTelemetry({ events: [...this.answeredEvents, completed], totalQuestions: this.maxScore, durationMs });
 
     try { this.physics.world.pause(); } catch {}
-    // AAAA: Use depth 960+ (above pause overlay at 950) so buttons are always clickable.
-    const overlay = this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x000000, 0.75).setDepth(960).setInteractive({ useHandCursor: 'default' });
 
     const isQuarantined = verify.status === 'quarantine';
     const isReview = verify.status === 'review';
     const statusColor = isQuarantined ? this.theme.danger : isReview ? this.theme.warning : won ? this.theme.success : this.theme.danger;
+
+    // AAAA: Use depth 960+ (above pause overlay at 950) so buttons are always clickable.
+    // FULLY OPAQUE backdrop (alpha 1.0) — completely hides the maze so fruits/quiz
+    // elements can't bleed through and create visual clutter behind the score panel.
+    const overlay = this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, this.theme.bg, 1.0).setDepth(960).setInteractive({ useHandCursor: 'default' });
+
+    // MODAL PANEL: a centered card with brand-tinted border. Holds title,
+    // stats, and buttons — gives the end screen a clean, focused layout
+    // instead of floating text over a half-visible maze.
+    const panelW = Math.min(560, this.scale.width - 80);
+    const panelH = Math.min(560, this.scale.height - 120);
+    const panelX = this.scale.width / 2;
+    const panelY = this.scale.height / 2;
+    const panelBg = this.add.rectangle(panelX, panelY, panelW, panelH, this.theme.card, 0.98)
+      .setStrokeStyle(3, statusColor, 0.9).setDepth(961);
+    // Decorative top accent bar on the panel
+    const panelAccent = this.add.rectangle(
+      panelX, panelY - panelH / 2 + 6, panelW - 24, 4, statusColor, 0.9
+    ).setDepth(962);
+    void panelBg; void panelAccent;
 
     if (isQuarantined) { audioBus.play('quarantine'); try { this.juice.shake('heavy'); } catch {} }
     else if (won) { try { this.hud.celebrate(); } catch {} try { this.juice.burst(this.scale.width / 2, this.scale.height / 2, 'win'); } catch {} }
@@ -914,18 +935,22 @@ export abstract class BaseEngine extends Phaser.Scene {
     const title = isQuarantined ? '⚠ SCORE QUARANTINED' : isReview ? '⎯ FLAGGED FOR REVIEW' : won ? (this.score === this.maxScore ? 'PERFECT! 3 STARS!' : this.score >= this.maxScore * 0.7 ? 'GREAT JOB! 2 STARS!' : 'GOOD! 1 STAR!') : '⏱ TIME UP';
     const subtitle = isQuarantined ? verify.anomalyReason ?? 'anomaly detected' : isReview ? verify.anomalyReason ?? 'review required' : `Score: ${this.score} / ${this.maxScore}`;
 
-    const titleText = this.add.text(this.scale.width / 2, this.scale.height / 2 - 80, title, { fontFamily: 'Inter, sans-serif', fontSize: '36px', color: '#' + statusColor.toString(16).padStart(6, '0'), fontStyle: 'bold' }).setOrigin(0.5).setDepth(961);
+    // LAYOUT: All elements positioned relative to panel center with
+    // generous vertical spacing so nothing overlaps. Top of panel = panelY - panelH/2.
+    const panelTop = panelY - panelH / 2;
+
+    const titleText = this.add.text(this.scale.width / 2, panelTop + 60, title, { fontFamily: 'Inter, sans-serif', fontSize: '38px', color: '#' + statusColor.toString(16).padStart(6, '0'), fontStyle: 'bold' }).setOrigin(0.5).setDepth(963);
 
     if (won) {
       const stars = this.score === this.maxScore ? 3 : this.score >= this.maxScore * 0.7 ? 2 : 1;
-      const starY = this.scale.height / 2 - 30;
+      const starY = panelTop + 110;
       for (let i = 0; i < 3; i++) {
         const filled = i < stars;
-        this.add.text(this.scale.width / 2 + (i - 1) * 50, starY, filled ? '⭐' : '☆', { fontFamily: 'Inter, sans-serif', fontSize: '36px' }).setOrigin(0.5).setDepth(961);
+        this.add.text(this.scale.width / 2 + (i - 1) * 60, starY, filled ? '⭐' : '☆', { fontFamily: 'Inter, sans-serif', fontSize: '42px' }).setOrigin(0.5).setDepth(963);
       }
     }
 
-    const subText = this.add.text(this.scale.width / 2, this.scale.height / 2 + 20, subtitle, { fontFamily: 'Inter, sans-serif', fontSize: '20px', color: '#ffffff' }).setOrigin(0.5).setDepth(961);
+    const subText = this.add.text(this.scale.width / 2, panelTop + 170, subtitle, { fontFamily: 'Inter, sans-serif', fontSize: '22px', color: '#ffffff' }).setOrigin(0.5).setDepth(963);
 
     // AAAA: Real accuracy = correct answers / total attempts (not score / maxScore).
     // Old formula (score/maxScore) always showed ~100% in no-penalty games
@@ -941,24 +966,24 @@ export abstract class BaseEngine extends Phaser.Scene {
     if (isNewBest) this.registry.set(bestKey, this.score);
     const bestText = isNewBest ? '🏆 NEW BEST!' : `Best: ${prevBest}/${this.maxScore}`;
 
-    // STATS: Stack vertically with clear spacing (was overlapping on one line)
-    const statsY = this.scale.height / 2 + 35;
+    // STATS: Stack vertically inside the panel with clear spacing.
+    const statsY = panelTop + 220;
     const statsText = this.add.text(this.scale.width / 2, statsY,
       `Accuracy: ${realAccuracy}%   ·   Streak: ${this.streak}   ·   Time: ${timeSec}s`, {
         fontFamily: 'Inter, sans-serif', fontSize: '16px', color: '#ffffff',
         fontStyle: 'bold', align: 'center',
-      }).setOrigin(0.5).setDepth(961).setAlpha(0.9);
-    const stats2 = this.add.text(this.scale.width / 2, statsY + 25,
+      }).setOrigin(0.5).setDepth(963).setAlpha(0.9);
+    const stats2 = this.add.text(this.scale.width / 2, statsY + 28,
       `⭐ ${starsWon}/3   ·   +${xpEarned} XP   ·   +${tokensEarned} tokens`, {
         fontFamily: 'Inter, sans-serif', fontSize: '15px', color: '#ffffff',
         fontStyle: 'bold', align: 'center',
-      }).setOrigin(0.5).setDepth(961).setAlpha(0.9);
-    const stats3 = this.add.text(this.scale.width / 2, statsY + 48,
+      }).setOrigin(0.5).setDepth(963).setAlpha(0.9);
+    const stats3 = this.add.text(this.scale.width / 2, statsY + 54,
       bestText, {
         fontFamily: 'Inter, sans-serif', fontSize: '15px',
         color: '#' + this.theme.warning.toString(16).padStart(6, '0'),
         fontStyle: 'bold', align: 'center',
-      }).setOrigin(0.5).setDepth(961).setAlpha(0.9);
+      }).setOrigin(0.5).setDepth(963).setAlpha(0.9);
 
     // Achievement badges
     const badges: string[] = [];
@@ -970,38 +995,41 @@ export abstract class BaseEngine extends Phaser.Scene {
     if (durationMs < 30000 && this.score >= this.maxScore * 0.5) badges.push('⚡ SPEED DEMON');
     if (this.score === 0 && !won) badges.push('🌱 KEEP TRYING');
     if (badges.length > 0) {
-      this.add.text(this.scale.width / 2, this.scale.height / 2 + 110, badges.join('  ·  '), { fontFamily: 'Inter, sans-serif', fontSize: '13px', color: '#' + this.theme.warning.toString(16).padStart(6, '0'), fontStyle: 'bold', align: 'center', wordWrap: { width: 500 } }).setOrigin(0.5).setDepth(961);
+      this.add.text(this.scale.width / 2, statsY + 88, badges.join('  ·  '), { fontFamily: 'Inter, sans-serif', fontSize: '13px', color: '#' + this.theme.warning.toString(16).padStart(6, '0'), fontStyle: 'bold', align: 'center', wordWrap: { width: panelW - 60 } }).setOrigin(0.5).setDepth(963);
     }
 
-    // BUTTONS: Bigger with backgrounds, stacked vertically so they don't overlap
-    const btnY = this.scale.height / 2 + 100;
-    const btnW = Math.min(280, this.scale.width - 40);
-    const btnH = 50;
+    // BUTTONS: Inside the panel, stacked vertically with clear gap.
+    // No more overlap with the stats block above.
+    const btnY = panelTop + panelH - 180;
+    const btnW = Math.min(420, panelW - 80);
+    const btnH = 60;
+    const btnFontSize = '24px';
+    const btnGap = 72;
 
     // Play Again button
     const btnBg = this.add.rectangle(this.scale.width / 2, btnY, btnW, btnH, statusColor, 0.95)
-      .setStrokeStyle(2, 0xffffff, 0.5).setDepth(961).setInteractive({ useHandCursor: true });
+      .setStrokeStyle(2, 0xffffff, 0.5).setDepth(963).setInteractive({ useHandCursor: true });
     const btn = this.add.text(this.scale.width / 2, btnY, '🔄 Play Again', {
-      fontFamily: 'Inter, sans-serif', fontSize: '22px', color: '#000000', fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(962).setInteractive({ useHandCursor: true });
+      fontFamily: 'Inter, sans-serif', fontSize: btnFontSize, color: '#000000', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(964).setInteractive({ useHandCursor: true });
     btn.on('pointerdown', () => { audioBus.play('tap'); this.scene.restart({ config: this.registry.get('launchConfig') }); });
     btnBg.on('pointerdown', () => { audioBus.play('tap'); this.scene.restart({ config: this.registry.get('launchConfig') }); });
 
     // New Game button
-    const btnBg2 = this.add.rectangle(this.scale.width / 2, btnY + 60, btnW, btnH, this.theme.card, 0.95)
-      .setStrokeStyle(2, this.theme.accent, 0.8).setDepth(961).setInteractive({ useHandCursor: true });
-    const btn2 = this.add.text(this.scale.width / 2, btnY + 60, '🎮 New Game', {
-      fontFamily: 'Inter, sans-serif', fontSize: '22px', color: '#ffffff', fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(962).setInteractive({ useHandCursor: true });
+    const btnBg2 = this.add.rectangle(this.scale.width / 2, btnY + btnGap, btnW, btnH, this.theme.card, 0.95)
+      .setStrokeStyle(2, this.theme.accent, 0.8).setDepth(963).setInteractive({ useHandCursor: true });
+    const btn2 = this.add.text(this.scale.width / 2, btnY + btnGap, '🎮 New Game', {
+      fontFamily: 'Inter, sans-serif', fontSize: btnFontSize, color: '#ffffff', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(964).setInteractive({ useHandCursor: true });
     btn2.on('pointerdown', () => { audioBus.play('tap'); try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ministar-exit-game')); } catch {} try { this.game.destroy(true); } catch {} });
     btnBg2.on('pointerdown', () => { audioBus.play('tap'); try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ministar-exit-game')); } catch {} try { this.game.destroy(true); } catch {} });
 
     // Game Complete button
-    const btnBg3 = this.add.rectangle(this.scale.width / 2, btnY + 120, btnW, btnH, this.theme.success, 0.95)
-      .setStrokeStyle(2, 0xffffff, 0.5).setDepth(961).setInteractive({ useHandCursor: true });
-    const btn3 = this.add.text(this.scale.width / 2, btnY + 120, '✓ Complete', {
-      fontFamily: 'Inter, sans-serif', fontSize: '22px', color: '#000000', fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(962).setInteractive({ useHandCursor: true });
+    const btnBg3 = this.add.rectangle(this.scale.width / 2, btnY + btnGap * 2, btnW, btnH, this.theme.success, 0.95)
+      .setStrokeStyle(2, 0xffffff, 0.5).setDepth(963).setInteractive({ useHandCursor: true });
+    const btn3 = this.add.text(this.scale.width / 2, btnY + btnGap * 2, '✓ Complete', {
+      fontFamily: 'Inter, sans-serif', fontSize: btnFontSize, color: '#000000', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(964).setInteractive({ useHandCursor: true });
     btn3.on('pointerdown', () => { audioBus.play('tap'); try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ministar-exit-game')); } catch {} try { this.game.destroy(true); } catch {} });
     btnBg3.on('pointerdown', () => { audioBus.play('tap'); try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ministar-exit-game')); } catch {} try { this.game.destroy(true); } catch {} });
 

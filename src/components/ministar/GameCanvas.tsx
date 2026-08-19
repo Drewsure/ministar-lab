@@ -147,15 +147,19 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
       // Load the scene module (only the active one — keeps bundle light)
       const SceneClass = (await sceneLoader()).default;
 
-      // RESPONSIVE FIX (research-backed): Use Scale.FIT with a container
-      // that matches the game's 4:3 aspect ratio. FIT scales uniformly,
-      // maintaining proportions. The container uses aspect-ratio:4/3 so
-      // it matches the game's ratio — NO letterboxing, NO black bars.
-      // All game elements stay centered + proportional on ANY screen.
+      // FULL-SCREEN GAME: Use Scale.RESIZE so the canvas dynamically fills
+      // the entire container (which is now ~100vw × ~100vh). No letterbox,
+      // no black bars — the game dominates the whole monitor. Scenes read
+      // this.scale.width / this.scale.height for live layout dimensions.
+      // BaseEngine already uses this.scale.width/height in most layout code,
+      // and games fall back to 800x600 if the scene reads hardcoded values —
+      // the canvas itself still fills the frame either way.
       const container = containerRef.current!;
 
       const bgColor = '#' + (theme?.bg ?? 0x000000).toString(16).padStart(6, '0');
 
+      // Base resolution — scenes position elements relative to these dims,
+      // but Scale.RESIZE makes the actual canvas match the container.
       const gameWidth = 800;
       const gameHeight = 600;
 
@@ -166,9 +170,9 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
         height: gameHeight,
         backgroundColor: bgColor,
         scale: {
-          // FIT = scales uniformly, maintains 4:3 aspect ratio.
-          // Combined with aspect-ratio:4/3 container = no letterboxing.
-          mode: Phaser.Scale.FIT,
+          // RESIZE = canvas fills the container exactly, no aspect ratio lock.
+          // This is what makes the game dominate the full monitor.
+          mode: Phaser.Scale.RESIZE,
           autoCenter: Phaser.Scale.CENTER_BOTH,
           width: gameWidth,
           height: gameHeight,
@@ -215,9 +219,8 @@ export default function GameCanvas({ config, onExit }: GameCanvasProps) {
         try {
           if (cancelled || !gameRef.current || gameRef.current !== game) return;
 
-          // FIT mode: Phaser controls canvas CSS size. Don't override with
-          // width/height 100% — that caused RESIZE behavior (squishing).
-          // Only set accessibility + touch styles.
+          // RESIZE mode: Phaser sets the canvas to fill the container exactly.
+          // Only set accessibility + touch styles — don't override dimensions.
           const canvas = container.querySelector('canvas');
           if (canvas) {
             canvas.setAttribute('tabindex', '0');

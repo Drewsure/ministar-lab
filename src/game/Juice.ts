@@ -1281,9 +1281,17 @@ export class Hud {
     const textHex = '#' + t.text.toString(16).padStart(6, '0');
     const accentHex = '#' + t.accent.toString(16).padStart(6, '0');
 
-    // AAA 2029 — semi-transparent HUD panel background
-    const hudBg = scene.add.rectangle(0, 0, scene.scale.width, 90, 0x000000, 0.35)
+    // AAA 2029 — HUD bar: proper brand-tinted panel (not a faint black smudge).
+    // Card-color background at 85% opacity with accent-colored bottom border
+    // = reads as a proper HUD bar instead of a "weird dark line at the top".
+    const hudHeight = 90;
+    const hudBg = scene.add.rectangle(0, 0, scene.scale.width, hudHeight, t.card, 0.85)
       .setOrigin(0, 0).setDepth(199);
+    // Accent-tinted bottom border (hairline)
+    const hudBorder = scene.add.rectangle(
+      0, hudHeight - 2, scene.scale.width, 2, t.accent, 0.6
+    ).setOrigin(0, 0).setDepth(199);
+    void hudBorder;
 
     // Score with badge background
     const scoreBg = scene.add.rectangle(20, 24, 150, 36, t.card, 0.7)

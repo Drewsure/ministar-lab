@@ -20,11 +20,16 @@ import { audioBus } from '../../lib/audio';
 //   • Per-round maze regeneration so each question feels fresh
 // ============================================================================
 
-const CELL = 76;                 // pixel size of a maze cell
-const COLS = 9;                  // maze width in cells  (9 * 76 = 684)
-const ROWS = 6;                  // maze height in cells (6 * 76 = 456)
+// Maze dimensions — CELL_SIZE is computed dynamically in buildWorld()
+// to scale the maze up on big monitors (kills wasted black voids).
+const COLS = 9;                  // maze width in cells
+const ROWS = 6;                  // maze height in cells
 const HUD_HEIGHT = 110;          // reserved top space for HUD
 const WALL_THICKNESS = 5;
+let CELL = 76;                   // default; recomputed in buildWorld()
+
+// Accessor for scenes that need to know the live cell size
+function getCellSize() { return CELL; }
 
 interface MazeCell {
   x: number; y: number;
@@ -62,7 +67,7 @@ export default class MazeChaseScene extends BaseEngine {
   // --- Game state ---
   private activeTerm?: TermItem;
   private promptText!: Phaser.GameObjects.Text;
-  private compassArrow!: Phaser.GameObjects.Text;
+  private compassArrow?: Phaser.GameObjects.Text; // removed — kept for compat
   private targetHits = new Map<Phaser.GameObjects.GameObject, boolean>();
   private round = 0;
 
@@ -81,38 +86,45 @@ export default class MazeChaseScene extends BaseEngine {
   // BUILD WORLD
   // ===========================================================================
   protected buildWorld() {
-    this.mazeOffsetX = (this.scale.width - COLS * CELL) / 2;
-    this.mazeOffsetY = HUD_HEIGHT + 10;
+    // DYNAMIC CELL SIZE: scale maze cells to fill the canvas.
+    // The new solid analog joystick sits ON TOP of the maze in the bottom-right
+    // corner (depth 400, alpha 0.92), so it doesn't need a vertical reserve.
+    // The prompt band is slimmed to 40px (was 80) — just enough for one line.
+    // On a 1920×900 canvas this gives cells of ~131px (vs old 88px), so the
+    // maze fills the whole play area. Cap at 220px so cells don't get absurd.
+    const availableWidth = this.scale.width - 40;
+    // Reserve: HUD (110) + slim prompt band (40). Joystick overlays — no reserve.
+    const availableHeight = this.scale.height - HUD_HEIGHT - 40;
+    const cellByWidth = Math.floor(availableWidth / COLS);
+    const cellByHeight = Math.floor(availableHeight / ROWS);
+    CELL = Math.max(60, Math.min(cellByWidth, cellByHeight, 220));
 
-    // Prompt + compass — DRAMA: Clear, visible, tappable prompt with definition
+    this.mazeOffsetX = (this.scale.width - COLS * CELL) / 2;
+    this.mazeOffsetY = HUD_HEIGHT + 40; // slim 40px band below HUD for prompt
+
+    // PROMPT — sits in the slim 40px band BELOW the HUD, centered vertically.
+    // Compact padding (y:6) so it fits in the slim band without overlap.
+    // Solid card background + thick dark stroke = high contrast on any maze.
     this.promptText = this.add.text(
-      this.scale.width / 2, 70,
+      this.scale.width / 2, HUD_HEIGHT + 20,
       'Tap here to hear what to find!',
       {
         fontFamily: 'Inter, sans-serif',
         fontSize: '20px',
-        color: this.hex(this.theme.warning),
+        color: '#ffffff',
         fontStyle: 'bold',
-        stroke: '#000000',
-        strokeThickness: 4,
+        stroke: '#' + this.theme.bg.toString(16).padStart(6, '0'),
+        strokeThickness: 5,
         backgroundColor: '#' + this.theme.card.toString(16).padStart(6, '0'),
-        padding: { x: 16, y: 8 },
+        padding: { x: 18, y: 6 },
       }
-    ).setOrigin(0.5).setDepth(50);
+    ).setOrigin(0.5).setDepth(250);
     // The speakable text should be the ACTUAL target word's definition
     // It gets updated in spawnTargetsAndEnemies when the prompt changes
     this.makeHoverSpeakable(this.promptText, 'Tap to hear what to find');
 
-    this.compassArrow = this.add.text(
-      this.scale.width / 2, 96,
-      '↑',
-      {
-        fontFamily: 'Inter, sans-serif',
-        fontSize: '28px',
-        color: this.hex(this.theme.success),
-        fontStyle: 'bold',
-      }
-    ).setOrigin(0.5).setDepth(50);
+    // COMPASS — removed. Was eating 35px of vertical space and targets are
+    // already visible on the maze. Saves space for bigger maze cells.
 
     // Build maze + entities
     this.generateMaze();
@@ -129,10 +141,11 @@ export default class MazeChaseScene extends BaseEngine {
     // Tap-to-move: single tap sets a path destination via A*
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
       audioBus.init();
-      // Don't pathfind if tapping a DPad button
-      for (const btn of this.dpadButtons) {
-        if (Math.abs(p.x - btn.x) < 35 && Math.abs(p.y - btn.y) < 35) return;
-      }
+      // Don't pathfind if tapping the joystick area (bottom-right corner)
+      const dx = p.x - this.joystickCx;
+      const dy = p.y - this.joystickCy;
+      const distToJoy = Math.sqrt(dx * dx + dy * dy);
+      if (distToJoy < this.joystickRadius + 20) return;
       this.handleTap(p.x, p.y);
     });
 
@@ -696,16 +709,10 @@ export default class MazeChaseScene extends BaseEngine {
   }
 
   // ===========================================================================
-  // COMPASS — points toward the current correct target
+  // COMPASS — removed (was eating vertical space). Kept as no-op for compat.
   // ===========================================================================
   private updateCompass() {
-    if (!this.activeTerm) return;
-    const target = this.targetsGroup.getChildren().find(c => c.getData('isCorrect')) as Phaser.GameObjects.Arc | undefined;
-    if (!target) return;
-    const dx = target.x - this.player.x;
-    const dy = target.y - this.player.y;
-    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-    this.compassArrow.setRotation((angle + 90) * Math.PI / 180);
+    // no-op — compass arrow removed to free vertical space for bigger maze cells
   }
 
   // ===========================================================================
@@ -913,42 +920,136 @@ export default class MazeChaseScene extends BaseEngine {
   }
 
   // ===========================================================================
-  // ON-SCREEN D-PAD — mobile controls for Maze Chase
+  // ON-SCREEN JOYSTICK — solid analog stick, drag-anywhere on the pad.
+  // Replaces the old 4-arrow cross with a real floating analog stick.
   // ===========================================================================
   private dpadButtons: Phaser.GameObjects.Text[] = [];
-  private dpadDir = { x: 0, y: 0 }; // current DPad direction (held)
+  private dpadDir = { x: 0, y: 0 }; // current joystick direction (held)
+  private joystickKnob!: Phaser.GameObjects.Arc;
+  private joystickBase!: Phaser.GameObjects.Arc;
+  private joystickCx = 0;
+  private joystickCy = 0;
+  private joystickRadius = 0;
+  private joystickActive = false;
 
   private _createDPad() {
-    const btnSize = '40px';
-    const baseX = 70;
-    const baseY = this.scale.height - 70;
-    const dirs = [
-      { label: '◀', x: baseX - 55, y: baseY, dir: { x: -1, y: 0 } },
-      { label: '▲', x: baseX, y: baseY - 55, dir: { x: 0, y: -1 } },
-      { label: '▼', x: baseX, y: baseY + 55, dir: { x: 0, y: 1 } },
-      { label: '▶', x: baseX + 55, y: baseY, dir: { x: 1, y: 0 } },
-    ];
-    dirs.forEach(d => {
-      const btn = this.add.text(d.x, d.y, d.label, {
-        fontFamily: 'Inter, sans-serif', fontSize: btnSize, color: '#ffffff',
-        backgroundColor: '#' + this.theme.accent.toString(16).padStart(6, '0'),
-        padding: { x: 18, y: 12 },
-        fontStyle: 'bold',
-      }).setOrigin(0.5).setDepth(400).setInteractive({ useHandCursor: true });
+    // --- LAYOUT: scaled to canvas size ---
+    // Solid base (no transparency) so it doesn't bleed maze colors through.
+    // Position: bottom-right corner — away from maze start (top-left).
+    const padRadius = Math.max(80, Math.min(this.scale.width, this.scale.height) * 0.10);
+    this.joystickRadius = padRadius;
+    const cx = this.scale.width - padRadius - 40;
+    const cy = this.scale.height - padRadius - 40;
+    this.joystickCx = cx;
+    this.joystickCy = cy;
 
-      // HOLD to move — pointerdown sets direction, pointerup clears it
-      btn.on('pointerdown', () => {
-        this.path.length = 0;
-        this.pathIdx = 0;
-        this.dpadDir = d.dir;
-      });
-      btn.on('pointerup', () => {
+    // --- BASE: solid circle backdrop (the joystick body) ---
+    // Solid fill (alpha 0.92) — no maze bleed-through.
+    this.joystickBase = this.add.circle(cx, cy, padRadius, this.theme.card, 0.92)
+      .setStrokeStyle(4, this.theme.accent, 0.9).setDepth(400);
+    // Inner ring (decorative)
+    this.add.circle(cx, cy, padRadius * 0.75, this.theme.accent, 0.18)
+      .setStrokeStyle(2, this.theme.accent, 0.5).setDepth(401);
+    // Direction hints (4 small arrows around the rim)
+    const hintColor = '#' + this.theme.text.toString(16).padStart(6, '0');
+    const hintDist = padRadius * 0.82;
+    const hints = [
+      { label: '▲', dx: 0, dy: -1 },
+      { label: '▼', dx: 0, dy: 1 },
+      { label: '◀', dx: -1, dy: 0 },
+      { label: '▶', dx: 1, dy: 0 },
+    ];
+    hints.forEach(h => {
+      this.add.text(cx + h.dx * hintDist, cy + h.dy * hintDist, h.label, {
+        fontFamily: 'Inter, sans-serif',
+        fontSize: Math.floor(padRadius * 0.30) + 'px',
+        color: hintColor,
+        fontStyle: 'bold',
+      }).setOrigin(0.5).setDepth(402).setAlpha(0.5);
+    });
+
+    // --- KNOB: the draggable thumb (centered initially) ---
+    this.joystickKnob = this.add.circle(cx, cy, padRadius * 0.40, this.theme.accent, 1.0)
+      .setStrokeStyle(3, 0xffffff, 0.7).setDepth(403);
+
+    // Make the entire base draggable (drag anywhere on the stick)
+    this.joystickBase.setInteractive({ useHandCursor: true, draggable: true });
+    this.joystickKnob.setInteractive({ useHandCursor: true, draggable: true });
+
+    // DRAG: knob follows pointer, clamped to radius. Direction = normalized delta.
+    const onDrag = (pointer: Phaser.Input.Pointer) => {
+      const dx = pointer.x - cx;
+      const dy = pointer.y - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const maxDist = padRadius * 0.55; // knob can travel to ~55% of radius
+      const clampedDist = Math.min(dist, maxDist);
+      const angle = Math.atan2(dy, dx);
+      const knobX = cx + Math.cos(angle) * clampedDist;
+      const knobY = cy + Math.sin(angle) * clampedDist;
+      this.joystickKnob.setPosition(knobX, knobY);
+
+      // Dead-zone: small movements = no direction (prevents drift)
+      const deadzone = padRadius * 0.15;
+      if (clampedDist < deadzone) {
         this.dpadDir = { x: 0, y: 0 };
+      } else {
+        // Normalize direction
+        const nx = Math.cos(angle);
+        const ny = Math.sin(angle);
+        // Snap to 8 directions for grid-based maze movement
+        const snappedX = Math.abs(nx) > 0.4 ? Math.sign(nx) : 0;
+        const snappedY = Math.abs(ny) > 0.4 ? Math.sign(ny) : 0;
+        this.dpadDir = { x: snappedX, y: snappedY };
+      }
+    };
+
+    const onDragEnd = () => {
+      // Tween knob back to center
+      this.tweens.add({
+        targets: this.joystickKnob,
+        x: cx, y: cy,
+        duration: 150, ease: 'Back.out',
       });
-      btn.on('pointerout', () => {
-        this.dpadDir = { x: 0, y: 0 };
-      });
-      this.dpadButtons.push(btn);
+      this.dpadDir = { x: 0, y: 0 };
+      this.joystickActive = false;
+    };
+
+    this.joystickBase.on('drag', (_p: Phaser.Input.Pointer, x: number, y: number) => {
+      // Simulate drag with the pointer position
+      const fakePointer = { x, y } as Phaser.Input.Pointer;
+      onDrag(fakePointer);
+    });
+    this.joystickBase.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      this.joystickActive = true;
+      this.path.length = 0;
+      this.pathIdx = 0;
+      onDrag(p);
+    });
+    this.joystickBase.on('pointerup', onDragEnd);
+    this.joystickBase.on('pointerout', onDragEnd);
+    this.joystickBase.on('dragend', onDragEnd);
+
+    this.joystickKnob.on('drag', (_p: Phaser.Input.Pointer, x: number, y: number) => {
+      const fakePointer = { x, y } as Phaser.Input.Pointer;
+      onDrag(fakePointer);
+    });
+    this.joystickKnob.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      this.joystickActive = true;
+      this.path.length = 0;
+      this.pathIdx = 0;
+      onDrag(p);
+    });
+    this.joystickKnob.on('pointerup', onDragEnd);
+    this.joystickKnob.on('pointerout', onDragEnd);
+    this.joystickKnob.on('dragend', onDragEnd);
+
+    // Touch-tracking pointer — for finger drag from anywhere on the stick
+    this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
+      if (!this.joystickActive) return;
+      onDrag(p);
+    });
+    this.input.on('pointerup', () => {
+      if (this.joystickActive) onDragEnd();
     });
   }
 }
