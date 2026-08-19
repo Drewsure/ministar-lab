@@ -543,10 +543,17 @@ export abstract class BaseEngine extends Phaser.Scene {
   // ===========================================================================
   // AAAA KIDS MODE — Auto-Mascot (themed emoji per game, bottom-right corner)
   // ===========================================================================
+  // Override this in scenes that have on-screen controls in the bottom-right
+  // (e.g. MazeChase has a joystick there) — return a non-conflicting position.
+  protected _getMascotPosition(): { x: number; y: number } {
+    return { x: this.scale.width - 50, y: this.scale.height - 50 };
+  }
+
   private _createAutoMascot() {
     try {
-      this._mascotBaseX = this.scale.width - 50;
-      this._mascotBaseY = this.scale.height - 50;
+      const pos = this._getMascotPosition();
+      this._mascotBaseX = pos.x;
+      this._mascotBaseY = pos.y;
       const mascotEmoji = BaseEngine._MASCOT_EMOJIS[this.scene.key] ?? '⭐';
 
       this._mascot = this.add.text(this._mascotBaseX, this._mascotBaseY, mascotEmoji, {

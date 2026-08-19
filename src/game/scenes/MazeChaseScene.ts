@@ -83,6 +83,14 @@ export default class MazeChaseScene extends BaseEngine {
   protected maxQuestions() { return Math.min(this.terms.length, 10); }
 
   // ===========================================================================
+  // MASCOT POSITION OVERRIDE — joystick is bottom-right, so the 🦊 mascot
+  // goes to the bottom-LEFT corner to avoid being covered by the controls.
+  // ===========================================================================
+  protected _getMascotPosition() {
+    return { x: 70, y: this.scale.height - 60 };
+  }
+
+  // ===========================================================================
   // BUILD WORLD
   // ===========================================================================
   protected buildWorld() {
