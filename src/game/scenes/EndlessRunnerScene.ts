@@ -12,7 +12,10 @@ import type { TermItem } from '../../lib/types';
 export default class EndlessRunnerScene extends BaseEngine {
   private player!: Phaser.GameObjects.Text;
   private playerLane = 1;
-  private laneX = [200, 400, 600];
+  // Lane X positions — computed dynamically in buildWorld() so the lanes
+  // are always centered across the canvas. Was hardcoded [200,400,600]
+  // which only worked on 800px-wide canvases (the old fixed size).
+  private laneX: number[] = [0, 0, 0];
   private currentPrompt?: { term: TermItem; options: TermItem[]; correctLane: number; y: number };
   private speed = 30; // AAAA KIDS MODE: Gentler start (was 40)
   private strikes = 0;
@@ -26,52 +29,79 @@ export default class EndlessRunnerScene extends BaseEngine {
   private laneLabels: Phaser.GameObjects.Text[] = [];
   private instructionsText!: Phaser.GameObjects.Text;
   private canSwitch = true;
+  // Track the top/bottom of the play area so lane dividers + spawn point
+  // scale with the canvas (was hardcoded 180 / 580).
+  private playTopY = 180;
+  private playBottomY = 580;
 
   protected maxQuestions() { return 15; }
 
   protected buildWorld() {
-    this.add.text(this.scale.width / 2, 55, '🏃 Endless Runner', {
+    const W = this.scale.width;
+    const H = this.scale.height;
+
+    // LANE POSITIONS — span ~60% of canvas width, centered.
+    // Old hardcoded [200, 400, 600] left the right half empty on big monitors.
+    // Now: 3 lanes spread across the middle 60% of the canvas, centered.
+    const laneSpan = W * 0.60;
+    const laneGap = laneSpan / 2; // distance between adjacent lanes
+    const laneCenterX = W / 2;
+    this.laneX = [
+      laneCenterX - laneGap, // LEFT lane
+      laneCenterX,            // CENTER lane
+      laneCenterX + laneGap, // RIGHT lane
+    ];
+
+    // PLAY AREA — top below HUD/prompt, bottom above player.
+    // Scales with canvas height so lane dividers extend properly on tall screens.
+    this.playTopY = 200;
+    this.playBottomY = H - 120;
+
+    this.add.text(W / 2, 55, '🏃 Endless Runner', {
       fontFamily: 'Inter, sans-serif', fontSize: '24px', color: this.hex(this.theme.accent), fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(50);
 
     // Prompt — "Which word means: X?"
-    this.promptBg = this.add.rectangle(this.scale.width / 2, 110, 700, 60, this.theme.card, 0.85)
+    this.promptBg = this.add.rectangle(W / 2, 110, Math.min(700, W - 80), 60, this.theme.card, 0.85)
       .setStrokeStyle(2, this.theme.accent, 0.6).setDepth(48);
-    this.promptText = this.add.text(this.scale.width / 2, 110, '', {
+    this.promptText = this.add.text(W / 2, 110, '', {
       fontFamily: 'Inter, sans-serif', fontSize: '18px', color: this.hex(this.theme.text), fontStyle: 'bold',
-      align: 'center', wordWrap: { width: 660 },
+      align: 'center', wordWrap: { width: Math.min(660, W - 120) },
     }).setOrigin(0.5).setDepth(49);
     this.makeHoverSpeakable(this.promptText);
 
     // Strikes + distance
     this.strikesText = this.add.text(20, 155, '❤❤❤', { fontFamily: 'Inter, sans-serif', fontSize: '20px' }).setDepth(50);
-    this.distanceText = this.add.text(this.scale.width - 20, 155, '0m', {
+    this.distanceText = this.add.text(W - 20, 155, '0m', {
       fontFamily: 'Inter, sans-serif', fontSize: '20px', color: this.hex(this.theme.warning), fontStyle: 'bold',
     }).setOrigin(1, 0).setDepth(50);
 
-    // Lane dividers (visible lanes)
+    // Lane dividers — 4 vertical lines bounding the 3 lanes, extending from
+    // playTop to playBottom. Now centered + scaled.
+    const dividerLeft = this.laneX[0] - (laneGap / 2);
+    const dividerRight = this.laneX[2] + (laneGap / 2);
     for (let i = 0; i < 4; i++) {
-      const x = 100 + i * 200;
+      const x = dividerLeft + i * (dividerRight - dividerLeft) / 3;
       const line = this.add.graphics();
       line.lineStyle(2, this.theme.accent, 0.2);
       line.beginPath();
-      line.moveTo(x, 180);
-      line.lineTo(x, 580);
+      line.moveTo(x, this.playTopY);
+      line.lineTo(x, this.playBottomY);
       line.strokePath();
       line.setDepth(1);
     }
 
-    // Lane labels (LEFT / CENTER / RIGHT)
+    // Lane labels (LEFT / CENTER / RIGHT) — placed at the bottom of the play area
     const labels = ['◀ LEFT', 'CENTER', 'RIGHT ▶'];
     labels.forEach((label, i) => {
-      const t = this.add.text(this.laneX[i], 570, label, {
+      const t = this.add.text(this.laneX[i], this.playBottomY - 20, label, {
         fontFamily: 'Inter, sans-serif', fontSize: '12px', color: this.hex(this.theme.textMuted),
       }).setOrigin(0.5).setDepth(50).setAlpha(0.5);
       this.laneLabels.push(t);
     });
 
     // Instructions — clear and visible
-    this.instructionsText = this.add.text(this.scale.width / 2, 200,
+    this.instructionsText = this.add.text(W / 2, 200,
       'Tap LEFT or RIGHT side of screen to switch lanes!\nCatch the word that matches the meaning above!',
       {
         fontFamily: 'Inter, sans-serif', fontSize: '14px', color: this.hex(this.theme.warning),
@@ -80,10 +110,10 @@ export default class EndlessRunnerScene extends BaseEngine {
     ).setOrigin(0.5).setDepth(50).setAlpha(0.7);
     this.makeHoverSpeakable(this.instructionsText, 'Tap left or right side of screen to switch lanes! Catch the word that matches the meaning!');
 
-    // Player
-    this.player = this.add.text(this.laneX[this.playerLane], this.scale.height - 80, '🏃', { fontSize: '40px' }).setOrigin(0.5).setDepth(100);
-    // Player glow (finite tween, not infinite)
-    const glow = this.add.circle(this.laneX[this.playerLane], this.scale.height - 40, 30, this.theme.accent, 0.3)
+    // Player — sits at the bottom of the center lane, on whichever lane is active
+    this.player = this.add.text(this.laneX[this.playerLane], H - 80, '🏃', { fontSize: '40px' }).setOrigin(0.5).setDepth(100);
+    // Player glow (finite tween, not infinite) — follows the active lane
+    const glow = this.add.circle(this.laneX[this.playerLane], H - 40, 30, this.theme.accent, 0.3)
       .setStrokeStyle(2, this.theme.accent, 0.6).setDepth(99);
     this.events.on('update', () => { if (glow && glow.active) glow.x = this.laneX[this.playerLane]; });
 
@@ -94,12 +124,14 @@ export default class EndlessRunnerScene extends BaseEngine {
     this.input.keyboard?.on('keydown-D', () => this.switchLane(1));
 
     this.setupGlobalPointer((x, y) => {
-      if (y < 180) return; // ignore taps on prompt area
-      if (x < this.scale.width / 2) this.switchLane(-1); else this.switchLane(1);
+      if (y < this.playTopY) return; // ignore taps on prompt area
+      if (x < W / 2) this.switchLane(-1); else this.switchLane(1);
     });
 
     // DRAMA: On-screen LEFT/RIGHT buttons for mobile — BIG tap targets
-    const leftBtn = this.add.text(80, this.scale.height - 60, '◀', {
+    // Now positioned at canvas corners (not hardcoded x=80).
+    const btnMargin = Math.max(60, W * 0.06);
+    const leftBtn = this.add.text(btnMargin, H - 60, '◀', {
       fontFamily: 'Inter, sans-serif', fontSize: '40px', color: '#ffffff',
       backgroundColor: '#' + this.theme.accent.toString(16).padStart(6, '0'),
       padding: { x: 28, y: 16 },
@@ -107,7 +139,7 @@ export default class EndlessRunnerScene extends BaseEngine {
     }).setOrigin(0.5).setDepth(400).setInteractive({ useHandCursor: true });
     leftBtn.on('pointerdown', () => this.switchLane(-1));
 
-    const rightBtn = this.add.text(this.scale.width - 80, this.scale.height - 60, '▶', {
+    const rightBtn = this.add.text(W - btnMargin, H - 60, '▶', {
       fontFamily: 'Inter, sans-serif', fontSize: '40px', color: '#ffffff',
       backgroundColor: '#' + this.theme.accent.toString(16).padStart(6, '0'),
       padding: { x: 28, y: 16 },
@@ -125,7 +157,7 @@ export default class EndlessRunnerScene extends BaseEngine {
     const dt = this.game.loop.delta / 1000;
     this.currentPrompt.y += this.speed * dt;
     this.optionTexts.forEach((t) => { if (t && t.active) t.y = this.currentPrompt!.y; });
-    if (this.currentPrompt.y >= this.scale.height - 100) this.checkAnswer();
+    if (this.currentPrompt.y >= this.playBottomY) this.checkAnswer();
     this.distance += this.speed * dt * 0.1;
     this.distanceText.setText(`${Math.floor(this.distance)}m`);
     // FIX: Slower speed cap + level-based cap (was 200, now 120 + level*20)
