@@ -6,10 +6,11 @@ import type { TermItem } from '../../lib/types';
 // PHYSICS PUZZLER — Aim cannon, fire at correct floating word blocks
 
 interface WordBlock { text: Phaser.GameObjects.Text; container: Phaser.GameObjects.Container; term: TermItem; isCorrect: boolean; vx: number; vy: number; }
+interface Projectile { obj: Phaser.GameObjects.Arc; vx: number; vy: number; spawnedAt: number; }
 
 export default class PhysicsPuzzlerScene extends BaseEngine {
   private blocks: WordBlock[] = [];
-  private projectiles: Phaser.GameObjects.Arc[] = [];
+  private projectiles: Projectile[] = [];
   private currentPrompt?: TermItem;
   private promptText!: Phaser.GameObjects.Text;
   private promptBg!: Phaser.GameObjects.Rectangle;
@@ -54,19 +55,69 @@ export default class PhysicsPuzzlerScene extends BaseEngine {
   }
 
   protected onTick(_remainingMs: number) {
+    // Phaser's update loop already throttles to a stable 60fps by default,
+    // and gives us delta time via this.game.loop.delta. Use that — never
+    // requestAnimationFrame (which fires at the monitor's refresh rate, breaking
+    // collision detection on 120/144Hz screens and when the tab is backgrounded).
+    const dt = Math.min(this.game.loop.delta / 1000, 0.05); // seconds, capped at 50ms to prevent huge jumps after pause
+
+    // Update floating word blocks
     this.blocks.forEach(b => {
       if (!b.container.active) return;
-      b.container.x += b.vx * 0.016; b.container.y += b.vy * 0.016;
-      if (b.container.x < 60 || b.container.x > this.scale.width - 60) { b.vx *= -1; b.container.x = Math.max(60, Math.min(this.scale.width - 60, b.container.x)); }
-      if (b.container.y < 230 || b.container.y > this.scale.height - 120) { b.vy *= -1; b.container.y = Math.max(230, Math.min(this.scale.height - 120, b.container.y)); }
+      b.container.x += b.vx * dt;
+      b.container.y += b.vy * dt;
+      if (b.container.x < 60 || b.container.x > this.scale.width - 60) {
+        b.vx *= -1;
+        b.container.x = Math.max(60, Math.min(this.scale.width - 60, b.container.x));
+      }
+      if (b.container.y < 230 || b.container.y > this.scale.height - 120) {
+        b.vy *= -1;
+        b.container.y = Math.max(230, Math.min(this.scale.height - 120, b.container.y));
+      }
     });
-    this.projectiles.forEach(proj => {
-      if (!proj.active) return;
-      this.blocks.forEach(b => {
-        if (!b.container.active || !proj.active) return;
-        if (Phaser.Math.Distance.Between(proj.x, proj.y, b.container.x, b.container.y) < 50) this.handleHit(b, proj);
-      });
-    });
+
+    // Update projectiles + check collisions in the SAME loop, so the projectile
+    // can't teleport past a block between collision checks (was happening when
+    // requestAnimationFrame ran at 144Hz and onTick ran at 60Hz).
+    for (let i = this.projectiles.length - 1; i >= 0; i--) {
+      const p = this.projectiles[i];
+      const proj = p.obj;
+      if (!proj.active) {
+        this.projectiles.splice(i, 1);
+        continue;
+      }
+      // Lifetime cap — destroys after 3s to prevent pile-up
+      if (this.time.now - p.spawnedAt > 3000) {
+        proj.destroy();
+        this.projectiles.splice(i, 1);
+        continue;
+      }
+      // Apply gravity + integrate position
+      p.vy += 200 * dt;
+      proj.x += p.vx * dt;
+      proj.y += p.vy * dt;
+      // Off-screen cleanup
+      if (proj.x < -50 || proj.x > this.scale.width + 50 || proj.y > this.scale.height + 50) {
+        proj.destroy();
+        this.projectiles.splice(i, 1);
+        continue;
+      }
+      // Trail particle (cheap LOD)
+      if (Math.random() > 0.5) {
+        const trail = this.add.circle(proj.x, proj.y, 4, this.theme.warning, 0.5).setDepth(89);
+        this.tweens.add({ targets: trail, alpha: 0, scale: 0, duration: 300, onComplete: () => trail.destroy() });
+      }
+      // Collision check against blocks
+      for (let j = this.blocks.length - 1; j >= 0; j--) {
+        const b = this.blocks[j];
+        if (!b.container.active) continue;
+        if (Phaser.Math.Distance.Between(proj.x, proj.y, b.container.x, b.container.y) < 50) {
+          this.handleHit(b, proj);
+          this.projectiles.splice(i, 1);
+          break;
+        }
+      }
+    }
   }
 
   private renderRound() {
@@ -97,23 +148,23 @@ export default class PhysicsPuzzlerScene extends BaseEngine {
 
   private fireProjectile(targetX: number, targetY: number) {
     if (this.shotsLeft <= 0 || this.isFinished) return;
-    this.shotsLeft--; this.shotsText.setText(`🔫 ${this.shotsLeft}`);
-    const proj = this.add.circle(this.cannon.x, this.cannon.y - 25, 8, this.theme.warning, 1).setStrokeStyle(2, 0xffffff, 0.6).setDepth(90);
+    this.shotsLeft--;
+    this.shotsText.setText(`🔫 ${this.shotsLeft}`);
+    const proj = this.add.circle(this.cannon.x, this.cannon.y - 25, 8, this.theme.warning, 1)
+      .setStrokeStyle(2, 0xffffff, 0.6).setDepth(90);
     const angle = Math.atan2(targetY - this.cannon.y, targetX - this.cannon.x);
-    proj.setData('vx', Math.cos(angle) * 500); proj.setData('vy', Math.sin(angle) * 500);
-    this.projectiles.push(proj); audioBus.play('launch');
-    const startTime = this.time.now;
-    const updateProj = () => {
-      if (!proj.active || this.isFinished) return;
-      if (!this.sys.isActive()) return;
-      if (this.time.now - startTime > 3000) { proj.destroy(); return; }
-      proj.x += proj.getData('vx') * 0.016; proj.y += proj.getData('vy') * 0.016;
-      proj.setData('vy', proj.getData('vy') + 200 * 0.016);
-      if (Math.random() > 0.5) { const trail = this.add.circle(proj.x, proj.y, 4, this.theme.warning, 0.5).setDepth(89); this.tweens.add({ targets: trail, alpha: 0, scale: 0, duration: 300, onComplete: () => trail.destroy() }); }
-      requestAnimationFrame(updateProj);
-    };
-    updateProj();
-    if (this.shotsLeft <= 0) this.time.delayedCall(2000, () => { if (!this.isFinished) this.finishGame(this.score >= this.maxScore * 0.5); });
+    // Speed is now in PIXELS PER SECOND (was pixels per 16ms frame, which
+    // was 60fps-baked and broke on high-refresh monitors).
+    const speed = 600;
+    const vx = Math.cos(angle) * speed;
+    const vy = Math.sin(angle) * speed;
+    this.projectiles.push({ obj: proj, vx, vy, spawnedAt: this.time.now });
+    audioBus.play('launch');
+    if (this.shotsLeft <= 0) {
+      this.time.delayedCall(2000, () => {
+        if (!this.isFinished) this.finishGame(this.score >= this.maxScore * 0.5);
+      });
+    }
   }
 
   private handleHit(block: WordBlock, proj: Phaser.GameObjects.Arc) {
