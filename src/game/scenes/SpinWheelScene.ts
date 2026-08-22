@@ -46,10 +46,13 @@ export default class SpinWheelScene extends BaseEngine {
   protected maxQuestions() { return Math.min(this.terms.length, 8); }
 
   protected buildWorld() {
+    const W = this.scale.width;
+    const H = this.scale.height;
+
     // ---- Prompt ----
-    this.promptBg = this.add.rectangle(this.scale.width / 2, 50, 640, 36, this.theme.card, 0.9)
+    this.promptBg = this.add.rectangle(W / 2, 50, Math.min(640, W - 60), 36, this.theme.card, 0.9)
       .setStrokeStyle(2, this.theme.accent, 0.6).setDepth(48);
-    this.promptText = this.add.text(this.scale.width / 2, 50, '🎡 Spin the Wheel!', {
+    this.promptText = this.add.text(W / 2, 50, '🎡 Spin the Wheel!', {
       fontFamily: 'Inter, sans-serif', fontSize: '18px',
       color: this.hex(this.theme.text), fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(49);
@@ -60,9 +63,13 @@ export default class SpinWheelScene extends BaseEngine {
     });
 
     // ---- Wheel ----
-    const wheelX = this.scale.width / 2;
-    const wheelY = 220;
-    const wheelRadius = 140;
+    // Centered horizontally. Vertically: leave space for prompt (top) +
+    // spin button + answer options below. Wheel radius scales with canvas
+    // so it's visible on big monitors but not huge on small ones.
+    const wheelX = W / 2;
+    const wheelRadius = Math.max(100, Math.min(160, Math.min(W, H) * 0.16));
+    // Wheel sits in the upper-middle area — leaves room below for spin button + answers
+    const wheelY = Math.max(wheelRadius + 50, H * 0.30);
 
     this.wheel = this.add.container(wheelX, wheelY).setDepth(30);
     this.segmentTerms = this.pickTerms(Math.min(8, this.terms.length));
@@ -98,20 +105,23 @@ export default class SpinWheelScene extends BaseEngine {
       const textRadius = wheelRadius * 0.6;
       const tx = Math.cos(midAngleRad) * textRadius;
       const ty = Math.sin(midAngleRad) * textRadius;
+      // Font scales with wheel radius — keeps emoji/term readable on big monitors
+      const segFontSize = Math.max(18, Math.floor(wheelRadius * 0.20)) + 'px';
       const txt = this.add.text(tx, ty, term.emoji ?? term.term.slice(0, 4), {
-        fontFamily: 'Inter, sans-serif', fontSize: '28px',
+        fontFamily: 'Inter, sans-serif', fontSize: segFontSize,
         color: '#ffffff', fontStyle: 'bold',
       }).setOrigin(0.5).setRotation(midAngleRad + Math.PI / 2);
       this.wheel.add(txt);
     });
 
-    // Hub
-    const hub = this.add.circle(0, 0, 18, this.theme.warning, 1).setStrokeStyle(3, 0xffffff, 0.9);
+    // Hub — scales with wheel
+    const hubRadius = Math.max(14, wheelRadius * 0.13);
+    const hub = this.add.circle(0, 0, hubRadius, this.theme.warning, 1).setStrokeStyle(3, 0xffffff, 0.9);
     this.wheel.add(hub);
-    const jewel = this.add.circle(0, 0, 6, 0xffffff, 0.9);
+    const jewel = this.add.circle(0, 0, hubRadius * 0.35, 0xffffff, 0.9);
     this.wheel.add(jewel);
 
-    // Lights
+    // Lights — scale with wheel radius, count stays the same
     const lightCount = 12;
     for (let i = 0; i < lightCount; i++) {
       const angle = (i / lightCount) * Math.PI * 2 - Math.PI / 2;
@@ -126,15 +136,17 @@ export default class SpinWheelScene extends BaseEngine {
     const ring = this.add.circle(0, 0, wheelRadius + 3, 0x000000, 0).setStrokeStyle(4, this.theme.warning, 0.8).setDepth(34);
     this.wheel.add(ring);
 
-    // Pointer at top
+    // Pointer at top — scales with wheel radius
     this.pointer = this.add.text(wheelX, wheelY - wheelRadius - 12, '🔻', {
       fontFamily: 'Inter, sans-serif', fontSize: '32px',
     }).setOrigin(0.5, 0).setDepth(40);
     this.tweens.add({ targets: this.pointer, y: wheelY - wheelRadius - 5, duration: 600, yoyo: true, repeat: 999, ease: 'Sine.inOut' });
 
     // ---- Spin button (DIRECT interactivity) ----
+    // Sits below the wheel with a gap. Width scales with canvas.
     const btnY = wheelY + wheelRadius + 50;
-    this.spinBtnBg = this.add.rectangle(wheelX, btnY, 200, 48, this.theme.success, 0.9)
+    const btnW = Math.min(220, W * 0.30);
+    this.spinBtnBg = this.add.rectangle(wheelX, btnY, btnW, 48, this.theme.success, 0.9)
       .setStrokeStyle(2, 0xffffff, 0.8).setDepth(40).setInteractive({ useHandCursor: true });
     this.spinBtnTxt = this.add.text(wheelX, btnY, '🎲 SPIN!', {
       fontFamily: 'Inter, sans-serif', fontSize: '22px', color: '#ffffff', fontStyle: 'bold',
@@ -213,9 +225,11 @@ export default class SpinWheelScene extends BaseEngine {
     const btnW = Math.min(420, this.scale.width - 40);
     const btnH = 50;
     const gap = 10;
-    // AAAA: Buttons at ABSOLUTE screen positions (no nested container).
-    // 3 buttons starting at y=430, spaced 60px apart.
-    const startY = 430;
+    // AAAA: Buttons positioned BELOW the spin button, scaled to canvas height.
+    // Was hardcoded startY=430 (broke on tall canvases — answers sat in the middle
+    // of empty space). Now: start at 60% of canvas height, fall back to 430
+    // on short canvases (≤720px tall).
+    const startY = Math.max(430, this.scale.height * 0.60);
 
     optionTerms.forEach((term, i) => {
       const y = startY + i * (btnH + gap);
