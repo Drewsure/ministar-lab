@@ -63,13 +63,19 @@ export default class SpinWheelScene extends BaseEngine {
     });
 
     // ---- Wheel ----
-    // Centered horizontally. Vertically: leave space for prompt (top) +
-    // spin button + answer options below. Wheel radius scales with canvas
-    // so it's visible on big monitors but not huge on small ones.
+    // Centered horizontally + vertically. Wheel radius scales UP on big
+    // monitors (was capped at 160px — too small on 1920px screens).
+    // Layout from top to bottom: prompt (50px) → wheel (centered) → spin button.
+    // Answer options appear OVER the wheel/spin button when shown.
     const wheelX = W / 2;
-    const wheelRadius = Math.max(100, Math.min(160, Math.min(W, H) * 0.16));
-    // Wheel sits in the upper-middle area — leaves room below for spin button + answers
-    const wheelY = Math.max(wheelRadius + 50, H * 0.30);
+    // Reserve: 100px top (prompt) + 80px bottom for spin button + breathing room.
+    // Wheel radius = ~35% of the smaller dimension, capped at 280px so it
+    // doesn't dominate ultra-tall screens.
+    const availableHeight = H - 100 - 80;
+    const availableWidth = W - 80;
+    const wheelRadius = Math.max(120, Math.min(280, Math.min(availableWidth, availableHeight) * 0.40));
+    // Wheel vertically centered in the play area (between prompt and spin button)
+    const wheelY = 100 + availableHeight / 2;
 
     this.wheel = this.add.container(wheelX, wheelY).setDepth(30);
     this.segmentTerms = this.pickTerms(Math.min(8, this.terms.length));
@@ -143,13 +149,15 @@ export default class SpinWheelScene extends BaseEngine {
     this.tweens.add({ targets: this.pointer, y: wheelY - wheelRadius - 5, duration: 600, yoyo: true, repeat: 999, ease: 'Sine.inOut' });
 
     // ---- Spin button (DIRECT interactivity) ----
-    // Sits below the wheel with a gap. Width scales with canvas.
-    const btnY = wheelY + wheelRadius + 50;
-    const btnW = Math.min(220, W * 0.30);
-    this.spinBtnBg = this.add.rectangle(wheelX, btnY, btnW, 48, this.theme.success, 0.9)
+    // Sits at the bottom of the canvas (not below the wheel — was forcing the
+    // wheel up to make room). Width scales with canvas.
+    const btnY = H - 50;
+    const btnW = Math.min(260, W * 0.35);
+    const btnH = Math.max(48, Math.min(64, H * 0.07));
+    this.spinBtnBg = this.add.rectangle(wheelX, btnY, btnW, btnH, this.theme.success, 0.9)
       .setStrokeStyle(2, 0xffffff, 0.8).setDepth(40).setInteractive({ useHandCursor: true });
     this.spinBtnTxt = this.add.text(wheelX, btnY, '🎲 SPIN!', {
-      fontFamily: 'Inter, sans-serif', fontSize: '22px', color: '#ffffff', fontStyle: 'bold',
+      fontFamily: 'Inter, sans-serif', fontSize: '24px', color: '#ffffff', fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(41).setInteractive({ useHandCursor: true });
 
     const doSpin = () => {
@@ -225,11 +233,13 @@ export default class SpinWheelScene extends BaseEngine {
     const btnW = Math.min(420, this.scale.width - 40);
     const btnH = 50;
     const gap = 10;
-    // AAAA: Buttons positioned BELOW the spin button, scaled to canvas height.
-    // Was hardcoded startY=430 (broke on tall canvases — answers sat in the middle
-    // of empty space). Now: start at 60% of canvas height, fall back to 430
-    // on short canvases (≤720px tall).
-    const startY = Math.max(430, this.scale.height * 0.60);
+    // AAAA: Answer buttons stacked vertically, centered in the play area.
+    // Total stack height = 3 buttons + 2 gaps = 3*50 + 2*10 = 170px.
+    // Center this stack vertically in the area between prompt (y=100) and spin button (H-80).
+    const stackHeight = 3 * btnH + 2 * gap;
+    const playTop = 100;
+    const playBottom = this.scale.height - 80;
+    const startY = Math.max(playTop + 20, (playTop + playBottom) / 2 - stackHeight / 2 + btnH / 2);
 
     optionTerms.forEach((term, i) => {
       const y = startY + i * (btnH + gap);
