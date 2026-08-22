@@ -45,7 +45,10 @@ export default class SpotItScene extends BaseEngine {
   private symbols: SpotItSymbol[] = [];
   private card1Center = { x: 0, y: 0 };
   private card2Center = { x: 0, y: 0 };
+  // Card + symbol sizes — computed in buildWorld() so they scale with canvas.
+  // Was hardcoded cardRadius=130 + symbol radius=30 — tiny on 1920px monitors.
   private cardRadius = 130;
+  private symbolRadius = 30;
   private symbolsPerCard = 5;
   private canInteract = true;
   private roundStartTime = 0;
@@ -59,9 +62,22 @@ export default class SpotItScene extends BaseEngine {
   protected buildWorld() {
     this.maxRounds = this.maxScore;
 
-    // DYNAMIC CARD POSITIONS: centered based on actual screen width
-    this.card1Center = { x: this.scale.width * 0.28, y: this.scale.height * 0.58 };
-    this.card2Center = { x: this.scale.width * 0.72, y: this.scale.height * 0.58 };
+    const W = this.scale.width;
+    const H = this.scale.height;
+
+    // DYNAMIC CARD POSITIONS: centered based on actual screen width.
+    // Cards sit at 28% and 72% of width, 58% of height (unchanged — was fine).
+    this.card1Center = { x: W * 0.28, y: H * 0.58 };
+    this.card2Center = { x: W * 0.72, y: H * 0.58 };
+
+    // DYNAMIC CARD + SYMBOL SIZE: scale up on bigger monitors.
+    // Each card is ~28% of canvas width (so 2 cards fit comfortably with a gap).
+    // Card radius = (28% of W) / 2 = ~14% of W, capped at 220px so it doesn't
+    // dominate ultra-wide screens. Minimum 130 (the old fixed size) so it
+    // never shrinks below the original on small screens.
+    this.cardRadius = Math.max(130, Math.min(220, W * 0.14));
+    // Symbol radius scales with card radius — was fixed 30. Now ~22% of cardRadius.
+    this.symbolRadius = Math.max(30, Math.floor(this.cardRadius * 0.28));
 
     // ---- Title ----
     this.add.text(
@@ -134,8 +150,9 @@ export default class SpotItScene extends BaseEngine {
         const dx = x - sym.container.x;
         const dy = y - sym.container.y;
         const dist = dx * dx + dy * dy;
-        // Hit radius: 45px (symbols are ~64px wide)
-        if (dist < 45 * 45 && dist < closestDist) {
+        // Hit radius scales with symbol size (was fixed 45px when symbols were 60px wide)
+        const hitR = this.symbolRadius * 1.5;
+        if (dist < hitR * hitR && dist < closestDist) {
           closestDist = dist;
           closest = sym;
         }
@@ -239,6 +256,10 @@ export default class SpotItScene extends BaseEngine {
     const count = terms.length;
     // Place symbols in a circle inside the card
     const radius = this.cardRadius * 0.6;
+    // Font sizes scale with symbol radius (was hardcoded 26px emoji + 10px label)
+    const emojiFontPx = Math.max(20, Math.floor(this.symbolRadius * 0.85));
+    const labelFontPx = Math.max(10, Math.floor(this.symbolRadius * 0.35));
+    const labelOnlyFontPx = Math.max(14, Math.floor(this.symbolRadius * 0.50));
 
     terms.forEach((term, i) => {
       const angle = (i / count) * Math.PI * 2 - Math.PI / 2;
@@ -246,8 +267,8 @@ export default class SpotItScene extends BaseEngine {
       const y = center.y + Math.sin(angle) * radius;
       const isMatch = term.id === matchId;
 
-      // Symbol background circle
-      const circle = this.add.circle(0, 0, 30, this.theme.card, 0.98)
+      // Symbol background circle — uses scaled symbolRadius
+      const circle = this.add.circle(0, 0, this.symbolRadius, this.theme.card, 0.98)
         .setStrokeStyle(3, this.theme.accent, 0.8).setDepth(30);
 
       // Symbol display: prefer emoji, fall back to first 2-3 letters of the term.
@@ -255,15 +276,15 @@ export default class SpotItScene extends BaseEngine {
       // and the game is unplayable ("nonsensical gameplay" bug).
       const displayEmoji = term.emoji ?? '';
       const displayLabel = term.emoji ? term.term : term.term.slice(0, 3).toUpperCase();
-      const emojiText = this.add.text(0, displayEmoji ? -8 : 0, displayEmoji, {
+      const emojiText = this.add.text(0, displayEmoji ? -Math.floor(this.symbolRadius * 0.25) : 0, displayEmoji, {
         fontFamily: 'Inter, sans-serif',
-        fontSize: '26px',
+        fontSize: emojiFontPx + 'px',
       }).setOrigin(0.5).setDepth(31);
 
       // Symbol term label (small, below emoji — or centered if no emoji)
-      const labelText = this.add.text(0, displayEmoji ? 14 : 0, this.truncate(displayLabel, 8), {
+      const labelText = this.add.text(0, displayEmoji ? Math.floor(this.symbolRadius * 0.45) : 0, this.truncate(displayLabel, 8), {
         fontFamily: 'Inter, sans-serif',
-        fontSize: displayEmoji ? '10px' : '14px',
+        fontSize: (displayEmoji ? labelFontPx : labelOnlyFontPx) + 'px',
         color: this.hex(this.theme.text),
         fontStyle: 'bold',
       }).setOrigin(0.5).setDepth(31);
